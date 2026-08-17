@@ -1,149 +1,239 @@
-<div class="container-fluid py-4">
-  <h2 class="mb-4">My Tasks</h2>
+<div class="py-2">
+  <h2 class="page-title mb-4">My Tasks</h2>
 
   @if (error) {
     <div class="alert alert-danger">{{ error }}</div>
   }
 
-  <!-- Inline add -->
   <div class="card mb-4">
+    <div class="card-header"><i class="bi bi-plus-circle me-2"></i>New Task</div>
     <div class="card-body">
-      <div class="row g-2 align-items-end">
-        <div class="col-md-4">
-          <label class="form-label">New task title *</label>
-          <input
-            type="text"
-            class="form-control"
-            [(ngModel)]="newTitle"
-            placeholder="What needs to be done?"
-            (keyup.enter)="addTask()"
-          >
+      <div class="row g-3 align-items-end">
+        <div class="col">
+          <label class="form-label">Title *</label>
+          <input type="text" class="form-control" [(ngModel)]="newTitle" placeholder="What needs to be done?" (keyup.enter)="addTask()">
         </div>
-        <div class="col-md-3">
-          <label class="form-label">Alert at</label>
-          <input type="datetime-local" class="form-control" [(ngModel)]="newAlertAt">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Assignee</label>
-          <select class="form-select" [(ngModel)]="newAssigneeId">
-            <option value="">Me (default)</option>
-            @for (m of members; track m.id) {
-              <option [value]="m.id">{{ m.email }} ({{ m.teamName }})</option>
-            }
-          </select>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary w-100" (click)="addTask()" [disabled]="!newTitle.trim()">
+        <div class="col-auto">
+          <label class="form-label d-block">&nbsp;</label>
+          <button type="button" class="btn btn-primary" (click)="addTask()" [disabled]="!newTitle.trim()">
             <i class="bi bi-plus-lg"></i> Add
           </button>
         </div>
       </div>
-      <small class="text-muted">Defaults: due today, priority medium, assignee you</small>
+
+      @if (!showDueDateField || !showAlertField || !showAssigneeField) {
+        <div class="optional-actions mt-2">
+          @if (!showDueDateField) {
+            <button type="button" class="btn btn-link btn-sm optional-action-link" (click)="showDueDateInput()">
+              <i class="bi bi-calendar-event me-1"></i>Add due date
+            </button>
+          }
+          @if (!showAlertField) {
+            <button type="button" class="btn btn-link btn-sm optional-action-link" (click)="showAlertInput()">
+              <i class="bi bi-bell me-1"></i>Add alert
+            </button>
+          }
+          @if (!showAssigneeField) {
+            <button type="button" class="btn btn-link btn-sm optional-action-link" (click)="showAssigneeInput()">
+              <i class="bi bi-person me-1"></i>Assign to teammate
+            </button>
+          }
+        </div>
+      }
+
+      @if (showDueDateField || showAlertField || showAssigneeField) {
+        <div class="row g-3 mt-1">
+          @if (showDueDateField) {
+            <div class="col-md-6">
+              <label class="form-label">Due date <small class="text-muted">({{ timezoneLabel }})</small></label>
+              <input type="datetime-local" class="form-control" [(ngModel)]="newDueDate">
+            </div>
+          }
+          @if (showAlertField) {
+            <div class="col-md-6">
+              <label class="form-label">Alert at <small class="text-muted">({{ timezoneLabel }})</small></label>
+              <input type="datetime-local" class="form-control" [(ngModel)]="newAlertAt">
+            </div>
+          }
+          @if (showAssigneeField) {
+            <div class="col-md-6">
+              <label class="form-label">Assignee</label>
+              <select class="form-select" [(ngModel)]="newAssigneeId">
+                <option value="">Me (default)</option>
+                @for (m of members; track m.id) {
+                  <option [value]="m.id">{{ m.name }} ({{ m.teamName }})</option>
+                }
+              </select>
+            </div>
+          }
+        </div>
+      }
+
+      <small class="text-muted mt-2 d-block">Defaults: due in 1 hour ({{ timezoneLabel }}), priority medium, assignee you</small>
     </div>
   </div>
 
   @if (loading) {
-    <div class="text-center py-5">
-      <div class="spinner-border" role="status"></div>
-    </div>
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
   } @else {
     <div cdkDropListGroup>
-      @for (group of groups; track group.key) {
-        <div class="day-group mb-4" [class.overdue-group]="group.isOverdue">
-          <h5 class="day-header" [class.text-danger]="group.isOverdue">
-            {{ group.label }}
-          </h5>
-
-          <div
-            class="table-responsive"
-            cdkDropList
-            [cdkDropListData]="group.tasks"
-            [id]="group.key"
-            [cdkDropListConnectedTo]="getConnectedLists()"
-            (cdkDropListDropped)="onDrop($event, group)"
-          >
-            <table class="table table-hover align-middle mb-0">
-              <thead>
-                <tr>
-                  <th style="width:90px">Priority</th>
-                  <th>Title</th>
-                  <th style="width:110px">Status</th>
-                  <th style="width:160px">Due Date</th>
-                  <th style="width:160px">Created At</th>
-                  <th style="width:140px">Assignee</th>
-                  <th>Last Comment</th>
-                  <th style="width:200px">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (task of group.tasks; track task.id) {
-                  <tr
-                    cdkDrag
-                    [cdkDragDisabled]="!isOwner(task) || group.isOverdue"
-                    [class.drag-disabled]="!isOwner(task)"
-                  >
-                    <td>
-                      <span class="badge priority-badge" [ngClass]="priorityClass(task.priority)">
-                        {{ task.priority }}
-                      </span>
-                    </td>
-                    <td>
-                      <a href="#" (click)="openDetail(task); $event.preventDefault()" class="task-link">
-                        @if (isOwner(task)) {
-                          <i class="bi bi-grip-vertical text-muted me-1 drag-handle" cdkDragHandle></i>
-                        }
-                        {{ task.title }}
-                      </a>
-                    </td>
-                    <td>
-                      <span class="badge bg-secondary">{{ statusLabel(task.status) }}</span>
-                    </td>
-                    <td>{{ formatDate(task.dueDate) }}</td>
-                    <td>{{ formatDate(task.createdAt) }}</td>
-                    <td>{{ task.assignee.email }}</td>
-                    <td class="last-comment">{{ lastCommentText(task) }}</td>
-                    <td>
-                      <div class="btn-group btn-group-sm">
-                        @if (task.status === 'todo') {
-                          <button class="btn btn-outline-primary" title="Start" (click)="start(task)">
-                            <i class="bi bi-play-fill"></i>
-                          </button>
-                        }
-                        <button class="btn btn-outline-success" title="Complete" (click)="complete(task)">
-                          <i class="bi bi-check-lg"></i>
-                        </button>
-                        @if (isOwner(task)) {
-                          <button class="btn btn-outline-warning" title="Postpone" (click)="openPostpone(task)">
-                            <i class="bi bi-calendar-event"></i>
-                          </button>
-                        }
-                        <button class="btn btn-outline-secondary" title="Archive" (click)="archive(task)">
-                          <i class="bi bi-archive"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                } @empty {
+      @for (section of sections; track section.key) {
+        <div
+          class="card day-group-card mb-4"
+          [class.overdue-group]="section.isOverdue"
+          [class.urgent-group]="section.isUrgent"
+          [class.dropdown-open]="sectionHasOpenDropdown(section)"
+        >
+          <div class="card-header day-header" [class.text-danger]="section.isOverdue || section.isUrgent">
+            @if (section.isUrgent) {
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            } @else if (section.isOverdue) {
+              <i class="bi bi-clock-history me-2"></i>
+            } @else {
+              <i class="bi bi-calendar3 me-2"></i>
+            }
+            {{ section.label }}
+            <span class="badge bg-secondary ms-2">{{ section.tasks.length }}</span>
+          </div>
+          <div class="card-body p-0">
+            <div
+              class="table-responsive"
+              cdkDropList
+              [cdkDropListData]="section.tasks"
+              [id]="section.key"
+              [cdkDropListConnectedTo]="section.droppable ? getConnectedLists() : []"
+              (cdkDropListDropped)="onDrop($event, section)"
+            >
+              <table class="table table-hover align-middle mb-0 task-table">
+                <thead>
                   <tr>
-                    <td colspan="8" class="text-muted text-center py-3">No tasks for this day</td>
+                    <th style="width:90px">Priority</th>
+                    <th>Title</th>
+                    <th style="width:160px">Due Date</th>
+                    <th style="width:120px">Assignee</th>
+                    <th style="width:110px">Status</th>
+                    <th style="width:180px">Actions</th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  @for (task of section.tasks; track task.id) {
+                    <tr
+                      class="task-row"
+                      (click)="onRowClick(task)"
+                      cdkDrag
+                      [cdkDragDisabled]="!section.droppable || !isOwner(task) || section.isOverdue"
+                    >
+                      <td>
+                        <span class="badge priority-badge" [ngClass]="priorityClass(task.priority)">{{ task.priority }}</span>
+                      </td>
+                      <td>
+                        <span class="task-title">
+                          @if (section.droppable && isOwner(task)) {
+                            <i class="bi bi-grip-vertical text-muted me-1 drag-handle" cdkDragHandle (click)="$event.stopPropagation()"></i>
+                          }
+                          {{ task.title }}
+                        </span>
+                      </td>
+                      <td>{{ formatDate(task.dueDate) }}</td>
+                      <td>{{ displayName(task.assignee) }}</td>
+                      <td><span class="badge bg-secondary">{{ statusLabel(task.status) }}</span></td>
+                      <td (click)="$event.stopPropagation()">
+                        <div class="d-flex gap-1 align-items-center">
+                          <div class="dropdown">
+                            <button
+                              class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                              type="button"
+                              (click)="toggleDropdown(task.id, $event)"
+                            >
+                              Actions
+                            </button>
+                            @if (openDropdownId === task.id) {
+                              <ul class="dropdown-menu show">
+                                @if (task.status === 'todo') {
+                                  <li>
+                                    <button class="dropdown-item" (click)="start(task, $event)">
+                                      <i class="bi bi-play-fill me-2"></i>Start
+                                    </button>
+                                  </li>
+                                }
+                                <li>
+                                  <button class="dropdown-item" (click)="complete(task, $event)">
+                                    <i class="bi bi-check-lg me-2"></i>Complete
+                                  </button>
+                                </li>
+                                <li>
+                                  <button class="dropdown-item" (click)="archive(task, $event)">
+                                    <i class="bi bi-archive me-2"></i>Archive
+                                  </button>
+                                </li>
+                              </ul>
+                            }
+                          </div>
+                          <button class="btn btn-outline-primary btn-sm" title="Edit" (click)="openEditModal(task, $event)">
+                            <i class="bi bi-sliders"></i>
+                          </button>
+                          @if (isOwner(task)) {
+                            <button class="btn btn-outline-warning btn-sm" title="Postpone" (click)="openPostpone(task, $event)">
+                              <i class="bi bi-calendar-event"></i>
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                    <tr class="comment-row" (click)="$event.stopPropagation()">
+                      <td colspan="6">
+                        <div class="comment-sub-row">
+                          @if (task.lastComment) {
+                            <div class="last-comment-block">
+                              <i class="bi bi-chat-left-text me-1 text-muted"></i>
+                              <span class="last-comment-text" [title]="task.lastComment.body">{{ task.lastComment.body }}</span>
+                              <small class="text-muted ms-2">{{ lastCommentMeta(task) }}</small>
+                            </div>
+                          }
+                          @if (commentOpenId === task.id) {
+                            <div class="comment-form mt-2">
+                              <textarea
+                                class="form-control form-control-sm mb-2"
+                                rows="2"
+                                [(ngModel)]="commentText"
+                                placeholder="Write a comment..."
+                                (click)="$event.stopPropagation()"
+                              ></textarea>
+                              <div class="d-flex gap-2">
+                                <button class="btn btn-primary btn-sm" (click)="submitComment(task, $event)" [disabled]="!commentText.trim()">Post</button>
+                                <button class="btn btn-secondary btn-sm" (click)="cancelComment($event)">Cancel</button>
+                              </div>
+                            </div>
+                          } @else {
+                            <button class="btn btn-link btn-sm add-comment-btn ps-0" (click)="openCommentBox(task.id, $event)">
+                              <i class="bi bi-plus-lg me-1"></i>Add comment
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr><td colspan="6" class="text-muted text-center py-4">No tasks in this group</td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       } @empty {
-        <div class="text-center text-muted py-5">
-          <p>No tasks yet. Add one above!</p>
+        <div class="card">
+          <div class="card-body text-center text-muted py-5">
+            <i class="bi bi-inbox display-4 d-block mb-3 opacity-50"></i>
+            <p class="mb-0">No tasks yet. Add one above!</p>
+          </div>
         </div>
       }
     </div>
   }
 </div>
 
-<!-- Postpone Modal -->
 @if (postponeTask) {
-  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
@@ -152,7 +242,7 @@
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">New due date & time</label>
+            <label class="form-label">New due date & time <small class="text-muted">({{ timezoneLabel }})</small></label>
             <input type="datetime-local" class="form-control" [(ngModel)]="postponeDate">
           </div>
           <div class="form-check mb-3">
@@ -161,7 +251,7 @@
           </div>
           @if (updateAlertOnPostpone) {
             <div class="mb-3">
-              <label class="form-label">Alert at</label>
+              <label class="form-label">Alert at <small class="text-muted">({{ timezoneLabel }})</small></label>
               <input type="datetime-local" class="form-control" [(ngModel)]="postponeAlertAt">
             </div>
           }
@@ -169,6 +259,61 @@
         <div class="modal-footer">
           <button class="btn btn-secondary" (click)="postponeTask = null">Cancel</button>
           <button class="btn btn-primary" (click)="confirmPostpone()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (editTask) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Task</h5>
+          <button type="button" class="btn-close" (click)="editTask = null"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label">Title *</label>
+              <input type="text" class="form-control" [(ngModel)]="editForm.title">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Priority</label>
+              <select class="form-select" [(ngModel)]="editForm.priority">
+                @for (p of priorities; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" rows="3" [(ngModel)]="editForm.description"></textarea>
+            </div>
+            @if (isOwner(editTask)) {
+              <div class="col-md-6">
+                <label class="form-label">Due date <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <input type="datetime-local" class="form-control" [(ngModel)]="editForm.dueDate">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Alert at <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <input type="datetime-local" class="form-control" [(ngModel)]="editForm.alertAt">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Assignee</label>
+                <select class="form-select" [(ngModel)]="editForm.assigneeId">
+                  @for (m of members; track m.id) {
+                    <option [value]="m.id">{{ m.name }} ({{ m.teamName }})</option>
+                  }
+                </select>
+              </div>
+            }
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="editTask = null">Cancel</button>
+          <button class="btn btn-primary" (click)="saveEditModal()" [disabled]="!editForm.title.trim()">Save</button>
         </div>
       </div>
     </div>

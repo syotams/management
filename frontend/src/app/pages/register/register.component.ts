@@ -17,6 +17,11 @@ import { AuthService } from '../../services/auth.service';
           }
           <form (ngSubmit)="onSubmit()">
             <div class="mb-3">
+              <label class="form-label">Username</label>
+              <input type="text" class="form-control" [(ngModel)]="name" name="name" required minlength="3" pattern="[a-zA-Z0-9_-]+">
+              <small class="text-muted">Letters, numbers, underscores and hyphens only</small>
+            </div>
+            <div class="mb-3">
               <label class="form-label">Email</label>
               <input type="email" class="form-control" [(ngModel)]="email" name="email" required>
             </div>
@@ -35,12 +40,10 @@ import { AuthService } from '../../services/auth.service';
       </div>
     </div>
   `,
-  styles: [`
-    .auth-container { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
-    .auth-card { width: 100%; max-width: 400px; }
-  `],
+  styles: [`:host { display: block; }`],
 })
 export class RegisterComponent {
+  name = '';
   email = '';
   password = '';
   error = '';
@@ -51,7 +54,7 @@ export class RegisterComponent {
   onSubmit() {
     this.loading = true;
     this.error = '';
-    this.auth.register(this.email, this.password).subscribe({
+    this.auth.register(this.email, this.password, this.name).subscribe({
       next: () => this.router.navigate(['/tasks']),
       error: (err) => {
         this.error = err.error?.message || 'Registration failed';

@@ -28,7 +28,7 @@ export class TeamsService {
         createdBy: userId,
         members: { create: { userId, role: 'owner' } },
       },
-      include: { members: { include: { user: { select: { id: true, email: true } } } } },
+      include: { members: { include: { user: { select: { id: true, name: true, email: true } } } } },
     });
     return team;
   }
@@ -37,7 +37,7 @@ export class TeamsService {
     return this.prisma.team.findMany({
       where: { members: { some: { userId } } },
       include: {
-        members: { include: { user: { select: { id: true, email: true } } } },
+        members: { include: { user: { select: { id: true, name: true, email: true } } } },
         _count: { select: { members: true } },
       },
     });
@@ -47,7 +47,7 @@ export class TeamsService {
     await this.ensureMember(teamId, userId);
     const members = await this.prisma.teamMember.findMany({
       where: { teamId },
-      include: { user: { select: { id: true, email: true } } },
+      include: { user: { select: { id: true, name: true, email: true } } },
     });
     const invites = await this.prisma.teamInvite.findMany({
       where: { teamId, status: { in: ['pending', 'expired'] } },
@@ -193,12 +193,13 @@ export class TeamsService {
     const teamIds = memberships.map((m) => m.teamId);
     const members = await this.prisma.teamMember.findMany({
       where: { teamId: { in: teamIds } },
-      include: { user: { select: { id: true, email: true } }, team: { select: { id: true, name: true } } },
+      include: { user: { select: { id: true, name: true, email: true } }, team: { select: { id: true, name: true } } },
     });
-    const unique = new Map<string, { id: string; email: string; teamId: string; teamName: string }>();
+    const unique = new Map<string, { id: string; name: string; email: string; teamId: string; teamName: string }>();
     for (const m of members) {
       unique.set(m.user.id, {
         id: m.user.id,
+        name: m.user.name,
         email: m.user.email,
         teamId: m.team.id,
         teamName: m.team.name,

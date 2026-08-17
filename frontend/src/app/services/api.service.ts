@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { userTimeZone } from '../utils/date';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -25,15 +26,21 @@ export class ApiService {
   }
 
   postPublic<T>(path: string, body: unknown): Observable<T> {
-    return this.http.post<T>(`${this.baseUrl}${path}`, body);
+    return this.http.post<T>(`${this.baseUrl}${path}`, body, { headers: this.publicHeaders() });
   }
 
   getPublic<T>(path: string): Observable<T> {
-    return this.http.get<T>(`${this.baseUrl}${path}`);
+    return this.http.get<T>(`${this.baseUrl}${path}`, { headers: this.publicHeaders() });
+  }
+
+  private publicHeaders(): HttpHeaders {
+    return new HttpHeaders({ 'X-Timezone': userTimeZone() });
   }
 
   private headers(): HttpHeaders {
     const token = localStorage.getItem('token');
-    return new HttpHeaders(token ? { Authorization: `Bearer ${token}` } : {});
+    const headers: Record<string, string> = { 'X-Timezone': userTimeZone() };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return new HttpHeaders(headers);
   }
 }

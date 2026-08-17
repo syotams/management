@@ -6,8 +6,9 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/audit.service';
 import { CreateTaskDto, PostponeTaskDto, UpdateTaskDto, CreateCommentDto } from './dto/task.dto';
+import { defaultDueDateUtc } from '../common/date.util';
 
-const userSelect = { id: true, email: true };
+const userSelect = { id: true, name: true, email: true };
 
 @Injectable()
 export class TasksService {
@@ -57,8 +58,7 @@ export class TasksService {
   }
 
   async create(userId: string, dto: CreateTaskDto) {
-    const now = new Date();
-    const dueDate = dto.dueDate ? new Date(dto.dueDate) : this.endOfToday();
+    const dueDate = dto.dueDate ? new Date(dto.dueDate) : defaultDueDateUtc();
     const alertAt = dto.alertAt ? new Date(dto.alertAt) : dueDate;
     const ownerId = dto.ownerId || userId;
     const assigneeId = dto.assigneeId || userId;
@@ -121,6 +121,14 @@ export class TasksService {
       await this.ensureTeamPeer(userId, dto.ownerId);
       data.ownerId = dto.ownerId;
       await this.audit.log(taskId, userId, 'OWNER_CHANGED', 'ownerId', task.ownerId, dto.ownerId);
+    }
+    if (dto.dueDate !== undefined) {
+      if (!isOwner) {
+        throw new ForbiddenException('Only the task owner can change the due date');
+      }
+      const newDueDate = new Date(dto.dueDate);
+      data.dueDate = newDueDate;
+      await this.audit.log(taskId, userId, 'DUE_DATE_CHANGED', 'dueDate', task.dueDate.toISOString(), dto.dueDate);
     }
     if (dto.alertAt !== undefined) {
       data.alertAt = new Date(dto.alertAt);
@@ -193,6 +201,20 @@ export class TasksService {
     return comment;
   }
 
+  async deleteComment(taskId: string, commentId: string, userId: string) {
+    await this.getAccessibleTask(taskId, userId);
+    const comment = await this.prisma.comment.findFirst({
+      where: { id: commentId, taskId },
+    });
+    if (!comment) throw new NotFoundException('Comment not found');
+    if (comment.userId !== userId) {
+      throw new ForbiddenException('Only the comment author can delete this comment');
+    }
+    await this.prisma.comment.delete({ where: { id: commentId } });
+    await this.audit.log(taskId, userId, 'COMMENT_DELETED', 'comment', comment.body, null);
+    return { success: true };
+  }
+
   async getPendingAlerts(userId: string) {
     const twoMinutesAgo = new Date(Date.now() - 120000);
     return this.prisma.task.findMany({
@@ -239,11 +261,5 @@ export class TasksService {
       where: { userId: peerId, teamId: { in: myTeams.map((t) => t.teamId) } },
     });
     if (!peer) throw new ForbiddenException('User is not in your team');
-  }
-
-  private endOfToday() {
-    const d = new Date();
-    d.setHours(17, 0, 0, 0);
-    return d;
   }
 }

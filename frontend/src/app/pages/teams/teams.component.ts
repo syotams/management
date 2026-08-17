@@ -9,8 +9,8 @@ import { Team, TeamMember, TeamInvite } from '../../models';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="container py-4">
-      <h2 class="mb-4">Teams</h2>
+    <div class="py-2">
+      <h2 class="page-title mb-4">Teams</h2>
 
       <div class="card mb-4">
         <div class="card-body">
@@ -60,7 +60,7 @@ import { Team, TeamMember, TeamInvite } from '../../models';
                 <tbody>
                   @for (m of members.members; track m.id) {
                     <tr>
-                      <td>{{ m.user.email }}</td>
+                      <td>{{ m.user.name }}</td>
                       <td><span class="badge bg-secondary">{{ m.role }}</span></td>
                       <td>
                         @if (isOwner(team) && m.role !== 'owner' && m.userId !== auth.currentUser()?.id) {

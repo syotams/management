@@ -1,10 +1,236 @@
 @import 'bootstrap/scss/bootstrap';
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
-body {
-  background-color: #f8f9fa;
+// ── Light palette ──────────────────────────────────────────
+[data-bs-theme='light'] {
+  --app-bg: #e8ecf2;
+  --app-surface: #ffffff;
+  --app-surface-hover: #f4f6f9;
+  --app-border: #b8c4d4;
+  --app-border-subtle: #d5dde8;
+  --app-text: #1a2332;
+  --app-text-muted: #5a6a7e;
+  --app-navbar-bg: #ffffff;
+  --app-navbar-text: #1a2332;
+  --app-input-bg: #ffffff;
+  --app-input-border: #9aacbe;
+  --app-shadow: 0 1px 2px rgba(26, 35, 50, 0.06), 0 4px 16px rgba(26, 35, 50, 0.08);
+  --app-shadow-lg: 0 8px 32px rgba(26, 35, 50, 0.12);
+  --app-table-header-bg: #f0f3f8;
+  --app-modal-backdrop: rgba(26, 35, 50, 0.45);
+
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-border-color: var(--app-border-subtle);
+  --bs-primary: #4f46e5;
+  --bs-primary-rgb: 79, 70, 229;
+  --bs-secondary-color: var(--app-text-muted);
+  --bs-tertiary-bg: var(--app-surface-hover);
 }
 
-main {
-  min-height: calc(100vh - 56px);
+// ── Dark palette ─────────────────────────────────────────
+[data-bs-theme='dark'] {
+  --app-bg: #0d1117;
+  --app-surface: #161b22;
+  --app-surface-hover: #1c2330;
+  --app-border: #3d4f66;
+  --app-border-subtle: #2a3444;
+  --app-text: #e6edf3;
+  --app-text-muted: #8b9cb3;
+  --app-navbar-bg: #161b22;
+  --app-navbar-text: #e6edf3;
+  --app-input-bg: #0d1117;
+  --app-input-border: #4a5f78;
+  --app-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --app-table-header-bg: #1c2330;
+  --app-modal-backdrop: rgba(0, 0, 0, 0.65);
+
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-border-color: var(--app-border-subtle);
+  --bs-primary: #6366f1;
+  --bs-primary-rgb: 99, 102, 241;
+  --bs-secondary-color: var(--app-text-muted);
+  --bs-tertiary-bg: var(--app-surface-hover);
 }
+
+// ── Base ─────────────────────────────────────────────────
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.main-content {
+  min-height: calc(100vh - 57px);
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+}
+
+.main-content-inner {
+  width: 100%;
+  max-width: 1140px;
+}
+
+// ── Navbar ───────────────────────────────────────────────
+.app-navbar {
+  background: var(--app-navbar-bg) !important;
+  border-bottom: 1px solid var(--app-border-subtle);
+  box-shadow: var(--app-shadow);
+  padding-block: 0.6rem;
+
+  .navbar-brand {
+    color: var(--app-navbar-text);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-link {
+    color: var(--app-text-muted) !important;
+    font-weight: 500;
+    &:hover, &.active { color: var(--bs-primary) !important; }
+  }
+
+  .navbar-text { color: var(--app-text-muted) !important; }
+
+  .btn-theme-toggle {
+    background: transparent;
+    border: 1px solid var(--app-border);
+    color: var(--app-text);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    &:hover {
+      background: var(--app-surface-hover);
+      border-color: var(--app-border);
+    }
+  }
+
+  .btn-logout {
+    border-radius: 8px;
+    font-weight: 500;
+  }
+}
+
+// ── Cards ────────────────────────────────────────────────
+.card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--app-shadow);
+  color: var(--app-text);
+
+  .card-header {
+    background: var(--app-table-header-bg);
+    border-bottom: 1px solid var(--app-border-subtle);
+    font-weight: 600;
+    color: var(--app-text);
+    border-radius: 12px 12px 0 0 !important;
+  }
+
+  .card-body { color: var(--app-text); }
+}
+
+// ── Forms ────────────────────────────────────────────────
+.form-control,
+.form-select {
+  background-color: var(--app-input-bg);
+  border: 1.5px solid var(--app-input-border);
+  color: var(--app-text);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder { color: var(--app-text-muted); opacity: 0.7; }
+
+  &:focus {
+    background-color: var(--app-input-bg);
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), 0.15);
+    color: var(--app-text);
+  }
+
+  &:hover:not(:focus) {
+    border-color: var(--app-border);
+  }
+}
+
+.form-label {
+  color: var(--app-text);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+// ── Tables inside cards ──────────────────────────────────
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--app-text);
+  --bs-table-border-color: var(--app-border-subtle);
+  --bs-table-hover-bg: var(--app-surface-hover);
+  --bs-table-striped-bg: var(--app-surface-hover);
+
+  thead th {
+    background: var(--app-table-header-bg);
+    color: var(--app-text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--app-border);
+  }
+}
+
+// ── Modals ───────────────────────────────────────────────
+.modal-backdrop-custom {
+  background: var(--app-modal-backdrop);
+}
+
+.modal-content {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--app-shadow-lg);
+  color: var(--app-text);
+
+  .modal-header {
+    border-bottom: 1px solid var(--app-border-subtle);
+  }
+
+  .modal-footer {
+    border-top: 1px solid var(--app-border-subtle);
+  }
+}
+
+// ── Auth pages ───────────────────────────────────────────
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 70vh;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+// ── Page headings ────────────────────────────────────────
+.page-title {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--app-text);
+}
+
+.text-muted { color: var(--app-text-muted) !important; }
+
+// ── Priority badges (shared) ─────────────────────────────
+.priority-badge { text-transform: capitalize; min-width: 60px; }
+.priority-urgent { background-color: #842029 !important; color: #fff; font-weight: bold; }
+.priority-high   { background-color: #dc3545 !important; color: #fff; }
+.priority-medium { background-color: #fd7e14 !important; color: #fff; }
+.priority-low    { background-color: #6c757d !important; color: #fff; }

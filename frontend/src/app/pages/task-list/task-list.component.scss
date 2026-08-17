@@ -1,47 +1,132 @@
-.day-header {
-  padding: 0.5rem 0;
-  border-bottom: 2px solid #dee2e6;
-  margin-bottom: 0.5rem;
+.day-group-card {
+  overflow: hidden;
+
+  .card-header.day-header {
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+  }
+
+  &.dropdown-open {
+    overflow: visible;
+    position: relative;
+    z-index: 5;
+
+    .table-responsive {
+      overflow: visible;
+    }
+  }
 }
 
-.overdue-group .day-header {
-  border-bottom-color: #dc3545;
+.overdue-group .card-header {
+  color: #dc3545 !important;
+  background: rgba(220, 53, 69, 0.06) !important;
 }
 
-.priority-badge {
-  text-transform: capitalize;
-  min-width: 60px;
+.urgent-group .card-header {
+  color: #842029 !important;
+  background: rgba(132, 32, 41, 0.06) !important;
 }
 
-.priority-high {
-  background-color: #dc3545 !important;
-  color: #fff;
+[data-bs-theme='dark'] {
+  .overdue-group .card-header {
+    background: rgba(220, 53, 69, 0.12) !important;
+  }
+  .urgent-group .card-header {
+    background: rgba(132, 32, 41, 0.15) !important;
+  }
 }
 
-.priority-medium {
-  background-color: #fd7e14 !important;
-  color: #fff;
+.task-table {
+  .task-row td {
+    border-bottom: none;
+    padding-bottom: 0.35rem;
+  }
+
+  .comment-row td {
+    padding-top: 0;
+    padding-bottom: 0.75rem;
+    border-top: none;
+    background: var(--app-surface-hover);
+  }
+
+  .task-row + .comment-row td {
+    border-bottom: 1px solid var(--app-border-subtle);
+  }
 }
 
-.priority-low {
-  background-color: #6c757d !important;
-  color: #fff;
-}
-
-.task-link {
-  text-decoration: none;
-  color: inherit;
+.task-row {
   cursor: pointer;
-  &:hover { color: #0d6efd; }
+  transition: background-color 0.1s ease;
 }
 
-.last-comment {
+.comment-sub-row {
+  padding: 0.25rem 0.5rem 0.5rem 2rem;
+}
+
+.last-comment-block {
   font-size: 0.85rem;
-  color: #6c757d;
-  max-width: 200px;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.last-comment-text {
+  color: var(--app-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
+  flex: 1;
+  min-width: 0;
+}
+
+.add-comment-btn {
+  font-size: 0.8rem;
+  text-decoration: none;
+  padding-left: 0 !important;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.optional-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.optional-action-link {
+  font-size: 0.85rem;
+  text-decoration: none;
+  padding-left: 0 !important;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.dropdown {
+  position: relative;
+
+  .dropdown-menu.show {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1050;
+    min-width: 140px;
+    margin-top: 2px;
+  }
+
+  .dropdown-item {
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
 }
 
 .drag-handle {
@@ -50,10 +135,11 @@
 
 .cdk-drag-preview {
   box-sizing: border-box;
-  border-radius: 4px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  background: white;
+  border-radius: 8px;
+  box-shadow: var(--app-shadow-lg);
+  background: var(--app-surface);
   padding: 8px;
+  border: 1px solid var(--app-border-subtle);
 }
 
 .cdk-drag-placeholder {
@@ -61,5 +147,9 @@
 }
 
 tr.cdk-drag-disabled {
-  cursor: default;
+  cursor: pointer;
+}
+
+.modal-backdrop-custom {
+  background: var(--app-modal-backdrop);
 }

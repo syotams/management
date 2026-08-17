@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../common/email.service';
+import { formatInTimeZone } from '../common/date.util';
 
 @Injectable()
 export class AlertsScheduler {
@@ -22,16 +23,25 @@ export class AlertsScheduler {
         alertSent: false,
       },
       include: {
-        assignee: { select: { email: true } },
-        owner: { select: { email: true } },
+        assignee: { select: { email: true, timezone: true } },
+        owner: { select: { email: true, timezone: true } },
       },
     });
 
     for (const task of tasks) {
       const subject = `Task alert: ${task.title}`;
-      const body = `Your task "${task.title}" is due ${task.dueDate.toISOString()}. Priority: ${task.priority}.`;
-      await this.email.sendAlert(task.assignee.email, subject, body);
-      await this.email.sendAlert(task.owner.email, subject, body);
+      const assigneeDue = formatInTimeZone(task.dueDate, task.assignee.timezone);
+      const ownerDue = formatInTimeZone(task.dueDate, task.owner.timezone);
+      await this.email.sendAlert(
+        task.assignee.email,
+        subject,
+        `Your task "${task.title}" is due ${assigneeDue}. Priority: ${task.priority}.`,
+      );
+      await this.email.sendAlert(
+        task.owner.email,
+        subject,
+        `Your task "${task.title}" is due ${ownerDue}. Priority: ${task.priority}.`,
+      );
 
       await this.prisma.task.update({
         where: { id: task.id },

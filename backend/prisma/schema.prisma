@@ -10,7 +10,9 @@ datasource db {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
+  name         String   @unique
   passwordHash String
+  timezone     String   @default("UTC")
   createdAt    DateTime @default(now())
 
   ownedTeams     Team[]       @relation("TeamCreator")

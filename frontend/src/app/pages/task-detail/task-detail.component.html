@@ -1,0 +1,93 @@
+    <div class="py-2">
+      <a routerLink="/tasks" class="btn btn-link mb-3 ps-0">&larr; Back to tasks</a>
+
+  @if (loading) {
+    <div class="spinner-border"></div>
+  } @else if (task) {
+    <!-- Metadata -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h3>{{ task.title }}</h3>
+          <span class="badge priority-badge" [ngClass]="'priority-' + task.priority">{{ task.priority }}</span>
+        </div>
+        <p class="text-muted">{{ task.description || 'No description' }}</p>
+        <div class="row">
+          <div class="col-md-6">
+            <p><strong>Status:</strong> {{ task.status }}</p>
+            <p><strong>Due:</strong> {{ formatDate(task.dueDate) }}</p>
+            <p><strong>Created:</strong> {{ formatDate(task.createdAt) }}</p>
+          </div>
+          <div class="col-md-6">
+            <p><strong>Owner:</strong> {{ displayName(task.owner) }}</p>
+            <p><strong>Assignee:</strong> {{ displayName(task.assignee) }}</p>
+            @if (isOwner()) {
+              <div class="mb-2">
+                <label class="form-label"><strong>Alert at</strong> <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <div class="input-group input-group-sm">
+                  <input type="datetime-local" class="form-control" [(ngModel)]="alertAtLocal">
+                  <button class="btn btn-outline-primary" (click)="saveAlert()">Save</button>
+                </div>
+              </div>
+            } @else {
+              <p><strong>Alert at:</strong> {{ formatDate(task.alertAt) }}</p>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comments (70%) + History (30%) -->
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card h-100">
+          <div class="card-header"><h5 class="mb-0">Comments</h5></div>
+          <div class="card-body d-flex flex-column">
+            <div class="comments-list flex-grow-1">
+              @for (comment of task.comments; track comment.id) {
+                <div class="comment-item mb-3 pb-3 border-bottom">
+                  <div class="d-flex justify-content-between align-items-start mb-1">
+                    <strong>{{ displayName(comment.user) }}</strong>
+                    <div class="d-flex align-items-center gap-2">
+                      <small class="text-muted">{{ formatDate(comment.createdAt) }}</small>
+                      @if (canDeleteComment(comment.userId)) {
+                        <button class="btn btn-sm btn-outline-danger py-0 px-1" (click)="deleteComment(comment.id)" title="Delete">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                  <p class="mb-0">{{ comment.body }}</p>
+                </div>
+              } @empty {
+                <p class="text-muted">No comments yet.</p>
+              }
+            </div>
+            <div class="mt-3 pt-3 border-top">
+              <textarea class="form-control mb-2" rows="3" [(ngModel)]="newComment" placeholder="Add a comment..."></textarea>
+              <button class="btn btn-primary btn-sm" (click)="addComment()" [disabled]="!newComment.trim()">Post Comment</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header"><h5 class="mb-0">History</h5></div>
+          <div class="card-body history-list">
+            @for (entry of task.history; track entry.id) {
+              <div class="history-item mb-3 pb-2 border-bottom">
+                <small class="text-muted d-block">{{ formatDate(entry.createdAt) }}</small>
+                <p class="mb-0 small">
+                  <strong>{{ displayName(entry.user) }}</strong> {{ formatAction(entry) }}
+                </p>
+              </div>
+            } @empty {
+              <p class="text-muted">No history yet.</p>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

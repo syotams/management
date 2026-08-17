@@ -1,6 +1,8 @@
 export interface User {
   id: string;
   email: string;
+  name: string;
+  timezone?: string;
   createdAt: string;
 }
 
@@ -38,12 +40,13 @@ export interface TeamInvite {
 
 export interface AssignableMember {
   id: string;
+  name: string;
   email: string;
   teamId: string;
   teamName: string;
 }
 
-export type Priority = 'low' | 'medium' | 'high';
+export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'archived';
 
 export interface Task {
@@ -97,4 +100,9 @@ export interface DayGroup {
   label: string;
   isOverdue: boolean;
   tasks: Task[];
+}
+
+export interface GroupedTasks {
+  urgent: Task[];
+  groups: DayGroup[];
 }

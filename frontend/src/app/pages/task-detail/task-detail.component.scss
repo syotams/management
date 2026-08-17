@@ -1,0 +1,21 @@
+.history-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.comments-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.comment-item:last-child {
+  border-bottom: none !important;
+}
+
+.comment-item {
+  border-color: var(--app-border-subtle) !important;
+}
+
+.history-item {
+  border-color: var(--app-border-subtle) !important;
+}

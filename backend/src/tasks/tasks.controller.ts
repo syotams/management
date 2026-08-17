@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -82,6 +83,15 @@ export class TasksController {
     @Body() dto: CreateCommentDto,
   ) {
     return this.tasksService.addComment(id, user.id, dto);
+  }
+
+  @Delete(':id/comments/:commentId')
+  deleteComment(
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.tasksService.deleteComment(id, commentId, user.id);
   }
 
   @Get(':id/history')

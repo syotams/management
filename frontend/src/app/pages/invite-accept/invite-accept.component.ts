@@ -8,7 +8,7 @@ import { AuthService } from '../../services/auth.service';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <div class="container py-5">
+    <div class="py-5">
       <div class="card mx-auto" style="max-width: 500px">
         <div class="card-body text-center">
           @if (loading) {

@@ -20,7 +20,7 @@ export class CreateTaskDto {
   dueDate?: string;
 
   @IsOptional()
-  @IsIn(['low', 'medium', 'high'])
+  @IsIn(['low', 'medium', 'high', 'urgent'])
   priority?: string;
 
   @IsOptional()
@@ -62,7 +62,7 @@ export class UpdateTaskDto {
   description?: string;
 
   @IsOptional()
-  @IsIn(['low', 'medium', 'high'])
+  @IsIn(['low', 'medium', 'high', 'urgent'])
   priority?: string;
 
   @IsOptional()
@@ -72,6 +72,10 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   ownerId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
 
   @IsOptional()
   @IsDateString()

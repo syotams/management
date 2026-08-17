@@ -51,6 +51,10 @@ export class TaskService {
     return this.api.post<Comment>(`/tasks/${taskId}/comments`, { body });
   }
 
+  deleteComment(taskId: string, commentId: string) {
+    return this.api.delete(`/tasks/${taskId}/comments/${commentId}`);
+  }
+
   getPendingAlerts() {
     return this.api.get<{ id: string; title: string; dueDate: string; priority: string }[]>('/tasks/alerts/pending');
   }

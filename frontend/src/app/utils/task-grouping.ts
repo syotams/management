@@ -1,6 +1,15 @@
-import { Task, DayGroup } from '../models';
+import { Task, DayGroup, GroupedTasks } from '../models';
+import { localDayKey, fromDatetimeLocal, userTimeZone } from './date';
 
-const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+export { dayKeyToDueDate, toDatetimeLocal } from './date';
+
+const PRIORITY_ORDER: Record<string, number> = { urgent: -1, high: 0, medium: 1, low: 2 };
+
+export function groupTasks(tasks: Task[]): GroupedTasks {
+  const urgent = tasks.filter((t) => t.priority === 'urgent').sort(sortFn);
+  const nonUrgent = tasks.filter((t) => t.priority !== 'urgent');
+  return { urgent, groups: groupTasksByDay(nonUrgent) };
+}
 
 export function groupTasksByDay(tasks: Task[]): DayGroup[] {
   const now = new Date();
@@ -16,17 +25,11 @@ export function groupTasksByDay(tasks: Task[]): DayGroup[] {
     if (dueDay < startOfToday) {
       overdue.push(task);
     } else {
-      const key = dueDay.toISOString().slice(0, 10);
+      const key = localDayKey(due);
       if (!byDay.has(key)) byDay.set(key, []);
       byDay.get(key)!.push(task);
     }
   }
-
-  const sortFn = (a: Task, b: Task) => {
-    const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-    if (p !== 0) return p;
-    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-  };
 
   overdue.sort(sortFn);
 
@@ -40,13 +43,19 @@ export function groupTasksByDay(tasks: Task[]): DayGroup[] {
     const dayTasks = byDay.get(key)!.sort(sortFn);
     groups.push({
       key,
-      label: formatDayLabel(new Date(key + 'T12:00:00')),
+      label: formatDayLabel(fromDatetimeLocal(`${key}T12:00:00`)),
       isOverdue: false,
       tasks: dayTasks,
     });
   }
 
   return groups;
+}
+
+function sortFn(a: Task, b: Task) {
+  const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+  if (p !== 0) return p;
+  return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
 }
 
 export function formatDayLabel(date: Date): string {
@@ -56,11 +65,12 @@ export function formatDayLabel(date: Date): string {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-  const formatted = date.toLocaleDateString('en-US', {
+  const formatted = date.toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
+    timeZone: userTimeZone(),
   });
 
   if (target.getTime() === today.getTime()) return `Today — ${formatted}`;
@@ -68,12 +78,8 @@ export function formatDayLabel(date: Date): string {
   return formatted;
 }
 
-export function toDatetimeLocal(date: Date): string {
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+export function displayName(user: { name?: string; email?: string }): string {
+  return user.name || user.email || 'Unknown';
 }
 
-export function dayKeyToDueDate(dayKey: string, existingDue: Date): string {
-  const d = new Date(dayKey + 'T' + existingDue.toTimeString().slice(0, 8));
-  return d.toISOString();
-}
+export const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;

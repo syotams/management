@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -14,8 +14,24 @@ import { TaskService } from '../../services/task.service';
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
 import { NotificationService } from '../../services/notification.service';
-import { Task, DayGroup, AssignableMember } from '../../models';
-import { groupTasksByDay, toDatetimeLocal, dayKeyToDueDate } from '../../utils/task-grouping';
+import { Task, AssignableMember, Priority } from '../../models';
+import {
+  groupTasks,
+  toDatetimeLocal,
+  dayKeyToDueDate,
+  displayName,
+  PRIORITIES,
+} from '../../utils/task-grouping';
+import { datetimeLocalToUtcIso, formatUserDateTime, fromDatetimeLocal, userTimezoneLabel } from '../../utils/date';
+
+interface TaskSection {
+  key: string;
+  label: string;
+  tasks: Task[];
+  droppable: boolean;
+  isOverdue: boolean;
+  isUrgent: boolean;
+}
 
 @Component({
   selector: 'app-task-list',
@@ -25,20 +41,41 @@ import { groupTasksByDay, toDatetimeLocal, dayKeyToDueDate } from '../../utils/t
   styleUrl: './task-list.component.scss',
 })
 export class TaskListComponent implements OnInit {
-  groups: DayGroup[] = [];
+  sections: TaskSection[] = [];
   loading = true;
   error = '';
+  priorities = PRIORITIES;
 
   newTitle = '';
+  newDueDate = '';
   newAlertAt = '';
-  showAdvanced = false;
   newAssigneeId = '';
+  showDueDateField = false;
+  showAlertField = false;
+  showAssigneeField = false;
   members: AssignableMember[] = [];
 
   postponeTask: Task | null = null;
   postponeDate = '';
   postponeAlertAt = '';
   updateAlertOnPostpone = true;
+
+  editTask: Task | null = null;
+  editForm = {
+    title: '',
+    description: '',
+    priority: 'medium' as Priority,
+    dueDate: '',
+    alertAt: '',
+    assigneeId: '',
+  };
+
+  commentOpenId: string | null = null;
+  commentText = '';
+  openDropdownId: string | null = null;
+
+  displayName = displayName;
+  timezoneLabel = userTimezoneLabel();
 
   constructor(
     private taskService: TaskService,
@@ -47,6 +84,11 @@ export class TaskListComponent implements OnInit {
     private notificationService: NotificationService,
     private router: Router,
   ) {}
+
+  @HostListener('document:click')
+  onDocumentClick() {
+    this.openDropdownId = null;
+  }
 
   ngOnInit() {
     this.notificationService.startPolling();
@@ -58,7 +100,28 @@ export class TaskListComponent implements OnInit {
     this.loading = true;
     this.taskService.getTasks().subscribe({
       next: (tasks) => {
-        this.groups = groupTasksByDay(tasks);
+        const grouped = groupTasks(tasks);
+        this.sections = [];
+        if (grouped.urgent.length) {
+          this.sections.push({
+            key: 'urgent',
+            label: 'Urgent',
+            tasks: grouped.urgent,
+            droppable: false,
+            isOverdue: false,
+            isUrgent: true,
+          });
+        }
+        for (const g of grouped.groups) {
+          this.sections.push({
+            key: g.key,
+            label: g.label,
+            tasks: g.tasks,
+            droppable: true,
+            isOverdue: g.isOverdue,
+            isUrgent: false,
+          });
+        }
         this.loading = false;
       },
       error: () => {
@@ -70,42 +133,100 @@ export class TaskListComponent implements OnInit {
 
   addTask() {
     if (!this.newTitle.trim()) return;
-    const now = new Date();
-    now.setHours(17, 0, 0, 0);
+    this.error = '';
+    const dueDate = this.showDueDateField && this.newDueDate
+      ? fromDatetimeLocal(this.newDueDate)
+      : this.defaultDueDate();
     const data = {
       title: this.newTitle.trim(),
-      dueDate: now.toISOString(),
-      ...(this.newAlertAt && { alertAt: new Date(this.newAlertAt).toISOString() }),
-      ...(this.newAssigneeId && { assigneeId: this.newAssigneeId }),
+      dueDate: dueDate.toISOString(),
+      ...(this.showAlertField && this.newAlertAt && { alertAt: datetimeLocalToUtcIso(this.newAlertAt) }),
+      ...(this.showAssigneeField && this.newAssigneeId && { assigneeId: this.newAssigneeId }),
     };
 
     this.taskService.createTask(data).subscribe({
       next: () => {
-        this.newTitle = '';
-        this.newAlertAt = '';
-        this.newAssigneeId = '';
+        this.resetNewTaskForm();
         this.loadTasks();
       },
+      error: (err) => {
+        const msg = err.error?.message;
+        this.error = Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create task');
+        if (err.status === 401) {
+          this.auth.logout();
+        }
+      },
     });
+  }
+
+  showDueDateInput() {
+    this.showDueDateField = true;
+    this.newDueDate = toDatetimeLocal(this.defaultDueDate());
+  }
+
+  showAlertInput() {
+    this.showAlertField = true;
+    const base = this.showDueDateField && this.newDueDate
+      ? fromDatetimeLocal(this.newDueDate)
+      : this.defaultDueDate();
+    this.newAlertAt = toDatetimeLocal(base);
+  }
+
+  showAssigneeInput() {
+    this.showAssigneeField = true;
+  }
+
+  private defaultDueDate(): Date {
+    return new Date(Date.now() + 60 * 60 * 1000);
+  }
+
+  private resetNewTaskForm() {
+    this.newTitle = '';
+    this.newDueDate = '';
+    this.newAlertAt = '';
+    this.newAssigneeId = '';
+    this.showDueDateField = false;
+    this.showAlertField = false;
+    this.showAssigneeField = false;
   }
 
   isOwner(task: Task): boolean {
     return task.ownerId === this.auth.currentUser()?.id;
   }
 
-  start(task: Task) {
+  toggleDropdown(taskId: string, event: Event) {
+    event.stopPropagation();
+    this.openDropdownId = this.openDropdownId === taskId ? null : taskId;
+  }
+
+  sectionHasOpenDropdown(section: TaskSection): boolean {
+    return !!this.openDropdownId && section.tasks.some((task) => task.id === this.openDropdownId);
+  }
+
+  closeDropdown() {
+    this.openDropdownId = null;
+  }
+
+  start(task: Task, event: Event) {
+    event.stopPropagation();
+    this.closeDropdown();
     this.taskService.start(task.id).subscribe(() => this.loadTasks());
   }
 
-  complete(task: Task) {
+  complete(task: Task, event: Event) {
+    event.stopPropagation();
+    this.closeDropdown();
     this.taskService.complete(task.id).subscribe(() => this.loadTasks());
   }
 
-  archive(task: Task) {
+  archive(task: Task, event: Event) {
+    event.stopPropagation();
+    this.closeDropdown();
     this.taskService.archive(task.id).subscribe(() => this.loadTasks());
   }
 
-  openPostpone(task: Task) {
+  openPostpone(task: Task, event: Event) {
+    event.stopPropagation();
     this.postponeTask = task;
     this.postponeDate = toDatetimeLocal(new Date(task.dueDate));
     this.postponeAlertAt = toDatetimeLocal(new Date(task.alertAt));
@@ -114,16 +235,75 @@ export class TaskListComponent implements OnInit {
 
   confirmPostpone() {
     if (!this.postponeTask) return;
-    const alertAt = this.updateAlertOnPostpone ? new Date(this.postponeAlertAt).toISOString() : undefined;
+    const alertAt = this.updateAlertOnPostpone ? datetimeLocalToUtcIso(this.postponeAlertAt) : undefined;
     this.taskService
-      .postpone(this.postponeTask.id, new Date(this.postponeDate).toISOString(), alertAt, this.updateAlertOnPostpone)
+      .postpone(this.postponeTask.id, datetimeLocalToUtcIso(this.postponeDate), alertAt, this.updateAlertOnPostpone)
       .subscribe(() => {
         this.postponeTask = null;
         this.loadTasks();
       });
   }
 
-  onDrop(event: CdkDragDrop<Task[]>, targetGroup: DayGroup) {
+  openEditModal(task: Task, event: Event) {
+    event.stopPropagation();
+    this.editTask = task;
+    this.editForm = {
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority,
+      dueDate: toDatetimeLocal(new Date(task.dueDate)),
+      alertAt: toDatetimeLocal(new Date(task.alertAt)),
+      assigneeId: task.assigneeId,
+    };
+  }
+
+  saveEditModal() {
+    if (!this.editTask) return;
+    const data: Record<string, string> = {
+      title: this.editForm.title.trim(),
+      description: this.editForm.description,
+      priority: this.editForm.priority,
+    };
+    if (this.isOwner(this.editTask)) {
+      data['assigneeId'] = this.editForm.assigneeId;
+      data['dueDate'] = datetimeLocalToUtcIso(this.editForm.dueDate);
+      data['alertAt'] = datetimeLocalToUtcIso(this.editForm.alertAt);
+    }
+    this.taskService.updateTask(this.editTask.id, data).subscribe(() => {
+      this.editTask = null;
+      this.loadTasks();
+    });
+  }
+
+  openCommentBox(taskId: string, event: Event) {
+    event.stopPropagation();
+    this.commentOpenId = taskId;
+    this.commentText = '';
+  }
+
+  cancelComment(event: Event) {
+    event.stopPropagation();
+    this.commentOpenId = null;
+    this.commentText = '';
+  }
+
+  submitComment(task: Task, event: Event) {
+    event.stopPropagation();
+    if (!this.commentText.trim()) return;
+    this.taskService.addComment(task.id, this.commentText.trim()).subscribe(() => {
+      this.commentOpenId = null;
+      this.commentText = '';
+      this.loadTasks();
+    });
+  }
+
+  onRowClick(task: Task) {
+    if (this.commentOpenId === task.id) return;
+    this.router.navigate(['/tasks', task.id]);
+  }
+
+  onDrop(event: CdkDragDrop<Task[]>, section: TaskSection) {
+    if (!section.droppable) return;
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
       return;
@@ -131,7 +311,7 @@ export class TaskListComponent implements OnInit {
 
     const task = event.previousContainer.data[event.previousIndex];
     if (!this.isOwner(task)) return;
-    if (targetGroup.isOverdue || targetGroup.key === 'overdue') return;
+    if (section.isOverdue) return;
 
     transferArrayItem(
       event.previousContainer.data,
@@ -140,14 +320,14 @@ export class TaskListComponent implements OnInit {
       event.currentIndex,
     );
 
-    const newDue = dayKeyToDueDate(targetGroup.key, new Date(task.dueDate));
+    const newDue = dayKeyToDueDate(section.key, new Date(task.dueDate));
     this.taskService.postpone(task.id, newDue).subscribe({
       error: () => this.loadTasks(),
     });
   }
 
   getConnectedLists(): string[] {
-    return this.groups.filter((g) => !g.isOverdue).map((g) => g.key);
+    return this.sections.filter((s) => s.droppable && !s.isOverdue).map((s) => s.key);
   }
 
   priorityClass(priority: string): string {
@@ -165,17 +345,12 @@ export class TaskListComponent implements OnInit {
   }
 
   formatDate(d: string): string {
-    return new Date(d).toLocaleString();
+    return formatUserDateTime(d);
   }
 
-  lastCommentText(task: Task): string {
-    if (!task.lastComment) return '—';
+  lastCommentMeta(task: Task): string {
+    if (!task.lastComment) return '';
     const c = task.lastComment;
-    const truncated = c.body.length > 50 ? c.body.slice(0, 50) + '…' : c.body;
-    return `${truncated} — ${c.user.email}, ${this.formatDate(c.createdAt)}`;
-  }
-
-  openDetail(task: Task) {
-    this.router.navigate(['/tasks', task.id]);
+    return `${displayName(c.user)} · ${this.formatDate(c.createdAt)}`;
   }
 }

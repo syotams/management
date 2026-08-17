@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 import { AuthResponse, User } from '../models';
+import { userTimeZone } from '../utils/date';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -12,20 +13,32 @@ export class AuthService {
     const token = localStorage.getItem('token');
     if (token) {
       this.api.get<User>('/auth/me').subscribe({
-        next: (user) => this.currentUser.set(user),
+        next: (user) => {
+          this.currentUser.set(user);
+          this.syncTimezone();
+        },
         error: () => this.logout(),
       });
     }
   }
 
-  register(email: string, password: string) {
-    return this.api.postPublic<AuthResponse>('/auth/register', { email, password }).pipe(
+  register(email: string, password: string, name: string) {
+    return this.api.postPublic<AuthResponse>('/auth/register', {
+      email,
+      password,
+      name,
+      timezone: userTimeZone(),
+    }).pipe(
       tap((res) => this.setSession(res)),
     );
   }
 
   login(email: string, password: string) {
-    return this.api.postPublic<AuthResponse>('/auth/login', { email, password }).pipe(
+    return this.api.postPublic<AuthResponse>('/auth/login', {
+      email,
+      password,
+      timezone: userTimeZone(),
+    }).pipe(
       tap((res) => this.setSession(res)),
     );
   }
@@ -43,5 +56,13 @@ export class AuthService {
   private setSession(res: AuthResponse) {
     localStorage.setItem('token', res.accessToken);
     this.currentUser.set(res.user);
+  }
+
+  private syncTimezone() {
+    const timezone = userTimeZone();
+    if (this.currentUser()?.timezone === timezone) return;
+    this.api.patch<User>('/auth/me', { timezone }).subscribe({
+      next: (user) => this.currentUser.set(user),
+    });
   }
 }

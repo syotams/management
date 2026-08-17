@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { TaskService } from './task.service';
+import { formatUserDateTime } from '../utils/date';
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
@@ -30,7 +31,7 @@ export class NotificationService {
         if (this.shownAlerts.has(task.id)) continue;
         this.shownAlerts.add(task.id);
         new Notification(`Task alert: ${task.title}`, {
-          body: `Due ${new Date(task.dueDate).toLocaleString()}. Priority: ${task.priority}.`,
+          body: `Due ${formatUserDateTime(task.dueDate)}. Priority: ${task.priority}.`,
           icon: '/favicon.ico',
         });
       }

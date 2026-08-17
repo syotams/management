@@ -36,8 +36,7 @@ import { AuthService } from '../../services/auth.service';
     </div>
   `,
   styles: [`
-    .auth-container { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
-    .auth-card { width: 100%; max-width: 400px; }
+    :host { display: block; }
   `],
 })
 export class LoginComponent {
