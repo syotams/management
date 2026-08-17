@@ -1,0 +1,73 @@
+# Task Manager
+
+A full-stack task management application with teams, assignments, drag-and-drop scheduling, comments, audit history, and alerts.
+
+## Features
+
+- **Auth**: Register/login with email + password (unique email enforcement)
+- **Teams**: Create teams, invite members (5-day expiry), copy invite links, remove members
+- **Tasks**: Grouped by day (Overdue → Today → future), sorted by priority
+- **Inline add**: Title required; defaults: due today, priority medium, assignee self
+- **Actions**: Start, Complete, Postpone (owner only), Archive
+- **Drag & drop**: Move tasks between days (owner only) to change due date
+- **Comments**: Thread on task detail; last comment visible in list
+- **History**: Full audit log of all task changes
+- **Alerts**: Configurable alert datetime; email (console) + browser notifications
+
+## Tech Stack
+
+- **Frontend**: Angular 20, Bootstrap 5, Angular CDK (drag-drop)
+- **Backend**: NestJS 10, Prisma 5, SQLite
+- **Auth**: JWT
+
+## Getting Started
+
+### Backend
+
+```bash
+cd backend
+npm install
+npx prisma db push
+npm start
+```
+
+Backend runs at http://localhost:3000
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+Frontend runs at http://localhost:4200
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /auth/register | Register |
+| POST | /auth/login | Login |
+| GET | /auth/me | Current user |
+| POST | /teams | Create team |
+| GET | /teams | List teams |
+| GET | /teams/:id/members | Members + invites |
+| POST | /teams/:id/invites | Send invite |
+| DELETE | /teams/:id/members/:userId | Remove member |
+| GET | /tasks | List active tasks |
+| POST | /tasks | Create task |
+| PATCH | /tasks/:id/start | Start task |
+| PATCH | /tasks/:id/complete | Complete task |
+| PATCH | /tasks/:id/archive | Archive task |
+| PATCH | /tasks/:id/postpone | Change due date (owner only) |
+| POST | /tasks/:id/comments | Add comment |
+| GET | /tasks/:id/history | Audit log |
+
+## Permissions
+
+| Action | Owner | Assignee |
+|--------|-------|----------|
+| View, Start, Complete, Archive, Comment | ✓ | ✓ |
+| Change due date (postpone/drag) | ✓ | ✗ |
+| Set alert time | ✓ | ✗ |

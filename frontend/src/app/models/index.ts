@@ -1,0 +1,100 @@
+export interface User {
+  id: string;
+  email: string;
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  user: User;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  createdBy: string;
+  createdAt: string;
+  members?: TeamMember[];
+}
+
+export interface TeamMember {
+  id: string;
+  teamId: string;
+  userId: string;
+  role: string;
+  user: User;
+}
+
+export interface TeamInvite {
+  id: string;
+  teamId: string;
+  email: string;
+  token: string;
+  status: string;
+  expiresAt: string;
+  inviteLink: string | null;
+  daysUntilExpiry: number;
+}
+
+export interface AssignableMember {
+  id: string;
+  email: string;
+  teamId: string;
+  teamName: string;
+}
+
+export type Priority = 'low' | 'medium' | 'high';
+export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'archived';
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  dueDate: string;
+  priority: Priority;
+  status: TaskStatus;
+  ownerId: string;
+  assigneeId: string;
+  teamId: string | null;
+  createdBy: string;
+  alertAt: string;
+  alertSent: boolean;
+  createdAt: string;
+  updatedAt: string;
+  owner: User;
+  assignee: User;
+  lastComment?: Comment | null;
+}
+
+export interface Comment {
+  id: string;
+  taskId: string;
+  userId: string;
+  body: string;
+  createdAt: string;
+  user: User;
+}
+
+export interface AuditLog {
+  id: string;
+  taskId: string;
+  userId: string;
+  action: string;
+  fieldName: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string;
+  user: User;
+}
+
+export interface TaskDetail extends Task {
+  comments: Comment[];
+  history: AuditLog[];
+}
+
+export interface DayGroup {
+  key: string;
+  label: string;
+  isOverdue: boolean;
+  tasks: Task[];
+}

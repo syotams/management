@@ -1,0 +1,176 @@
+<div class="container-fluid py-4">
+  <h2 class="mb-4">My Tasks</h2>
+
+  @if (error) {
+    <div class="alert alert-danger">{{ error }}</div>
+  }
+
+  <!-- Inline add -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">New task title *</label>
+          <input
+            type="text"
+            class="form-control"
+            [(ngModel)]="newTitle"
+            placeholder="What needs to be done?"
+            (keyup.enter)="addTask()"
+          >
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Alert at</label>
+          <input type="datetime-local" class="form-control" [(ngModel)]="newAlertAt">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Assignee</label>
+          <select class="form-select" [(ngModel)]="newAssigneeId">
+            <option value="">Me (default)</option>
+            @for (m of members; track m.id) {
+              <option [value]="m.id">{{ m.email }} ({{ m.teamName }})</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100" (click)="addTask()" [disabled]="!newTitle.trim()">
+            <i class="bi bi-plus-lg"></i> Add
+          </button>
+        </div>
+      </div>
+      <small class="text-muted">Defaults: due today, priority medium, assignee you</small>
+    </div>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <div class="spinner-border" role="status"></div>
+    </div>
+  } @else {
+    <div cdkDropListGroup>
+      @for (group of groups; track group.key) {
+        <div class="day-group mb-4" [class.overdue-group]="group.isOverdue">
+          <h5 class="day-header" [class.text-danger]="group.isOverdue">
+            {{ group.label }}
+          </h5>
+
+          <div
+            class="table-responsive"
+            cdkDropList
+            [cdkDropListData]="group.tasks"
+            [id]="group.key"
+            [cdkDropListConnectedTo]="getConnectedLists()"
+            (cdkDropListDropped)="onDrop($event, group)"
+          >
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="width:90px">Priority</th>
+                  <th>Title</th>
+                  <th style="width:110px">Status</th>
+                  <th style="width:160px">Due Date</th>
+                  <th style="width:160px">Created At</th>
+                  <th style="width:140px">Assignee</th>
+                  <th>Last Comment</th>
+                  <th style="width:200px">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (task of group.tasks; track task.id) {
+                  <tr
+                    cdkDrag
+                    [cdkDragDisabled]="!isOwner(task) || group.isOverdue"
+                    [class.drag-disabled]="!isOwner(task)"
+                  >
+                    <td>
+                      <span class="badge priority-badge" [ngClass]="priorityClass(task.priority)">
+                        {{ task.priority }}
+                      </span>
+                    </td>
+                    <td>
+                      <a href="#" (click)="openDetail(task); $event.preventDefault()" class="task-link">
+                        @if (isOwner(task)) {
+                          <i class="bi bi-grip-vertical text-muted me-1 drag-handle" cdkDragHandle></i>
+                        }
+                        {{ task.title }}
+                      </a>
+                    </td>
+                    <td>
+                      <span class="badge bg-secondary">{{ statusLabel(task.status) }}</span>
+                    </td>
+                    <td>{{ formatDate(task.dueDate) }}</td>
+                    <td>{{ formatDate(task.createdAt) }}</td>
+                    <td>{{ task.assignee.email }}</td>
+                    <td class="last-comment">{{ lastCommentText(task) }}</td>
+                    <td>
+                      <div class="btn-group btn-group-sm">
+                        @if (task.status === 'todo') {
+                          <button class="btn btn-outline-primary" title="Start" (click)="start(task)">
+                            <i class="bi bi-play-fill"></i>
+                          </button>
+                        }
+                        <button class="btn btn-outline-success" title="Complete" (click)="complete(task)">
+                          <i class="bi bi-check-lg"></i>
+                        </button>
+                        @if (isOwner(task)) {
+                          <button class="btn btn-outline-warning" title="Postpone" (click)="openPostpone(task)">
+                            <i class="bi bi-calendar-event"></i>
+                          </button>
+                        }
+                        <button class="btn btn-outline-secondary" title="Archive" (click)="archive(task)">
+                          <i class="bi bi-archive"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="8" class="text-muted text-center py-3">No tasks for this day</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      } @empty {
+        <div class="text-center text-muted py-5">
+          <p>No tasks yet. Add one above!</p>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Postpone Modal -->
+@if (postponeTask) {
+  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Postpone: {{ postponeTask.title }}</h5>
+          <button type="button" class="btn-close" (click)="postponeTask = null"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">New due date & time</label>
+            <input type="datetime-local" class="form-control" [(ngModel)]="postponeDate">
+          </div>
+          <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" id="updateAlert" [(ngModel)]="updateAlertOnPostpone">
+            <label class="form-check-label" for="updateAlert">Also update alert time</label>
+          </div>
+          @if (updateAlertOnPostpone) {
+            <div class="mb-3">
+              <label class="form-label">Alert at</label>
+              <input type="datetime-local" class="form-control" [(ngModel)]="postponeAlertAt">
+            </div>
+          }
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="postponeTask = null">Cancel</button>
+          <button class="btn btn-primary" (click)="confirmPostpone()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

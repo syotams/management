@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  ownedTeams     Team[]       @relation("TeamCreator")
+  teamMembers    TeamMember[]
+  invitesSent    TeamInvite[] @relation("InviteSender")
+  ownedTasks     Task[]       @relation("TaskOwner")
+  assignedTasks  Task[]       @relation("TaskAssignee")
+  createdTasks   Task[]       @relation("TaskCreator")
+  comments       Comment[]
+  auditLogs      TaskAuditLog[]
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  createdBy String
+  createdAt DateTime @default(now())
+
+  creator User         @relation("TeamCreator", fields: [createdBy], references: [id])
+  members TeamMember[]
+  invites TeamInvite[]
+  tasks   Task[]
+}
+
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String
+  userId   String
+  role     String   @default("member")
+  joinedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model TeamInvite {
+  id        String   @id @default(uuid())
+  teamId    String
+  email     String
+  token     String   @unique
+  status    String   @default("pending")
+  invitedBy String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviter User @relation("InviteSender", fields: [invitedBy], references: [id])
+
+  @@index([teamId, email])
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime
+  priority    String   @default("medium")
+  status      String   @default("todo")
+  ownerId     String
+  assigneeId  String
+  teamId      String?
+  createdBy   String
+  alertAt     DateTime
+  alertSent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner    User           @relation("TaskOwner", fields: [ownerId], references: [id])
+  assignee User           @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator  User           @relation("TaskCreator", fields: [createdBy], references: [id])
+  team     Team?          @relation(fields: [teamId], references: [id])
+  comments Comment[]
+  auditLogs TaskAuditLog[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  taskId    String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+}
+
+model TaskAuditLog {
+  id        String   @id @default(uuid())
+  taskId    String
+  userId    String
+  action    String
+  fieldName String?
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+}

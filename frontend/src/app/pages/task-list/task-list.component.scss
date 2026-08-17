@@ -1,0 +1,65 @@
+.day-header {
+  padding: 0.5rem 0;
+  border-bottom: 2px solid #dee2e6;
+  margin-bottom: 0.5rem;
+}
+
+.overdue-group .day-header {
+  border-bottom-color: #dc3545;
+}
+
+.priority-badge {
+  text-transform: capitalize;
+  min-width: 60px;
+}
+
+.priority-high {
+  background-color: #dc3545 !important;
+  color: #fff;
+}
+
+.priority-medium {
+  background-color: #fd7e14 !important;
+  color: #fff;
+}
+
+.priority-low {
+  background-color: #6c757d !important;
+  color: #fff;
+}
+
+.task-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  &:hover { color: #0d6efd; }
+}
+
+.last-comment {
+  font-size: 0.85rem;
+  color: #6c757d;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drag-handle {
+  cursor: grab;
+}
+
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 4px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  background: white;
+  padding: 8px;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+tr.cdk-drag-disabled {
+  cursor: default;
+}
