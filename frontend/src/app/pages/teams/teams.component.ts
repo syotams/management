@@ -142,7 +142,12 @@ export class TeamsComponent implements OnInit {
   }
 
   loadTeams() {
-    this.teamService.getTeams().subscribe((t) => (this.teams = t));
+    this.teamService.getTeams().subscribe((t) => {
+      this.teams = t;
+      if (t.length > 0 && !this.selectedTeamId) {
+        this.loadMembers(t[0].id);
+      }
+    });
   }
 
   createTeam() {

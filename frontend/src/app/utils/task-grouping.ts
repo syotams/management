@@ -83,3 +83,18 @@ export function displayName(user: { name?: string; email?: string }): string {
 }
 
 export const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  todo: 'Todo',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  archived: 'Archived',
+};
+
+export function statusLabel(status: string): string {
+  return STATUS_LABELS[status] || status;
+}
+
+export function statusClass(status: string): string {
+  return `status-${status}`;
+}

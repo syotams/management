@@ -21,8 +21,10 @@ import {
   dayKeyToDueDate,
   displayName,
   PRIORITIES,
+  statusLabel,
+  statusClass,
 } from '../../utils/task-grouping';
-import { datetimeLocalToUtcIso, formatUserDateTime, fromDatetimeLocal, userTimezoneLabel } from '../../utils/date';
+import { datetimeLocalToUtcIso, formatUserDate, formatUserDateTime, fromDatetimeLocal } from '../../utils/date';
 
 interface TaskSection {
   key: string;
@@ -75,8 +77,8 @@ export class TaskListComponent implements OnInit {
   openDropdownId: string | null = null;
 
   displayName = displayName;
-  timezoneLabel = userTimezoneLabel();
-
+  statusLabel = statusLabel;
+  statusClass = statusClass;
   constructor(
     private taskService: TaskService,
     public auth: AuthService,
@@ -334,23 +336,11 @@ export class TaskListComponent implements OnInit {
     return `priority-${priority}`;
   }
 
-  statusLabel(status: string): string {
-    const labels: Record<string, string> = {
-      todo: 'Todo',
-      in_progress: 'In Progress',
-      completed: 'Completed',
-      archived: 'Archived',
-    };
-    return labels[status] || status;
-  }
-
   formatDate(d: string): string {
-    return formatUserDateTime(d);
+    return formatUserDate(d);
   }
 
-  lastCommentMeta(task: Task): string {
-    if (!task.lastComment) return '';
-    const c = task.lastComment;
-    return `${displayName(c.user)} · ${this.formatDate(c.createdAt)}`;
+  formatDateTime(d: string): string {
+    return formatUserDateTime(d);
   }
 }

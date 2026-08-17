@@ -55,6 +55,12 @@
   .task-row + .comment-row td {
     border-bottom: 1px solid var(--app-border-subtle);
   }
+
+  .btn-outline-secondary,
+  .btn-outline-primary,
+  .btn-postpone {
+    font-weight: 500;
+  }
 }
 
 .task-row {

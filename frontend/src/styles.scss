@@ -31,6 +31,38 @@
   --app-error-rgb: 220, 53, 69;
   --app-warning: #fd7e14;
   --app-success: #198754;
+  --app-table-header-text: #5a6a7e;
+  --app-count-badge-bg: rgba(90, 106, 126, 0.12);
+  --app-count-badge-text: #5a6a7e;
+  --app-count-badge-border: rgba(90, 106, 126, 0.25);
+  --app-status-todo-bg: rgba(90, 106, 126, 0.1);
+  --app-status-todo-text: #5a6a7e;
+  --app-status-todo-border: rgba(90, 106, 126, 0.25);
+  --app-status-in-progress-bg: rgba(79, 70, 229, 0.1);
+  --app-status-in-progress-text: #4338ca;
+  --app-status-in-progress-border: rgba(79, 70, 229, 0.3);
+  --app-status-completed-bg: rgba(25, 135, 84, 0.1);
+  --app-status-completed-text: #198754;
+  --app-status-completed-border: rgba(25, 135, 84, 0.3);
+  --app-status-archived-bg: rgba(90, 106, 126, 0.08);
+  --app-status-archived-text: #5a6a7e;
+  --app-status-archived-border: rgba(90, 106, 126, 0.2);
+  --app-priority-urgent-bg: rgba(132, 32, 41, 0.14);
+  --app-priority-urgent-text: #842029;
+  --app-priority-urgent-border: rgba(132, 32, 41, 0.35);
+  --app-priority-high-bg: rgba(220, 53, 69, 0.12);
+  --app-priority-high-text: #dc3545;
+  --app-priority-high-border: rgba(220, 53, 69, 0.3);
+  --app-priority-medium-bg: rgba(253, 126, 20, 0.12);
+  --app-priority-medium-text: #c45a00;
+  --app-priority-medium-border: rgba(253, 126, 20, 0.3);
+  --app-priority-low-bg: rgba(108, 117, 125, 0.12);
+  --app-priority-low-text: #5a6a7e;
+  --app-priority-low-border: rgba(108, 117, 125, 0.25);
+  --app-btn-ghost-bg: rgba(26, 35, 50, 0.04);
+  --app-btn-ghost-border: #b8c4d4;
+  --app-btn-ghost-hover-bg: rgba(79, 70, 229, 0.08);
+  --app-btn-ghost-hover-border: #4f46e5;
 
   --bs-body-bg: var(--app-bg);
   --bs-body-color: var(--app-text);
@@ -46,36 +78,68 @@
   --bs-focus-ring-color: rgba(var(--app-primary-rgb), 0.25);
 }
 
-// ── Dark palette: GitHub Dark (current) ──────────────────
+// ── Dark palette: GitHub Dark ─────────────────────────────
 [data-bs-theme='dark'][data-dark-variant='github'] {
   --app-bg: #0d1117;
   --app-surface: #161b22;
-  --app-surface-hover: #1c2330;
-  --app-border: #3d4f66;
-  --app-border-subtle: #2a3444;
+  --app-surface-hover: #21262d;
+  --app-border: #484f58;
+  --app-border-subtle: #30363d;
   --app-text: #e6edf3;
-  --app-text-muted: #8b9cb3;
+  --app-text-muted: #9198a1;
   --app-text-disabled: rgba(230, 237, 243, 0.38);
   --app-navbar-bg: #161b22;
   --app-navbar-text: #e6edf3;
   --app-input-bg: #0d1117;
-  --app-input-border: rgba(230, 237, 243, 0.38);
-  --app-input-border-hover: rgba(230, 237, 243, 0.6);
+  --app-input-border: #484f58;
+  --app-input-border-hover: #9198a1;
   --app-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.25);
   --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --app-table-header-bg: #1c2330;
+  --app-table-header-bg: #21262d;
+  --app-table-header-text: #b1bac4;
   --app-modal-backdrop: rgba(0, 0, 0, 0.65);
-  --app-primary: #6366f1;
-  --app-primary-rgb: 99, 102, 241;
-  --app-primary-hover: #818cf8;
-  --app-primary-active: #a5b4fc;
+  --app-primary: #1f6feb;
+  --app-primary-rgb: 31, 111, 235;
+  --app-primary-hover: #388bfd;
+  --app-primary-active: #58a6ff;
   --app-on-primary: #ffffff;
-  --app-link: #818cf8;
-  --app-link-hover: #a5b4fc;
+  --app-link: #58a6ff;
+  --app-link-hover: #79c0ff;
   --app-error: #f85149;
   --app-error-rgb: 248, 81, 73;
   --app-warning: #d29922;
   --app-success: #3fb950;
+  --app-btn-ghost-bg: rgba(230, 237, 243, 0.05);
+  --app-btn-ghost-border: #484f58;
+  --app-btn-ghost-hover-bg: rgba(88, 166, 255, 0.1);
+  --app-btn-ghost-hover-border: #58a6ff;
+  --app-count-badge-bg: rgba(177, 186, 196, 0.1);
+  --app-count-badge-text: #b1bac4;
+  --app-count-badge-border: rgba(177, 186, 196, 0.25);
+  --app-status-todo-bg: rgba(177, 186, 196, 0.12);
+  --app-status-todo-text: #b1bac4;
+  --app-status-todo-border: rgba(177, 186, 196, 0.3);
+  --app-status-in-progress-bg: rgba(88, 166, 255, 0.12);
+  --app-status-in-progress-text: #58a6ff;
+  --app-status-in-progress-border: rgba(88, 166, 255, 0.35);
+  --app-status-completed-bg: rgba(63, 185, 80, 0.12);
+  --app-status-completed-text: #3fb950;
+  --app-status-completed-border: rgba(63, 185, 80, 0.35);
+  --app-status-archived-bg: rgba(145, 152, 161, 0.1);
+  --app-status-archived-text: #9198a1;
+  --app-status-archived-border: rgba(145, 152, 161, 0.25);
+  --app-priority-urgent-bg: rgba(248, 81, 73, 0.22);
+  --app-priority-urgent-text: #ff7b72;
+  --app-priority-urgent-border: rgba(248, 81, 73, 0.55);
+  --app-priority-high-bg: rgba(248, 81, 73, 0.12);
+  --app-priority-high-text: #f85149;
+  --app-priority-high-border: rgba(248, 81, 73, 0.35);
+  --app-priority-medium-bg: rgba(210, 153, 34, 0.14);
+  --app-priority-medium-text: #e3b341;
+  --app-priority-medium-border: rgba(210, 153, 34, 0.4);
+  --app-priority-low-bg: rgba(177, 186, 196, 0.1);
+  --app-priority-low-text: #b1bac4;
+  --app-priority-low-border: rgba(177, 186, 196, 0.25);
 
   --bs-body-bg: var(--app-bg);
   --bs-body-color: var(--app-text);
@@ -89,6 +153,24 @@
   --bs-danger: var(--app-error);
   --bs-danger-rgb: var(--app-error-rgb);
   --bs-focus-ring-color: rgba(var(--app-primary-rgb), 0.25);
+}
+
+[data-bs-theme='dark'][data-dark-variant='github'] {
+  .btn-outline-secondary {
+    --bs-btn-bg: var(--app-btn-ghost-bg);
+    --bs-btn-border-color: var(--app-btn-ghost-border);
+    --bs-btn-hover-bg: var(--app-btn-ghost-hover-bg);
+    --bs-btn-hover-border-color: var(--app-btn-ghost-hover-border);
+    --bs-btn-hover-color: var(--app-link);
+    --bs-btn-active-bg: rgba(88, 166, 255, 0.15);
+    --bs-btn-active-border-color: var(--app-link);
+    --bs-btn-active-color: var(--app-link);
+  }
+
+  .btn-outline-primary {
+    --bs-btn-hover-color: var(--app-link);
+    --bs-btn-active-color: var(--app-link);
+  }
 }
 
 // ── Dark palette: Material Design 2 (shared surfaces) ────
@@ -116,6 +198,38 @@
   --app-error-rgb: 207, 102, 121;
   --app-warning: #ffb74d;
   --app-success: #81c784;
+  --app-table-header-text: rgba(255, 255, 255, 0.60);
+  --app-count-badge-bg: rgba(255, 255, 255, 0.08);
+  --app-count-badge-text: rgba(255, 255, 255, 0.60);
+  --app-count-badge-border: rgba(255, 255, 255, 0.12);
+  --app-status-todo-bg: rgba(255, 255, 255, 0.08);
+  --app-status-todo-text: rgba(255, 255, 255, 0.60);
+  --app-status-todo-border: rgba(255, 255, 255, 0.12);
+  --app-status-in-progress-bg: rgba(var(--app-primary-rgb), 0.12);
+  --app-status-in-progress-text: var(--app-primary);
+  --app-status-in-progress-border: rgba(var(--app-primary-rgb), 0.35);
+  --app-status-completed-bg: rgba(129, 199, 132, 0.12);
+  --app-status-completed-text: #81c784;
+  --app-status-completed-border: rgba(129, 199, 132, 0.35);
+  --app-status-archived-bg: rgba(255, 255, 255, 0.06);
+  --app-status-archived-text: rgba(255, 255, 255, 0.38);
+  --app-status-archived-border: rgba(255, 255, 255, 0.1);
+  --app-priority-urgent-bg: rgba(207, 102, 121, 0.18);
+  --app-priority-urgent-text: #ef9a9a;
+  --app-priority-urgent-border: rgba(207, 102, 121, 0.45);
+  --app-priority-high-bg: rgba(207, 102, 121, 0.12);
+  --app-priority-high-text: #cf6679;
+  --app-priority-high-border: rgba(207, 102, 121, 0.35);
+  --app-priority-medium-bg: rgba(255, 183, 77, 0.14);
+  --app-priority-medium-text: #ffb74d;
+  --app-priority-medium-border: rgba(255, 183, 77, 0.4);
+  --app-priority-low-bg: rgba(255, 255, 255, 0.08);
+  --app-priority-low-text: rgba(255, 255, 255, 0.60);
+  --app-priority-low-border: rgba(255, 255, 255, 0.12);
+  --app-btn-ghost-bg: rgba(255, 255, 255, 0.04);
+  --app-btn-ghost-border: rgba(255, 255, 255, 0.12);
+  --app-btn-ghost-hover-bg: rgba(var(--app-primary-rgb), 0.12);
+  --app-btn-ghost-hover-border: var(--app-primary);
 
   --bs-body-bg: var(--app-bg);
   --bs-body-color: var(--app-text);
@@ -456,6 +570,19 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
   --bs-btn-focus-shadow-rgb: 255, 183, 77;
 }
 
+.btn-postpone {
+  --bs-btn-color: var(--app-text-muted);
+  --bs-btn-border-color: var(--app-btn-ghost-border, var(--app-border));
+  --bs-btn-bg: var(--app-btn-ghost-bg, transparent);
+  --bs-btn-hover-color: var(--app-link);
+  --bs-btn-hover-bg: var(--app-btn-ghost-hover-bg, rgba(var(--app-primary-rgb), 0.08));
+  --bs-btn-hover-border-color: var(--app-btn-ghost-hover-border, var(--app-link));
+  --bs-btn-active-color: var(--app-link);
+  --bs-btn-active-bg: rgba(var(--app-primary-rgb), 0.12);
+  --bs-btn-active-border-color: var(--app-link);
+  --bs-btn-focus-shadow-rgb: var(--app-primary-rgb);
+}
+
 .btn-outline-success,
 .btn-success {
   --bs-btn-color: var(--app-success);
@@ -520,14 +647,47 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 
 // ── Badges ───────────────────────────────────────────────
 .badge.bg-secondary {
-  background: var(--app-surface-hover) !important;
-  color: var(--app-text-muted) !important;
-  border: 1px solid var(--app-border-subtle);
+  background: var(--app-count-badge-bg) !important;
+  color: var(--app-count-badge-text) !important;
+  border: 1px solid var(--app-count-badge-border);
+  font-weight: 500;
 }
 
 .badge.bg-warning {
   background: rgba(255, 183, 77, 0.18) !important;
   color: var(--app-warning) !important;
+  border: 1px solid rgba(255, 183, 77, 0.35);
+  font-weight: 500;
+}
+
+.status-badge {
+  font-weight: 500;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.status-todo {
+  background: var(--app-status-todo-bg) !important;
+  color: var(--app-status-todo-text) !important;
+  border-color: var(--app-status-todo-border);
+}
+
+.status-in_progress {
+  background: var(--app-status-in-progress-bg) !important;
+  color: var(--app-status-in-progress-text) !important;
+  border-color: var(--app-status-in-progress-border);
+}
+
+.status-completed {
+  background: var(--app-status-completed-bg) !important;
+  color: var(--app-status-completed-text) !important;
+  border-color: var(--app-status-completed-border);
+}
+
+.status-archived {
+  background: var(--app-status-archived-bg) !important;
+  color: var(--app-status-archived-text) !important;
+  border-color: var(--app-status-archived-border);
 }
 
 // ── Spinners & close button ──────────────────────────────
@@ -554,11 +714,11 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 
   thead th {
     background: var(--app-table-header-bg);
-    color: var(--app-text-muted);
-    font-size: 0.8rem;
+    color: var(--app-table-header-text);
+    font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     border-bottom: 1px solid var(--app-border);
   }
 }
@@ -607,8 +767,35 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 .text-muted { color: var(--app-text-muted) !important; }
 
 // ── Priority badges (shared) ─────────────────────────────
-.priority-badge { text-transform: capitalize; min-width: 60px; }
-.priority-urgent { background-color: #842029 !important; color: #fff; font-weight: bold; }
-.priority-high   { background-color: #dc3545 !important; color: #fff; }
-.priority-medium { background-color: #fd7e14 !important; color: #fff; }
-.priority-low    { background-color: #6c757d !important; color: #fff; }
+.priority-badge {
+  text-transform: capitalize;
+  min-width: 60px;
+  font-weight: 500;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.priority-urgent {
+  background: var(--app-priority-urgent-bg) !important;
+  color: var(--app-priority-urgent-text) !important;
+  border-color: var(--app-priority-urgent-border);
+  font-weight: 700;
+}
+
+.priority-high {
+  background: var(--app-priority-high-bg) !important;
+  color: var(--app-priority-high-text) !important;
+  border-color: var(--app-priority-high-border);
+}
+
+.priority-medium {
+  background: var(--app-priority-medium-bg) !important;
+  color: var(--app-priority-medium-text) !important;
+  border-color: var(--app-priority-medium-border);
+}
+
+.priority-low {
+  background: var(--app-priority-low-bg) !important;
+  color: var(--app-priority-low-text) !important;
+  border-color: var(--app-priority-low-border);
+}

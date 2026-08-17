@@ -47,6 +47,18 @@ export function dayKeyToDueDate(dayKey: string, existingDue: Date): string {
   return datetimeLocalToUtcIso(`${dayKey}T${time}`);
 }
 
+/** Display an instant (UTC ISO from the API) as date only in the user's timezone. */
+export function formatUserDate(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, {
+    timeZone: userTimeZone(),
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 /** Display an instant (UTC ISO from the API) in the user's timezone. */
 export function formatUserDateTime(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);
@@ -58,6 +70,5 @@ export function formatUserDateTime(value: string | Date): string {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-    timeZoneName: 'short',
   });
 }

@@ -45,13 +45,13 @@
         <div class="row g-3 mt-1">
           @if (showDueDateField) {
             <div class="col-md-6">
-              <label class="form-label">Due date <small class="text-muted">({{ timezoneLabel }})</small></label>
+              <label class="form-label">Due date</label>
               <input type="datetime-local" class="form-control" [(ngModel)]="newDueDate">
             </div>
           }
           @if (showAlertField) {
             <div class="col-md-6">
-              <label class="form-label">Alert at <small class="text-muted">({{ timezoneLabel }})</small></label>
+              <label class="form-label">Alert at</label>
               <input type="datetime-local" class="form-control" [(ngModel)]="newAlertAt">
             </div>
           }
@@ -69,7 +69,7 @@
         </div>
       }
 
-      <small class="text-muted mt-2 d-block">Defaults: due in 1 hour ({{ timezoneLabel }}), priority medium, assignee you</small>
+      <small class="text-muted mt-2 d-block">Defaults: due in 1 hour, priority medium, assignee you</small>
     </div>
   </div>
 
@@ -134,9 +134,9 @@
                           {{ task.title }}
                         </span>
                       </td>
-                      <td>{{ formatDate(task.dueDate) }}</td>
+                      <td [title]="formatDateTime(task.dueDate)">{{ formatDate(task.dueDate) }}</td>
                       <td>{{ displayName(task.assignee) }}</td>
-                      <td><span class="badge bg-secondary">{{ statusLabel(task.status) }}</span></td>
+                      <td><span class="badge status-badge" [ngClass]="statusClass(task.status)">{{ statusLabel(task.status) }}</span></td>
                       <td (click)="$event.stopPropagation()">
                         <div class="d-flex gap-1 align-items-center">
                           <div class="dropdown">
@@ -173,7 +173,7 @@
                             <i class="bi bi-sliders"></i>
                           </button>
                           @if (isOwner(task)) {
-                            <button class="btn btn-outline-warning btn-sm" title="Postpone" (click)="openPostpone(task, $event)">
+                            <button class="btn btn-postpone btn-sm" title="Postpone" (click)="openPostpone(task, $event)">
                               <i class="bi bi-calendar-event"></i>
                             </button>
                           }
@@ -187,7 +187,10 @@
                             <div class="last-comment-block">
                               <i class="bi bi-chat-left-text me-1 text-muted"></i>
                               <span class="last-comment-text" [title]="task.lastComment.body">{{ task.lastComment.body }}</span>
-                              <small class="text-muted ms-2">{{ lastCommentMeta(task) }}</small>
+                              <small class="text-muted ms-2">
+                                {{ displayName(task.lastComment.user) }} ·
+                                <span [title]="formatDateTime(task.lastComment.createdAt)">{{ formatDate(task.lastComment.createdAt) }}</span>
+                              </small>
                             </div>
                           }
                           @if (commentOpenId === task.id) {
@@ -242,7 +245,7 @@
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">New due date & time <small class="text-muted">({{ timezoneLabel }})</small></label>
+            <label class="form-label">New due date & time</label>
             <input type="datetime-local" class="form-control" [(ngModel)]="postponeDate">
           </div>
           <div class="form-check mb-3">
@@ -251,7 +254,7 @@
           </div>
           @if (updateAlertOnPostpone) {
             <div class="mb-3">
-              <label class="form-label">Alert at <small class="text-muted">({{ timezoneLabel }})</small></label>
+              <label class="form-label">Alert at</label>
               <input type="datetime-local" class="form-control" [(ngModel)]="postponeAlertAt">
             </div>
           }
@@ -293,11 +296,11 @@
             </div>
             @if (isOwner(editTask)) {
               <div class="col-md-6">
-                <label class="form-label">Due date <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <label class="form-label">Due date</label>
                 <input type="datetime-local" class="form-control" [(ngModel)]="editForm.dueDate">
               </div>
               <div class="col-md-6">
-                <label class="form-label">Alert at <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <label class="form-label">Alert at</label>
                 <input type="datetime-local" class="form-control" [(ngModel)]="editForm.alertAt">
               </div>
               <div class="col-md-6">

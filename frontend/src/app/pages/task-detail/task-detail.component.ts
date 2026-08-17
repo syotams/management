@@ -6,8 +6,8 @@ import { TaskService } from '../../services/task.service';
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
 import { AssignableMember, Priority, TaskDetail } from '../../models';
-import { toDatetimeLocal, displayName, PRIORITIES } from '../../utils/task-grouping';
-import { datetimeLocalToUtcIso, formatUserDateTime, userTimezoneLabel } from '../../utils/date';
+import { toDatetimeLocal, displayName, PRIORITIES, statusLabel, statusClass } from '../../utils/task-grouping';
+import { datetimeLocalToUtcIso, formatUserDateTime } from '../../utils/date';
 
 @Component({
   selector: 'app-task-detail',
@@ -21,7 +21,8 @@ export class TaskDetailComponent implements OnInit {
   loading = true;
   newComment = '';
   displayName = displayName;
-  timezoneLabel = userTimezoneLabel();
+  statusLabel = statusLabel;
+  statusClass = statusClass;
   priorities = PRIORITIES;
   members: AssignableMember[] = [];
   editTask: TaskDetail | null = null;

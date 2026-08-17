@@ -19,7 +19,7 @@
         <p class="text-muted">{{ task.description || 'No description' }}</p>
         <div class="row">
           <div class="col-md-6">
-            <p><strong>Status:</strong> {{ task.status }}</p>
+            <p><strong>Status:</strong> <span class="badge status-badge" [ngClass]="statusClass(task.status)">{{ statusLabel(task.status) }}</span></p>
             <p><strong>Due:</strong> {{ formatDate(task.dueDate) }}</p>
             <p><strong>Created:</strong> {{ formatDate(task.createdAt) }}</p>
           </div>
@@ -115,11 +115,11 @@
             </div>
             @if (isOwner()) {
               <div class="col-md-6">
-                <label class="form-label">Due date <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <label class="form-label">Due date</label>
                 <input type="datetime-local" class="form-control" [(ngModel)]="editForm.dueDate">
               </div>
               <div class="col-md-6">
-                <label class="form-label">Alert at <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <label class="form-label">Alert at</label>
                 <input type="datetime-local" class="form-control" [(ngModel)]="editForm.alertAt">
               </div>
               <div class="col-md-6">

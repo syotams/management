@@ -45,7 +45,7 @@ export const THEME_OPTIONS: ThemeOption[] = [
     id: 'dark-github',
     name: 'GitHub Dark',
     description: 'Deep blue-gray tones inspired by GitHub’s dark mode.',
-    swatches: ['#0d1117', '#161b22', '#6366f1'],
+    swatches: ['#0d1117', '#161b22', '#1f6feb'],
   },
   ...MATERIAL_PALETTES.map((palette) => ({
     id: `dark-material-${palette}` as Theme,
