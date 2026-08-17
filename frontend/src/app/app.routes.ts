@@ -29,6 +29,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'settings',
+    loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'invites/:token',
     loadComponent: () => import('./pages/invite-accept/invite-accept.component').then(m => m.InviteAcceptComponent),
   },

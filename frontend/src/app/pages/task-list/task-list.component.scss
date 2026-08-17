@@ -20,21 +20,22 @@
 }
 
 .overdue-group .card-header {
-  color: #dc3545 !important;
-  background: rgba(220, 53, 69, 0.06) !important;
+  color: var(--app-error) !important;
+  background: rgba(var(--app-error-rgb), 0.08) !important;
 }
 
 .urgent-group .card-header {
-  color: #842029 !important;
-  background: rgba(132, 32, 41, 0.06) !important;
+  color: var(--app-error) !important;
+  background: rgba(var(--app-error-rgb), 0.12) !important;
 }
 
-[data-bs-theme='dark'] {
+[data-bs-theme='dark'][data-dark-variant='github'],
+[data-bs-theme='dark'][data-dark-variant^='material-'] {
   .overdue-group .card-header {
-    background: rgba(220, 53, 69, 0.12) !important;
+    background: rgba(var(--app-error-rgb), 0.12) !important;
   }
   .urgent-group .card-header {
-    background: rgba(132, 32, 41, 0.15) !important;
+    background: rgba(var(--app-error-rgb), 0.15) !important;
   }
 }
 

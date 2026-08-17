@@ -8,11 +8,31 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <script>
     (function () {
+      var valid = {
+        light: true,
+        'dark-github': true,
+        'dark-material-indigo': true,
+        'dark-material-purple': true,
+        'dark-material-orange': true
+      };
       var t = localStorage.getItem('theme');
-      if (t !== 'light' && t !== 'dark') {
-        t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      if (t === 'dark') t = 'dark-github';
+      if (t === 'dark-material') t = 'dark-material-purple';
+      if (!valid[t]) {
+        t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-github' : 'light';
       }
-      document.documentElement.setAttribute('data-bs-theme', t);
+      var isDark = t !== 'light';
+      var variant = t === 'dark-github'
+        ? 'github'
+        : t === 'dark-material-indigo'
+          ? 'material-indigo'
+          : t === 'dark-material-purple'
+            ? 'material-purple'
+            : t === 'dark-material-orange'
+              ? 'material-orange'
+              : 'light';
+      document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-dark-variant', isDark ? variant : 'light');
     })();
   </script>
 </head>

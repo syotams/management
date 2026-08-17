@@ -17,9 +17,9 @@ import { ThemeService } from '../../services/theme.service';
           <button
             class="btn btn-theme-toggle"
             (click)="theme.toggle()"
-            [title]="theme.current() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+            [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
           >
-            @if (theme.current() === 'dark') {
+            @if (theme.isDark()) {
               <i class="bi bi-sun-fill"></i>
             } @else {
               <i class="bi bi-moon-fill"></i>
@@ -28,6 +28,9 @@ import { ThemeService } from '../../services/theme.service';
           @if (auth.currentUser()) {
             <a class="nav-link px-2" routerLink="/tasks">Tasks</a>
             <a class="nav-link px-2" routerLink="/teams">Teams</a>
+            <a class="nav-link px-2" routerLink="/settings" title="Settings">
+              <i class="bi bi-gear"></i>
+            </a>
             <span class="navbar-text px-2">{{ auth.currentUser()?.name }}</span>
             <button class="btn btn-outline-secondary btn-sm btn-logout" (click)="auth.logout()">Logout</button>
           }
