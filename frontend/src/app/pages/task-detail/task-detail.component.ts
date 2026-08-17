@@ -4,8 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TaskService } from '../../services/task.service';
 import { AuthService } from '../../services/auth.service';
-import { TaskDetail } from '../../models';
-import { toDatetimeLocal, displayName } from '../../utils/task-grouping';
+import { TeamService } from '../../services/team.service';
+import { AssignableMember, Priority, TaskDetail } from '../../models';
+import { toDatetimeLocal, displayName, PRIORITIES } from '../../utils/task-grouping';
 import { datetimeLocalToUtcIso, formatUserDateTime, userTimezoneLabel } from '../../utils/date';
 
 @Component({
@@ -19,13 +20,24 @@ export class TaskDetailComponent implements OnInit {
   task: TaskDetail | null = null;
   loading = true;
   newComment = '';
-  alertAtLocal = '';
   displayName = displayName;
   timezoneLabel = userTimezoneLabel();
+  priorities = PRIORITIES;
+  members: AssignableMember[] = [];
+  editTask: TaskDetail | null = null;
+  editForm = {
+    title: '',
+    description: '',
+    priority: 'medium' as Priority,
+    dueDate: '',
+    alertAt: '',
+    assigneeId: '',
+  };
 
   constructor(
     private route: ActivatedRoute,
     private taskService: TaskService,
+    private teamService: TeamService,
     public auth: AuthService,
   ) {}
 
@@ -34,10 +46,10 @@ export class TaskDetailComponent implements OnInit {
     this.taskService.getTask(id).subscribe({
       next: (task) => {
         this.task = task;
-        this.alertAtLocal = toDatetimeLocal(new Date(task.alertAt));
         this.loading = false;
       },
     });
+    this.teamService.getAssignableMembers().subscribe((m) => (this.members = m));
   }
 
   isOwner(): boolean {
@@ -63,18 +75,41 @@ export class TaskDetailComponent implements OnInit {
     this.taskService.deleteComment(this.task.id, commentId).subscribe(() => this.reload());
   }
 
-  saveAlert() {
+  openEditModal() {
     if (!this.task) return;
-    this.taskService.updateTask(this.task.id, {
-      alertAt: datetimeLocalToUtcIso(this.alertAtLocal),
-    }).subscribe(() => this.reload());
+    this.editTask = this.task;
+    this.editForm = {
+      title: this.task.title,
+      description: this.task.description || '',
+      priority: this.task.priority,
+      dueDate: toDatetimeLocal(new Date(this.task.dueDate)),
+      alertAt: toDatetimeLocal(new Date(this.task.alertAt)),
+      assigneeId: this.task.assigneeId,
+    };
+  }
+
+  saveEditModal() {
+    if (!this.editTask) return;
+    const data: Record<string, string> = {
+      title: this.editForm.title.trim(),
+      description: this.editForm.description,
+      priority: this.editForm.priority,
+    };
+    if (this.isOwner()) {
+      data['assigneeId'] = this.editForm.assigneeId;
+      data['dueDate'] = datetimeLocalToUtcIso(this.editForm.dueDate);
+      data['alertAt'] = datetimeLocalToUtcIso(this.editForm.alertAt);
+    }
+    this.taskService.updateTask(this.editTask.id, data).subscribe(() => {
+      this.editTask = null;
+      this.reload();
+    });
   }
 
   reload() {
     if (!this.task) return;
     this.taskService.getTask(this.task.id).subscribe((t) => {
       this.task = t;
-      this.alertAtLocal = toDatetimeLocal(new Date(t.alertAt));
     });
   }
 

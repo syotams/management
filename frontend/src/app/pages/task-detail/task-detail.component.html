@@ -9,7 +9,12 @@
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start">
           <h3>{{ task.title }}</h3>
-          <span class="badge priority-badge" [ngClass]="'priority-' + task.priority">{{ task.priority }}</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge priority-badge" [ngClass]="'priority-' + task.priority">{{ task.priority }}</span>
+            <button type="button" class="btn btn-outline-primary btn-sm" title="Edit" (click)="openEditModal()">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </div>
         </div>
         <p class="text-muted">{{ task.description || 'No description' }}</p>
         <div class="row">
@@ -21,17 +26,7 @@
           <div class="col-md-6">
             <p><strong>Owner:</strong> {{ displayName(task.owner) }}</p>
             <p><strong>Assignee:</strong> {{ displayName(task.assignee) }}</p>
-            @if (isOwner()) {
-              <div class="mb-2">
-                <label class="form-label"><strong>Alert at</strong> <small class="text-muted">({{ timezoneLabel }})</small></label>
-                <div class="input-group input-group-sm">
-                  <input type="datetime-local" class="form-control" [(ngModel)]="alertAtLocal">
-                  <button class="btn btn-outline-primary" (click)="saveAlert()">Save</button>
-                </div>
-              </div>
-            } @else {
-              <p><strong>Alert at:</strong> {{ formatDate(task.alertAt) }}</p>
-            }
+            <p><strong>Alert at:</strong> {{ formatDate(task.alertAt) }}</p>
           </div>
         </div>
       </div>
@@ -91,3 +86,58 @@
     </div>
   }
 </div>
+
+@if (editTask) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Task</h5>
+          <button type="button" class="btn-close" (click)="editTask = null"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label">Title *</label>
+              <input type="text" class="form-control" [(ngModel)]="editForm.title">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Priority</label>
+              <select class="form-select" [(ngModel)]="editForm.priority">
+                @for (p of priorities; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" rows="3" [(ngModel)]="editForm.description"></textarea>
+            </div>
+            @if (isOwner()) {
+              <div class="col-md-6">
+                <label class="form-label">Due date <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <input type="datetime-local" class="form-control" [(ngModel)]="editForm.dueDate">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Alert at <small class="text-muted">({{ timezoneLabel }})</small></label>
+                <input type="datetime-local" class="form-control" [(ngModel)]="editForm.alertAt">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Assignee</label>
+                <select class="form-select" [(ngModel)]="editForm.assigneeId">
+                  @for (m of members; track m.id) {
+                    <option [value]="m.id">{{ m.name }} ({{ m.teamName }})</option>
+                  }
+                </select>
+              </div>
+            }
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="editTask = null">Cancel</button>
+          <button class="btn btn-primary" (click)="saveEditModal()" [disabled]="!editForm.title.trim()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
