@@ -40,6 +40,14 @@
 }
 
 .task-table {
+  table-layout: fixed;
+
+  .task-title-cell {
+    overflow: hidden;
+    max-width: 0;
+    width: 100%;
+  }
+
   .task-row td {
     border-bottom: none;
     padding-bottom: 0.35rem;
@@ -136,8 +144,22 @@
   }
 }
 
+.task-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.task-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .drag-handle {
   cursor: grab;
+  flex-shrink: 0;
 }
 
 .cdk-drag-preview {

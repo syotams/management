@@ -126,12 +126,12 @@
                       <td>
                         <span class="badge priority-badge" [ngClass]="priorityClass(task.priority)">{{ task.priority }}</span>
                       </td>
-                      <td>
+                      <td class="task-title-cell">
                         <span class="task-title">
                           @if (section.droppable && isOwner(task)) {
                             <i class="bi bi-grip-vertical text-muted me-1 drag-handle" cdkDragHandle (click)="$event.stopPropagation()"></i>
                           }
-                          {{ task.title }}
+                          <span class="task-title-text" [title]="task.title">{{ task.title }}</span>
                         </span>
                       </td>
                       <td [title]="formatDateTime(task.dueDate)">{{ formatDate(task.dueDate) }}</td>
