@@ -72,8 +72,6 @@ export class TaskListComponent implements OnInit {
     assigneeId: '',
   };
 
-  commentOpenId: string | null = null;
-  commentText = '';
   openDropdownId: string | null = null;
 
   displayName = displayName;
@@ -277,30 +275,7 @@ export class TaskListComponent implements OnInit {
     });
   }
 
-  openCommentBox(taskId: string, event: Event) {
-    event.stopPropagation();
-    this.commentOpenId = taskId;
-    this.commentText = '';
-  }
-
-  cancelComment(event: Event) {
-    event.stopPropagation();
-    this.commentOpenId = null;
-    this.commentText = '';
-  }
-
-  submitComment(task: Task, event: Event) {
-    event.stopPropagation();
-    if (!this.commentText.trim()) return;
-    this.taskService.addComment(task.id, this.commentText.trim()).subscribe(() => {
-      this.commentOpenId = null;
-      this.commentText = '';
-      this.loadTasks();
-    });
-  }
-
   onRowClick(task: Task) {
-    if (this.commentOpenId === task.id) return;
     this.router.navigate(['/tasks', task.id]);
   }
 

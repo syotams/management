@@ -180,41 +180,22 @@
                         </div>
                       </td>
                     </tr>
-                    <tr class="comment-row" (click)="$event.stopPropagation()">
-                      <td colspan="6">
-                        <div class="comment-sub-row">
-                          @if (task.lastComment) {
+                    @if (task.lastComment) {
+                      <tr class="comment-row" (click)="$event.stopPropagation()">
+                        <td colspan="6">
+                          <div class="comment-sub-row">
                             <div class="last-comment-block">
-                              <i class="bi bi-chat-left-text me-1 text-muted"></i>
-                              <span class="last-comment-text" [title]="task.lastComment.body">{{ task.lastComment.body }}</span>
-                              <small class="text-muted ms-2">
+                              <i class="bi bi-chat-left-text text-muted"></i>
+                              <span class="last-comment-text">{{ task.lastComment.body }}</span>
+                              <small class="last-comment-meta text-muted">
                                 {{ displayName(task.lastComment.user) }} ·
                                 <span [title]="formatDateTime(task.lastComment.createdAt)">{{ formatDate(task.lastComment.createdAt) }}</span>
                               </small>
                             </div>
-                          }
-                          @if (commentOpenId === task.id) {
-                            <div class="comment-form mt-2">
-                              <textarea
-                                class="form-control form-control-sm mb-2"
-                                rows="2"
-                                [(ngModel)]="commentText"
-                                placeholder="Write a comment..."
-                                (click)="$event.stopPropagation()"
-                              ></textarea>
-                              <div class="d-flex gap-2">
-                                <button class="btn btn-primary btn-sm" (click)="submitComment(task, $event)" [disabled]="!commentText.trim()">Post</button>
-                                <button class="btn btn-secondary btn-sm" (click)="cancelComment($event)">Cancel</button>
-                              </div>
-                            </div>
-                          } @else {
-                            <button class="btn btn-link btn-sm add-comment-btn ps-0" (click)="openCommentBox(task.id, $event)">
-                              <i class="bi bi-plus-lg me-1"></i>Add comment
-                            </button>
-                          }
-                        </div>
-                      </td>
-                    </tr>
+                          </div>
+                        </td>
+                      </tr>
+                    }
                   } @empty {
                     <tr><td colspan="6" class="text-muted text-center py-4">No tasks in this group</td></tr>
                   }
