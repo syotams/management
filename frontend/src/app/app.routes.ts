@@ -29,6 +29,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'quarters',
+    loadComponent: () => import('./pages/quarters/quarters.component').then(m => m.QuartersComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'quarters/:id',
+    loadComponent: () => import('./pages/quarter-detail/quarter-detail.component').then(m => m.QuarterDetailComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent),
     canActivate: [authGuard],

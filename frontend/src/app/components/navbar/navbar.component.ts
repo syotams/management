@@ -27,6 +27,7 @@ import { ThemeService } from '../../services/theme.service';
           </button>
           @if (auth.currentUser()) {
             <a class="nav-link px-2" routerLink="/tasks">Tasks</a>
+            <a class="nav-link px-2" routerLink="/quarters">Quarters</a>
             <a class="nav-link px-2" routerLink="/teams">Teams</a>
             <a class="nav-link px-2" routerLink="/settings" title="Settings">
               <i class="bi bi-gear"></i>

@@ -1,0 +1,216 @@
+<div class="py-2">
+  <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <a routerLink="/quarters" class="back-link"><i class="bi bi-arrow-left me-1"></i>All quarters</a>
+      @if (quarter) {
+        <h2 class="page-title mb-1">{{ quarter.name || formatRange(quarter.startDate, quarter.endDate) }}</h2>
+        <div class="text-muted">
+          {{ formatRange(quarter.startDate, quarter.endDate) }}
+          · {{ quarter.team?.name || 'No team' }}
+          · {{ quarter.sprints.length }} sprints
+          · {{ quarter.epics.length }} epics
+          <span
+            class="badge status-badge ms-2"
+            [class.status-in_progress]="quarter.status === 'active'"
+            [class.status-completed]="quarter.status === 'completed'"
+          >
+            {{ quarter.status === 'completed' ? 'Completed' : 'Active' }}
+          </span>
+        </div>
+      }
+    </div>
+    @if (quarter && isManager) {
+      <div class="dropdown" (click)="$event.stopPropagation()">
+        <button
+          class="btn btn-outline-secondary dropdown-toggle"
+          type="button"
+          (click)="toggleActions($event)"
+        >
+          Actions
+        </button>
+        @if (actionsOpen) {
+          <ul class="dropdown-menu show">
+            <li>
+              <button class="dropdown-item" (click)="openEdit($event)">
+                <i class="bi bi-pencil me-2"></i>Edit quarter
+              </button>
+            </li>
+            @if (!isCompleted) {
+              <li>
+                <button class="dropdown-item" (click)="completeQuarter($event)">
+                  <i class="bi bi-check2-circle me-2"></i>Complete quarter
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (quarter) {
+    @if (isManager && !isCompleted) {
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-flag me-2"></i>Add epic</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Title</label>
+              <input type="text" class="form-control" [(ngModel)]="epicTitle" name="epicTitle" placeholder="Epic title">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Working days</label>
+              <input type="number" min="1" class="form-control" [(ngModel)]="epicWorkingDays" name="epicWorkingDays">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Start sprint</label>
+              <select class="form-select" [(ngModel)]="epicStartSprint" name="epicStartSprint">
+                @for (sprint of quarter.sprints; track sprint.id) {
+                  <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Background color</label>
+              <div class="d-flex align-items-center gap-2">
+                <input type="color" class="form-control form-control-color" [(ngModel)]="epicColor" name="epicColor">
+                <div class="color-swatches">
+                  @for (color of colors; track color) {
+                    <button
+                      type="button"
+                      class="color-swatch"
+                      [class.selected]="epicColor === color"
+                      [style.background]="color"
+                      (click)="epicColor = color"
+                      [title]="color"
+                    ></button>
+                  }
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Assignees</label>
+              <div class="assignee-list">
+                @for (person of assigneeOptions; track person.id) {
+                  <label class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      [checked]="isAssigneeSelected(person.id)"
+                      (change)="toggleAssignee(person.id)"
+                    >
+                    <span class="form-check-label">{{ person.name }}</span>
+                  </label>
+                } @empty {
+                  <div class="text-muted small">No participants available</div>
+                }
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="button" (click)="addEpic()" [disabled]="addingEpic || !canAddEpic()">
+            {{ addingEpic ? 'Adding...' : 'Add epic' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    <div class="card">
+      <div class="card-header">Quarter plan</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0 quarter-grid">
+            <thead>
+              <tr>
+                <th class="participant-col">Participant</th>
+                @for (sprint of quarter.sprints; track sprint.id) {
+                  <th>
+                    <div class="sprint-number">Sprint {{ sprint.number }}</div>
+                    <div class="sprint-dates">{{ sprintDates(sprint.startDate, sprint.endDate) }}</div>
+                  </th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (person of quarter.participants; track person.id) {
+                <tr>
+                  <th class="participant-col">{{ person.name }}</th>
+                  @for (sprint of quarter.sprints; track sprint.id) {
+                    <td>
+                      <div class="epic-stack">
+                        @for (chip of cellsFor(person.id, sprint.id); track chip.epicId) {
+                          <div
+                            class="epic-chip"
+                            [style.background]="chip.backgroundColor"
+                            [style.color]="contrastText(chip.backgroundColor)"
+                            [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
+                          >
+                            <span class="epic-chip-title">{{ chip.title }}</span>
+                            <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
+                          </div>
+                        }
+                      </div>
+                    </td>
+                  }
+                </tr>
+              } @empty {
+                <tr>
+                  <td [attr.colspan]="quarter.sprints.length + 1" class="text-muted p-4">
+                    No participants yet. Choose a team or add an epic with assignees.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+@if (showEdit && quarter) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit quarter</h5>
+          <button type="button" class="btn-close" (click)="showEdit = false"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-control" [(ngModel)]="editName" name="editName">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Start date</label>
+            <input type="date" class="form-control" [(ngModel)]="editStartDate" name="editStartDate">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">End date</label>
+            <input type="date" class="form-control" [(ngModel)]="editEndDate" name="editEndDate">
+          </div>
+          <div class="mb-0">
+            <label class="form-label">Team <span class="text-muted fw-normal">(optional)</span></label>
+            <select class="form-select" [(ngModel)]="editTeamId" name="editTeamId">
+              <option value="">No team</option>
+              @for (team of teams; track team.id) {
+                <option [value]="team.id">{{ team.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" (click)="showEdit = false">Cancel</button>
+          <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="saving || !editName.trim() || !editStartDate || !editEndDate">
+            {{ saving ? 'Saving...' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

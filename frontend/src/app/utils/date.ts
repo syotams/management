@@ -72,3 +72,39 @@ export function formatUserDateTime(value: string | Date): string {
     minute: '2-digit',
   });
 }
+
+/** Format a date-only UTC instant without shifting the calendar day. */
+export function formatDateOnly(value: string | Date, includeYear = true): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, {
+    timeZone: 'UTC',
+    month: 'short',
+    day: 'numeric',
+    ...(includeYear ? { year: 'numeric' as const } : {}),
+  });
+}
+
+/** `YYYY-MM-DD` for date inputs from a date-only UTC instant. */
+export function toDateInput(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
+/** Today's local calendar date as `YYYY-MM-DD`. */
+export function localDateInput(date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Contrast text color for a hex background. */
+export function contrastText(hex: string): string {
+  const raw = hex.replace('#', '');
+  if (raw.length !== 6) return '#ffffff';
+  const r = parseInt(raw.slice(0, 2), 16);
+  const g = parseInt(raw.slice(2, 4), 16);
+  const b = parseInt(raw.slice(4, 6), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 140 ? '#1a2332' : '#ffffff';
+}

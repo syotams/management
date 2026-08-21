@@ -23,6 +23,9 @@ model User {
   createdTasks   Task[]       @relation("TaskCreator")
   comments       Comment[]
   auditLogs      TaskAuditLog[]
+  createdQuarters Quarter[]      @relation("QuarterCreator")
+  createdEpics    Epic[]         @relation("EpicCreator")
+  epicAssignments EpicAssignee[]
 }
 
 model Team {
@@ -35,6 +38,7 @@ model Team {
   members TeamMember[]
   invites TeamInvite[]
   tasks   Task[]
+  quarters Quarter[]
 }
 
 model TeamMember {
@@ -113,4 +117,60 @@ model TaskAuditLog {
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])
+}
+
+model Quarter {
+  id        String   @id @default(uuid())
+  name      String   @default("")
+  startDate DateTime
+  endDate   DateTime
+  teamId    String?
+  status    String   @default("active")
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team    Team?    @relation(fields: [teamId], references: [id])
+  creator User     @relation("QuarterCreator", fields: [createdBy], references: [id])
+  sprints Sprint[]
+  epics   Epic[]
+}
+
+model Sprint {
+  id        String   @id @default(uuid())
+  quarterId String
+  number    Int
+  startDate DateTime
+  endDate   DateTime
+
+  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+
+  @@index([quarterId])
+}
+
+model Epic {
+  id                String   @id @default(uuid())
+  quarterId         String
+  title             String
+  workingDays       Int
+  startSprintNumber Int      @default(1)
+  backgroundColor   String
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  quarter   Quarter        @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  creator   User           @relation("EpicCreator", fields: [createdBy], references: [id])
+  assignees EpicAssignee[]
+}
+
+model EpicAssignee {
+  id     String @id @default(uuid())
+  epicId String
+  userId String
+
+  epic Epic @relation(fields: [epicId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([epicId, userId])
 }

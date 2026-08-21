@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { TeamsModule } from './teams/teams.module';
 import { TasksModule } from './tasks/tasks.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { QuartersModule } from './quarters/quarters.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AlertsModule } from './alerts/alerts.module';
     TeamsModule,
     TasksModule,
     AlertsModule,
+    QuartersModule,
   ],
 })
 export class AppModule {}

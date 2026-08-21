@@ -106,3 +106,67 @@ export interface GroupedTasks {
   urgent: Task[];
   groups: DayGroup[];
 }
+
+export type QuarterStatus = 'active' | 'completed';
+
+export interface QuarterSummary {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  teamId: string | null;
+  status: QuarterStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  team: { id: string; name: string } | null;
+  _count: { sprints: number; epics: number };
+}
+
+export interface QuarterSprint {
+  id: string;
+  number: number;
+  startDate: string;
+  endDate: string;
+  workingDays: number;
+}
+
+export interface EpicChip {
+  epicId: string;
+  title: string;
+  backgroundColor: string;
+  daysInSprint: number;
+}
+
+export interface QuarterParticipant {
+  id: string;
+  name: string;
+  email: string;
+  cells: Record<string, EpicChip[]>;
+}
+
+export interface QuarterEpic {
+  id: string;
+  title: string;
+  workingDays: number;
+  startSprintNumber: number;
+  backgroundColor: string;
+  createdAt: string;
+  assignees: User[];
+}
+
+export interface QuarterDetail {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  teamId: string | null;
+  status: QuarterStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  team: { id: string; name: string } | null;
+  sprints: QuarterSprint[];
+  participants: QuarterParticipant[];
+  epics: QuarterEpic[];
+}
