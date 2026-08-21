@@ -96,14 +96,7 @@
             <span class="badge bg-secondary ms-2">{{ section.tasks.length }}</span>
           </div>
           <div class="card-body p-0">
-            <div
-              class="table-responsive"
-              cdkDropList
-              [cdkDropListData]="section.tasks"
-              [id]="section.key"
-              [cdkDropListConnectedTo]="section.droppable ? getConnectedLists() : []"
-              (cdkDropListDropped)="onDrop($event, section)"
-            >
+            <div class="table-responsive">
               <table class="table table-hover align-middle mb-0 task-table">
                 <thead>
                   <tr>
@@ -115,7 +108,13 @@
                     <th style="width:180px">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody
+                  cdkDropList
+                  [cdkDropListData]="section.tasks"
+                  [id]="section.key"
+                  [cdkDropListConnectedTo]="section.droppable ? getConnectedLists() : []"
+                  (cdkDropListDropped)="onDrop($event, section)"
+                >
                   @for (task of section.tasks; track task.id) {
                     <tr
                       class="task-row"
@@ -128,8 +127,12 @@
                       </td>
                       <td class="task-title-cell">
                         <span class="task-title">
-                          @if (section.droppable && isOwner(task)) {
-                            <i class="bi bi-grip-vertical text-muted me-1 drag-handle" cdkDragHandle (click)="$event.stopPropagation()"></i>
+                          @if (section.droppable && isOwner(task) && !section.isOverdue) {
+                            <i
+                              class="bi bi-grip-vertical text-muted me-1 drag-handle"
+                              cdkDragHandle
+                              (click)="$event.stopPropagation()"
+                            ></i>
                           }
                           <span class="task-title-text" [title]="task.title">{{ task.title }}</span>
                         </span>
@@ -179,6 +182,12 @@
                           }
                         </div>
                       </td>
+                      <ng-template cdkDragPreview>
+                        <div class="task-drag-preview">
+                          <span class="badge priority-badge" [ngClass]="priorityClass(task.priority)">{{ task.priority }}</span>
+                          <span class="task-drag-preview-title">{{ task.title }}</span>
+                        </div>
+                      </ng-template>
                     </tr>
                     @if (task.lastComment) {
                       <tr class="comment-row" (click)="$event.stopPropagation()">

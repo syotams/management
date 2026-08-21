@@ -164,15 +164,32 @@
 .drag-handle {
   cursor: grab;
   flex-shrink: 0;
+  touch-action: none;
 }
 
 .cdk-drag-preview {
   box-sizing: border-box;
+}
+
+.task-drag-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 280px;
+  max-width: 480px;
+  padding: 0.65rem 0.85rem;
   border-radius: 8px;
   box-shadow: var(--app-shadow-lg);
   background: var(--app-surface);
-  padding: 8px;
-  border: 1px solid var(--app-border-subtle);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+}
+
+.task-drag-preview-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .cdk-drag-placeholder {

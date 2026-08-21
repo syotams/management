@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import {
   CdkDrag,
   CdkDragDrop,
+  CdkDragHandle,
+  CdkDragPreview,
   CdkDropList,
   CdkDropListGroup,
   moveItemInArray,
@@ -38,7 +40,7 @@ interface TaskSection {
 @Component({
   selector: 'app-task-list',
   standalone: true,
-  imports: [FormsModule, NgClass, CdkDropListGroup, CdkDropList, CdkDrag],
+  imports: [FormsModule, NgClass, CdkDropListGroup, CdkDropList, CdkDrag, CdkDragHandle, CdkDragPreview],
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.scss',
 })
