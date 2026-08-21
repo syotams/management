@@ -30,7 +30,12 @@
   --app-error: #dc3545;
   --app-error-rgb: 220, 53, 69;
   --app-warning: #fd7e14;
+  --app-warning-rgb: 253, 126, 20;
   --app-success: #198754;
+  --app-success-rgb: 25, 135, 84;
+  --app-info: #4f46e5;
+  --app-info-rgb: 79, 70, 229;
+  --app-on-success: #ffffff;
   --app-table-header-text: #5a6a7e;
   --app-count-badge-bg: rgba(90, 106, 126, 0.12);
   --app-count-badge-text: #5a6a7e;
@@ -108,7 +113,12 @@
   --app-error: #f85149;
   --app-error-rgb: 248, 81, 73;
   --app-warning: #d29922;
+  --app-warning-rgb: 210, 153, 34;
   --app-success: #3fb950;
+  --app-success-rgb: 63, 185, 80;
+  --app-info: #58a6ff;
+  --app-info-rgb: 88, 166, 255;
+  --app-on-success: #0d1117;
   --app-btn-ghost-bg: rgba(230, 237, 243, 0.05);
   --app-btn-ghost-border: #484f58;
   --app-btn-ghost-hover-bg: rgba(88, 166, 255, 0.1);
@@ -197,7 +207,12 @@
   --app-error: #cf6679;
   --app-error-rgb: 207, 102, 121;
   --app-warning: #ffb74d;
+  --app-warning-rgb: 255, 183, 77;
   --app-success: #81c784;
+  --app-success-rgb: 129, 199, 132;
+  --app-info: var(--app-primary);
+  --app-info-rgb: var(--app-primary-rgb);
+  --app-on-success: rgba(0, 0, 0, 0.87);
   --app-table-header-text: rgba(255, 255, 255, 0.60);
   --app-count-badge-bg: rgba(255, 255, 255, 0.08);
   --app-count-badge-text: rgba(255, 255, 255, 0.60);
@@ -284,8 +299,92 @@
   --bs-link-hover-color: var(--app-link-hover);
 }
 
-// MD2 200-tonal primaries: dark iconography on filled controls
-[data-bs-theme='dark'][data-dark-variant^='material-'] {
+// ── Dark palette: Colorffy (Teal default; presets override via JS) ─
+[data-bs-theme='dark'][data-dark-variant='colorffy'] {
+  --app-bg: #121212;
+  --app-surface: #252525;
+  --app-surface-hover: #393939;
+  --app-border: #4f4f4f;
+  --app-border-subtle: #393939;
+  --app-text: #e6e6e6;
+  --app-text-muted: #7d7d7d;
+  --app-text-disabled: rgba(230, 230, 230, 0.38);
+  --app-navbar-bg: #252525;
+  --app-navbar-text: #e6e6e6;
+  --app-input-bg: #121212;
+  --app-input-border: #4f4f4f;
+  --app-input-border-hover: #7d7d7d;
+  --app-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.28);
+  --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --app-table-header-bg: #252525;
+  --app-card-header-bg: #252525;
+  --app-table-header-text: #7d7d7d;
+  --app-modal-backdrop: rgba(0, 0, 0, 0.65);
+  --app-primary: #20c6a4;
+  --app-primary-rgb: 32, 198, 164;
+  --app-primary-hover: #4bccad;
+  --app-primary-active: #66d2b6;
+  --app-on-primary: #121212;
+  --app-on-success: #121212;
+  --app-link: #4bccad;
+  --app-link-hover: #66d2b6;
+  --app-error: #ff8580;
+  --app-error-rgb: 255, 133, 128;
+  --app-warning: #ffac38;
+  --app-warning-rgb: 255, 172, 56;
+  --app-success: #4aff6b;
+  --app-success-rgb: 74, 255, 107;
+  --app-info: #61c2ff;
+  --app-info-rgb: 97, 194, 255;
+  --app-count-badge-bg: rgba(125, 125, 125, 0.12);
+  --app-count-badge-text: #7d7d7d;
+  --app-count-badge-border: rgba(125, 125, 125, 0.28);
+  --app-status-todo-bg: #4bccad;
+  --app-status-todo-text: #121212;
+  --app-status-todo-border: #20c6a4;
+  --app-status-in-progress-bg: #85cfff;
+  --app-status-in-progress-text: #121212;
+  --app-status-in-progress-border: #61c2ff;
+  --app-status-completed-bg: #80ff8e;
+  --app-status-completed-text: #121212;
+  --app-status-completed-border: #4aff6b;
+  --app-status-archived-bg: #393939;
+  --app-status-archived-text: #e6e6e6;
+  --app-status-archived-border: #4f4f4f;
+  --app-priority-urgent-bg: #ff8580;
+  --app-priority-urgent-text: #121212;
+  --app-priority-urgent-border: #ff6161;
+  --app-priority-high-bg: #ffa5a0;
+  --app-priority-high-text: #121212;
+  --app-priority-high-border: #ff8580;
+  --app-priority-medium-bg: #ffbe6c;
+  --app-priority-medium-text: #121212;
+  --app-priority-medium-border: #ffac38;
+  --app-priority-low-bg: #4f4f4f;
+  --app-priority-low-text: #e6e6e6;
+  --app-priority-low-border: #666;
+  --app-btn-ghost-bg: rgba(255, 255, 255, 0.04);
+  --app-btn-ghost-border: #4f4f4f;
+  --app-btn-ghost-hover-bg: rgba(32, 198, 164, 0.12);
+  --app-btn-ghost-hover-border: #20c6a4;
+
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-border-color: var(--app-border-subtle);
+  --bs-primary: var(--app-primary);
+  --bs-primary-rgb: var(--app-primary-rgb);
+  --bs-secondary-color: var(--app-text-muted);
+  --bs-tertiary-bg: var(--app-surface-hover);
+  --bs-link-color: var(--app-link);
+  --bs-link-hover-color: var(--app-link-hover);
+  --bs-danger: var(--app-error);
+  --bs-danger-rgb: var(--app-error-rgb);
+  --bs-focus-ring-color: rgba(var(--app-primary-rgb), 0.25);
+}
+
+// Bright primaries: dark iconography on filled controls
+[data-bs-theme='dark'][data-dark-variant^='material-'],
+[data-bs-theme='dark'][data-dark-variant='colorffy'] {
   .form-check-input:checked {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23000' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
   }
@@ -363,7 +462,7 @@ body {
   color: var(--app-text);
 
   .card-header {
-    background: var(--app-table-header-bg);
+    background: var(--app-card-header-bg, var(--app-table-header-bg));
     border-bottom: 1px solid var(--app-border-subtle);
     font-weight: 600;
     color: var(--app-text);
@@ -564,10 +663,10 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
   --bs-btn-color: var(--app-warning);
   --bs-btn-border-color: var(--app-warning);
   --bs-btn-hover-color: var(--app-warning);
-  --bs-btn-hover-bg: rgba(255, 183, 77, 0.12);
+  --bs-btn-hover-bg: rgba(var(--app-warning-rgb), 0.12);
   --bs-btn-hover-border-color: var(--app-warning);
-  --bs-btn-active-bg: rgba(255, 183, 77, 0.18);
-  --bs-btn-focus-shadow-rgb: 255, 183, 77;
+  --bs-btn-active-bg: rgba(var(--app-warning-rgb), 0.18);
+  --bs-btn-focus-shadow-rgb: var(--app-warning-rgb);
 }
 
 .btn-postpone {
@@ -588,18 +687,18 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
   --bs-btn-color: var(--app-success);
   --bs-btn-border-color: var(--app-success);
   --bs-btn-hover-color: var(--app-success);
-  --bs-btn-hover-bg: rgba(129, 199, 132, 0.12);
+  --bs-btn-hover-bg: rgba(var(--app-success-rgb), 0.12);
   --bs-btn-hover-border-color: var(--app-success);
-  --bs-btn-active-bg: rgba(129, 199, 132, 0.18);
-  --bs-btn-focus-shadow-rgb: 129, 199, 132;
+  --bs-btn-active-bg: rgba(var(--app-success-rgb), 0.18);
+  --bs-btn-focus-shadow-rgb: var(--app-success-rgb);
 }
 
 .btn-success {
   --bs-btn-bg: var(--app-success);
-  --bs-btn-color: rgba(0, 0, 0, 0.87);
-  --bs-btn-hover-color: rgba(0, 0, 0, 0.87);
-  --bs-btn-hover-bg: #94d3a2;
-  --bs-btn-active-color: rgba(0, 0, 0, 0.87);
+  --bs-btn-color: var(--app-on-success);
+  --bs-btn-hover-color: var(--app-on-success);
+  --bs-btn-hover-bg: color-mix(in srgb, var(--app-success) 82%, white);
+  --bs-btn-active-color: var(--app-on-success);
 }
 
 // ── Dropdowns ────────────────────────────────────────────
@@ -634,15 +733,15 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 }
 
 .alert-warning {
-  background: rgba(255, 183, 77, 0.12);
+  background: rgba(var(--app-warning-rgb), 0.12);
   border-color: var(--app-warning);
   color: var(--app-warning);
 }
 
 .alert-info {
-  background: rgba(var(--app-primary-rgb), 0.12);
-  border-color: var(--app-primary);
-  color: var(--app-primary);
+  background: rgba(var(--app-info-rgb, var(--app-primary-rgb)), 0.12);
+  border-color: var(--app-info, var(--app-primary));
+  color: var(--app-info, var(--app-primary));
 }
 
 // ── Badges ───────────────────────────────────────────────
@@ -654,40 +753,40 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 }
 
 .badge.bg-warning {
-  background: rgba(255, 183, 77, 0.18) !important;
+  background: rgba(var(--app-warning-rgb), 0.18) !important;
   color: var(--app-warning) !important;
-  border: 1px solid rgba(255, 183, 77, 0.35);
+  border: 1px solid rgba(var(--app-warning-rgb), 0.35);
   font-weight: 500;
 }
 
 .status-badge {
   font-weight: 500;
   font-size: 0.75rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--app-border-subtle);
 }
 
 .status-todo {
   background: var(--app-status-todo-bg) !important;
   color: var(--app-status-todo-text) !important;
-  border-color: var(--app-status-todo-border);
+  border-color: var(--app-status-todo-border) !important;
 }
 
 .status-in_progress {
   background: var(--app-status-in-progress-bg) !important;
   color: var(--app-status-in-progress-text) !important;
-  border-color: var(--app-status-in-progress-border);
+  border-color: var(--app-status-in-progress-border) !important;
 }
 
 .status-completed {
   background: var(--app-status-completed-bg) !important;
   color: var(--app-status-completed-text) !important;
-  border-color: var(--app-status-completed-border);
+  border-color: var(--app-status-completed-border) !important;
 }
 
 .status-archived {
   background: var(--app-status-archived-bg) !important;
   color: var(--app-status-archived-text) !important;
-  border-color: var(--app-status-archived-border);
+  border-color: var(--app-status-archived-border) !important;
 }
 
 // ── Spinners & close button ──────────────────────────────
@@ -772,30 +871,30 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
   min-width: 60px;
   font-weight: 500;
   font-size: 0.75rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--app-border-subtle);
 }
 
 .priority-urgent {
   background: var(--app-priority-urgent-bg) !important;
   color: var(--app-priority-urgent-text) !important;
-  border-color: var(--app-priority-urgent-border);
+  border-color: var(--app-priority-urgent-border) !important;
   font-weight: 700;
 }
 
 .priority-high {
   background: var(--app-priority-high-bg) !important;
   color: var(--app-priority-high-text) !important;
-  border-color: var(--app-priority-high-border);
+  border-color: var(--app-priority-high-border) !important;
 }
 
 .priority-medium {
   background: var(--app-priority-medium-bg) !important;
   color: var(--app-priority-medium-text) !important;
-  border-color: var(--app-priority-medium-border);
+  border-color: var(--app-priority-medium-border) !important;
 }
 
 .priority-low {
   background: var(--app-priority-low-bg) !important;
   color: var(--app-priority-low-text) !important;
-  border-color: var(--app-priority-low-border);
+  border-color: var(--app-priority-low-border) !important;
 }

@@ -13,7 +13,8 @@
         'dark-github': true,
         'dark-material-indigo': true,
         'dark-material-purple': true,
-        'dark-material-orange': true
+        'dark-material-orange': true,
+        'dark-colorffy': true
       };
       var t = localStorage.getItem('theme');
       if (t === 'dark') t = 'dark-github';
@@ -30,7 +31,9 @@
             ? 'material-purple'
             : t === 'dark-material-orange'
               ? 'material-orange'
-              : 'light';
+              : t === 'dark-colorffy'
+                ? 'colorffy'
+                : 'light';
       document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
       document.documentElement.setAttribute('data-dark-variant', isDark ? variant : 'light');
     })();

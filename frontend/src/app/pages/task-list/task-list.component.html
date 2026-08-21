@@ -84,7 +84,7 @@
           [class.urgent-group]="section.isUrgent"
           [class.dropdown-open]="sectionHasOpenDropdown(section)"
         >
-          <div class="card-header day-header" [class.text-danger]="section.isOverdue || section.isUrgent">
+          <div class="card-header day-header">
             @if (section.isUrgent) {
               <i class="bi bi-exclamation-triangle-fill me-2"></i>
             } @else if (section.isOverdue) {

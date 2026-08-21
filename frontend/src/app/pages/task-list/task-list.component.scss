@@ -29,13 +29,26 @@
   background: rgba(var(--app-error-rgb), 0.12) !important;
 }
 
-[data-bs-theme='dark'][data-dark-variant='github'],
-[data-bs-theme='dark'][data-dark-variant^='material-'] {
+[data-bs-theme='dark'] {
   .overdue-group .card-header {
     background: rgba(var(--app-error-rgb), 0.12) !important;
   }
   .urgent-group .card-header {
-    background: rgba(var(--app-error-rgb), 0.15) !important;
+    background: rgba(var(--app-error-rgb), 0.18) !important;
+  }
+}
+
+[data-bs-theme='dark'][data-dark-variant='colorffy'] {
+  .overdue-group,
+  .urgent-group {
+    border-color: var(--app-priority-urgent-border);
+  }
+
+  .overdue-group .card-header,
+  .urgent-group .card-header {
+    background: var(--app-card-header-bg, var(--app-surface)) !important;
+    color: var(--app-error) !important;
+    border-bottom-color: var(--app-priority-urgent-border);
   }
 }
 
