@@ -165,9 +165,11 @@
             @for (sprint of plan.sprints; track sprint.id) {
               <td>
                 <div class="epic-stack">
-                  @for (chip of planCells(plan, person.id, sprint.id); track chip.epicId) {
+                  @for (chip of planCells(plan, person.id, sprint.id); track chip.type + chip.id + chip.daysInSprint) {
                     <div
                       class="epic-chip"
+                      [class.epic-chip-pto]="chip.type === 'pto'"
+                      [class.epic-chip-holiday]="chip.type === 'holiday'"
                       [style.background]="chip.backgroundColor"
                       [style.color]="contrastText(chip.backgroundColor)"
                       [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"

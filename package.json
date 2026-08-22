@@ -4,6 +4,6 @@
   "scripts": {
     "backend": "cd backend && npm start",
     "frontend": "cd frontend && npm start",
-    "db:push": "cd backend && npx prisma db push"
+    "db:push": "cd backend && npx prisma db push && npx prisma generate"
   }
 }

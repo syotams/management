@@ -12,13 +12,14 @@ import { QuarterService } from '../../services/quarter.service';
 import { TeamService } from '../../services/team.service';
 import {
   AssignableMember,
-  EpicChip,
+  GridChip,
   QuarterDetail,
   QuarterEpic,
   QuarterPlanView,
   Team,
 } from '../../models';
 import { contrastText, formatDateOnly, quarterEndDateFromStart, toDateInput } from '../../utils/date';
+import { formatApiError } from '../../utils/api-error';
 import { EPIC_COLORS, nextEpicColor } from '../../utils/epic-colors';
 
 type CellDropData = { participantId: string; sprintId: string };
@@ -67,6 +68,23 @@ export class QuarterDetailComponent implements OnInit {
   addingParticipant = false;
   addableParticipants: { id: string; name: string }[] = [];
   participantError = '';
+
+  showAddPto = false;
+  ptoName = 'PTO';
+  ptoStartDate = '';
+  ptoEndDate = '';
+  ptoAssignmentMode: 'team' | 'individual' = 'individual';
+  ptoTeamId = '';
+  ptoUserIds: string[] = [];
+  addingPto = false;
+  ptoError = '';
+
+  showAddHoliday = false;
+  holidayName = 'Holiday';
+  holidayStartDate = '';
+  holidayEndDate = '';
+  addingHoliday = false;
+  holidayError = '';
 
   editName = '';
   editStartDate = '';
@@ -180,6 +198,9 @@ export class QuarterDetailComponent implements OnInit {
       ...quarter,
       teams: quarter.teams ?? [],
       addedParticipants: quarter.addedParticipants ?? [],
+      holidays: quarter.holidays ?? [],
+      ptos: quarter.ptos ?? [],
+      capacity: quarter.capacity ?? [],
     };
   }
 
@@ -285,6 +306,178 @@ export class QuarterDetailComponent implements OnInit {
       error: (err) => {
         const msg = err.error?.message;
         this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to complete quarter';
+      },
+    });
+  }
+
+  get ptoTeamOptions(): { id: string; name: string }[] {
+    if (!this.quarter) return [];
+    const teams = this.quarter.teams ?? [];
+    if (teams.length) return teams;
+    if (this.quarter.team) return [this.quarter.team];
+    return [];
+  }
+
+  get quarterDateMin(): string {
+    return this.quarter ? toDateInput(this.quarter.startDate) : '';
+  }
+
+  get quarterDateMax(): string {
+    return this.quarter ? toDateInput(this.quarter.endDate) : '';
+  }
+
+  capacityClass(assigned: number, total: number): string {
+    if (total <= 0) return '';
+    if (assigned > total) return 'capacity-over';
+    if (assigned >= total * 0.9) return 'capacity-high';
+    return '';
+  }
+
+  openAddPto() {
+    this.ptoError = '';
+    this.ptoName = 'PTO';
+    this.ptoStartDate = '';
+    this.ptoEndDate = '';
+    this.ptoAssignmentMode = this.ptoTeamOptions.length ? 'team' : 'individual';
+    this.ptoTeamId = this.ptoTeamOptions[0]?.id ?? '';
+    this.ptoUserIds = [];
+    this.showAddPto = true;
+  }
+
+  isPtoUserSelected(id: string) {
+    return this.ptoUserIds.includes(id);
+  }
+
+  togglePtoUser(id: string) {
+    if (this.ptoUserIds.includes(id)) {
+      this.ptoUserIds = this.ptoUserIds.filter((value) => value !== id);
+    } else {
+      this.ptoUserIds = [...this.ptoUserIds, id];
+    }
+  }
+
+  canAddPto() {
+    if (!this.ptoStartDate || !this.ptoEndDate) return false;
+    if (!this.isWithinQuarterRange(this.ptoStartDate, this.ptoEndDate)) return false;
+    if (this.ptoAssignmentMode === 'team') return !!this.ptoTeamId;
+    return this.ptoUserIds.length > 0;
+  }
+
+  addPto() {
+    if (!this.quarter || !this.canAddPto()) return;
+    this.addingPto = true;
+    this.ptoError = '';
+    this.error = '';
+    const payload =
+      this.ptoAssignmentMode === 'team'
+        ? {
+            name: this.ptoName.trim() || 'PTO',
+            startDate: this.ptoStartDate,
+            endDate: this.ptoEndDate,
+            teamId: this.ptoTeamId,
+          }
+        : {
+            name: this.ptoName.trim() || 'PTO',
+            startDate: this.ptoStartDate,
+            endDate: this.ptoEndDate,
+            userIds: this.ptoUserIds,
+          };
+    this.quarterService.addPto(this.quarter.id, payload).subscribe({
+      next: (quarter) => {
+        this.quarter = this.normalizeQuarter(quarter);
+        this.addingPto = false;
+        this.showAddPto = false;
+      },
+      error: (err) => {
+        this.addingPto = false;
+        this.ptoError = formatApiError(err, 'Failed to add PTO');
+      },
+    });
+  }
+
+  deletePto(ptoId: string, event?: Event) {
+    event?.stopPropagation();
+    if (!this.quarter || !this.canEditEpics) return;
+    if (!confirm('Remove this PTO entry?')) return;
+    this.error = '';
+    this.quarterService.deletePto(this.quarter.id, ptoId).subscribe({
+      next: (quarter) => (this.quarter = this.normalizeQuarter(quarter)),
+      error: (err) => {
+        const msg = err.error?.message;
+        this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to remove PTO';
+      },
+    });
+  }
+
+  openAddHoliday() {
+    this.holidayError = '';
+    this.holidayName = 'Holiday';
+    this.holidayStartDate = '';
+    this.holidayEndDate = '';
+    this.showAddHoliday = true;
+  }
+
+  canAddHoliday() {
+    return (
+      !!this.holidayStartDate &&
+      !!this.holidayEndDate &&
+      this.isWithinQuarterRange(this.holidayStartDate, this.holidayEndDate)
+    );
+  }
+
+  private isWithinQuarterRange(startDate: string, endDate: string) {
+    if (!this.quarterDateMin || !this.quarterDateMax) return false;
+    if (startDate > endDate) return false;
+    return startDate >= this.quarterDateMin && endDate <= this.quarterDateMax;
+  }
+
+  addHoliday() {
+    if (!this.quarter || !this.canAddHoliday()) return;
+    this.addingHoliday = true;
+    this.holidayError = '';
+    this.error = '';
+    this.quarterService
+      .addHoliday(this.quarter.id, {
+        name: this.holidayName.trim() || 'Holiday',
+        startDate: this.holidayStartDate,
+        endDate: this.holidayEndDate,
+      })
+      .subscribe({
+        next: (quarter) => {
+          this.quarter = this.normalizeQuarter(quarter);
+          this.addingHoliday = false;
+          this.showAddHoliday = false;
+        },
+        error: (err) => {
+          this.addingHoliday = false;
+          this.holidayError = formatApiError(err, 'Failed to add holiday');
+        },
+      });
+  }
+
+  deleteHoliday(holidayId: string, event?: Event) {
+    event?.stopPropagation();
+    if (!this.quarter || !this.canEditEpics) return;
+    if (!confirm('Remove this holiday for this user?')) return;
+    this.error = '';
+    this.quarterService.deleteHoliday(this.quarter.id, holidayId).subscribe({
+      next: (quarter) => (this.quarter = this.normalizeQuarter(quarter)),
+      error: (err) => {
+        const msg = err.error?.message;
+        this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to remove holiday';
+      },
+    });
+  }
+
+  deleteHolidayGroup(groupKey: string) {
+    if (!this.quarter || !this.canEditEpics) return;
+    if (!confirm('Remove this holiday for all participants?')) return;
+    this.error = '';
+    this.quarterService.deleteHolidayGroup(this.quarter.id, groupKey).subscribe({
+      next: (quarter) => (this.quarter = this.normalizeQuarter(quarter)),
+      error: (err) => {
+        const msg = err.error?.message;
+        this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to remove holiday';
       },
     });
   }
@@ -461,7 +654,9 @@ export class QuarterDetailComponent implements OnInit {
     if ('backlog' in from) {
       epicId = (event.item.data as QuarterEpic).id;
     } else {
-      epicId = (event.item.data as EpicChip).epicId;
+      const chip = event.item.data as GridChip;
+      if (chip.type !== 'epic') return;
+      epicId = chip.id;
     }
 
     const epic = this.quarter.epics.find((e) => e.id === epicId);

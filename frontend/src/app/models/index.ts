@@ -131,18 +131,53 @@ export interface QuarterSprint {
   workingDays: number;
 }
 
-export interface EpicChip {
-  epicId: string;
+export interface GridChip {
+  type: 'epic' | 'pto' | 'holiday';
+  id: string;
   title: string;
   backgroundColor: string;
   daysInSprint: number;
+}
+
+/** @deprecated Use GridChip */
+export type EpicChip = GridChip;
+
+export interface QuarterHoliday {
+  id: string;
+  groupKey: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  workingDays: number;
+  userCount?: number;
+}
+
+export interface QuarterPto {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  userId: string;
+  user: User;
+  workingDays: number;
+}
+
+export interface ParticipantCapacity {
+  userId: string;
+  name: string;
+  ptoDays: number;
+  holidayDays: number;
+  totalCapacity: number;
+  epicDaysAssigned: number;
 }
 
 export interface QuarterParticipant {
   id: string;
   name: string;
   email: string;
-  cells: Record<string, EpicChip[]>;
+  cells: Record<string, GridChip[]>;
+  epicDaysAssigned?: number;
+  totalWorkingDays?: number;
 }
 
 export interface QuarterEpic {
@@ -217,4 +252,7 @@ export interface QuarterDetail {
   sprints: QuarterSprint[];
   participants: QuarterParticipant[];
   epics: QuarterEpic[];
+  holidays?: QuarterHoliday[];
+  ptos?: QuarterPto[];
+  capacity?: ParticipantCapacity[];
 }

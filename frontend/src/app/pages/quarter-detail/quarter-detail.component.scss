@@ -234,3 +234,78 @@
 .modal-backdrop-custom {
   background: var(--app-modal-backdrop);
 }
+
+.participant-capacity {
+  font-weight: 500;
+  color: var(--app-text-muted);
+  margin-top: 0.2rem;
+
+  &.capacity-high {
+    color: var(--bs-warning);
+  }
+
+  &.capacity-over {
+    color: var(--bs-danger);
+    font-weight: 600;
+  }
+}
+
+.capacity-table {
+  tr.capacity-high td {
+    background: rgba(var(--bs-warning-rgb), 0.08);
+  }
+
+  tr.capacity-over td {
+    background: rgba(var(--bs-danger-rgb), 0.08);
+  }
+}
+
+.holidays-bar {
+  background: var(--app-surface);
+}
+
+.holiday-badge {
+  background: var(--app-input-bg);
+  color: var(--app-text);
+  border: 1px solid var(--app-border-subtle);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.holiday-remove-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.epic-chip-pto {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 4px,
+    rgba(255, 255, 255, 0.15) 4px,
+    rgba(255, 255, 255, 0.15) 8px
+  ) !important;
+  font-style: italic;
+}
+
+.epic-chip-holiday {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgba(255, 255, 255, 0.12) 3px,
+    rgba(255, 255, 255, 0.12) 6px
+  ) !important;
+  font-weight: 700;
+}

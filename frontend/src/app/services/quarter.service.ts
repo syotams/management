@@ -94,4 +94,33 @@ export class QuarterService {
       `/quarters/${quarterId}/addable-participants`,
     );
   }
+
+  addHoliday(quarterId: string, payload: { name?: string; startDate: string; endDate: string }) {
+    return this.api.post<QuarterDetail>(`/quarters/${quarterId}/holidays`, payload);
+  }
+
+  deleteHoliday(quarterId: string, holidayId: string) {
+    return this.api.delete<QuarterDetail>(`/quarters/${quarterId}/holidays/${holidayId}`);
+  }
+
+  deleteHolidayGroup(quarterId: string, groupKey: string) {
+    return this.api.delete<QuarterDetail>(`/quarters/${quarterId}/holiday-groups/${groupKey}`);
+  }
+
+  addPto(
+    quarterId: string,
+    payload: {
+      name?: string;
+      startDate: string;
+      endDate: string;
+      teamId?: string;
+      userIds?: string[];
+    },
+  ) {
+    return this.api.post<QuarterDetail>(`/quarters/${quarterId}/pto`, payload);
+  }
+
+  deletePto(quarterId: string, ptoId: string) {
+    return this.api.delete<QuarterDetail>(`/quarters/${quarterId}/pto/${ptoId}`);
+  }
 }

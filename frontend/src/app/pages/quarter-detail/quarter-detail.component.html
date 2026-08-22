@@ -229,6 +229,23 @@
           }
         </span>
         @if (isManager && !isCompleted) {
+          <div class="d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            (click)="openAddHoliday()"
+            title="Add a quarter holiday"
+          >
+            <i class="bi bi-calendar-x me-1"></i>Add holiday
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            (click)="openAddPto()"
+            title="Add PTO for participants"
+          >
+            <i class="bi bi-calendar-minus me-1"></i>Add PTO
+          </button>
           <button
             type="button"
             class="btn btn-sm btn-outline-primary"
@@ -237,9 +254,30 @@
           >
             <i class="bi bi-person-plus me-1"></i>Add user
           </button>
+          </div>
         }
       </div>
       <div class="card-body p-0">
+        @if (quarter.holidays?.length) {
+          <div class="px-3 py-2 border-bottom holidays-bar">
+            <span class="text-muted small me-2">Holidays:</span>
+            @for (holiday of quarter.holidays; track holiday.groupKey || holiday.id) {
+              <span class="badge holiday-badge me-1">
+                {{ holiday.name }} · {{ formatRange(holiday.startDate, holiday.endDate) }} · {{ holiday.workingDays }}d
+                @if (canEditEpics) {
+                  <button
+                    type="button"
+                    class="holiday-remove-btn"
+                    title="Remove holiday for all participants"
+                    (click)="deleteHolidayGroup(holiday.groupKey || holiday.id)"
+                  >
+                    <i class="bi bi-x"></i>
+                  </button>
+                }
+              </span>
+            }
+          </div>
+        }
         <div class="table-responsive">
           <table class="table align-middle mb-0 quarter-grid">
             <thead>
@@ -256,7 +294,15 @@
             <tbody>
               @for (person of quarter.participants; track person.id) {
                 <tr>
-                  <th class="participant-col">{{ person.name }}</th>
+                  <th class="participant-col">
+                    <div>{{ person.name }}</div>
+                    <div
+                      class="participant-capacity small"
+                      [class]="capacityClass(person.epicDaysAssigned ?? 0, person.totalWorkingDays ?? 0)"
+                    >
+                      {{ person.epicDaysAssigned ?? 0 }}/{{ person.totalWorkingDays ?? 0 }} committed
+                    </div>
+                  </th>
                   @for (sprint of quarter.sprints; track sprint.id) {
                     <td>
                       <div
@@ -267,40 +313,64 @@
                         [cdkDropListDisabled]="!canEditEpics || movingEpic"
                         (cdkDropListDropped)="onEpicDrop($any($event))"
                       >
-                        @for (chip of cellsFor(person.id, sprint.id); track chip.epicId) {
+                        @for (chip of cellsFor(person.id, sprint.id); track chip.type + chip.id + chip.daysInSprint) {
                           <div
                             class="epic-chip"
-                            [class.epic-chip-editable]="canEditEpics"
+                            [class.epic-chip-editable]="canEditEpics && chip.type === 'epic'"
+                            [class.epic-chip-pto]="chip.type === 'pto'"
+                            [class.epic-chip-holiday]="chip.type === 'holiday'"
                             [style.background]="chip.backgroundColor"
                             [style.color]="contrastText(chip.backgroundColor)"
                             [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
                             cdkDrag
                             [cdkDragData]="chip"
-                            [cdkDragDisabled]="!canEditEpics || movingEpic"
+                            [cdkDragDisabled]="!canEditEpics || movingEpic || chip.type !== 'epic'"
                           >
                             <span class="epic-chip-title">{{ chip.title }}</span>
                             <span class="epic-chip-meta">
                               <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
                               @if (canEditEpics) {
                                 <span class="epic-chip-actions">
-                                  <button
-                                    type="button"
-                                    class="epic-chip-btn"
-                                    title="Edit epic"
-                                    (click)="openEditEpic(chip.epicId, $event)"
-                                    (mousedown)="$event.stopPropagation()"
-                                  >
-                                    <i class="bi bi-pencil"></i>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    class="epic-chip-btn"
-                                    title="Delete epic"
-                                    (click)="deleteEpic(chip.epicId, $event)"
-                                    (mousedown)="$event.stopPropagation()"
-                                  >
-                                    <i class="bi bi-trash"></i>
-                                  </button>
+                                  @if (chip.type === 'epic') {
+                                    <button
+                                      type="button"
+                                      class="epic-chip-btn"
+                                      title="Edit epic"
+                                      (click)="openEditEpic(chip.id, $event)"
+                                      (mousedown)="$event.stopPropagation()"
+                                    >
+                                      <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      class="epic-chip-btn"
+                                      title="Delete epic"
+                                      (click)="deleteEpic(chip.id, $event)"
+                                      (mousedown)="$event.stopPropagation()"
+                                    >
+                                      <i class="bi bi-trash"></i>
+                                    </button>
+                                  } @else if (chip.type === 'pto') {
+                                    <button
+                                      type="button"
+                                      class="epic-chip-btn"
+                                      title="Remove PTO"
+                                      (click)="deletePto(chip.id, $event)"
+                                      (mousedown)="$event.stopPropagation()"
+                                    >
+                                      <i class="bi bi-trash"></i>
+                                    </button>
+                                  } @else {
+                                    <button
+                                      type="button"
+                                      class="epic-chip-btn"
+                                      title="Remove holiday"
+                                      (click)="deleteHoliday(chip.id, $event)"
+                                      (mousedown)="$event.stopPropagation()"
+                                    >
+                                      <i class="bi bi-trash"></i>
+                                    </button>
+                                  }
                                 </span>
                               }
                             </span>
@@ -339,6 +409,38 @@
         </div>
       </div>
     </div>
+
+    @if (quarter.capacity?.length) {
+      <div class="card mt-4">
+        <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Users Capacity</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0 capacity-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th class="text-end">PTO</th>
+                  <th class="text-end">Holidays</th>
+                  <th class="text-end">Total capacity</th>
+                  <th class="text-end">Committed</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of quarter.capacity; track row.userId) {
+                  <tr [class]="capacityClass(row.epicDaysAssigned, row.totalCapacity)">
+                    <td>{{ row.name }}</td>
+                    <td class="text-end">{{ row.ptoDays }}d</td>
+                    <td class="text-end">{{ row.holidayDays }}d</td>
+                    <td class="text-end fw-semibold">{{ row.totalCapacity }}d</td>
+                    <td class="text-end">{{ row.epicDaysAssigned }}d</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
     </div>
   }
 </div>
@@ -417,6 +519,173 @@
           <button type="button" class="btn btn-outline-secondary" (click)="showAddParticipant = false">Cancel</button>
           <button type="button" class="btn btn-primary" (click)="addParticipant()" [disabled]="addingParticipant || !newParticipantId">
             {{ addingParticipant ? 'Adding...' : 'Add user' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showAddPto && quarter) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add PTO</h5>
+          <button type="button" class="btn-close" (click)="showAddPto = false"></button>
+        </div>
+        <div class="modal-body">
+          @if (ptoError) {
+            <div class="alert alert-danger py-2">{{ ptoError }}</div>
+          }
+          @if (isInProgress) {
+            <div class="alert alert-info py-2">Saving will create a new plan version.</div>
+          }
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-control" [(ngModel)]="ptoName" name="ptoName">
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Start date</label>
+              <input
+                type="date"
+                class="form-control"
+                [(ngModel)]="ptoStartDate"
+                name="ptoStartDate"
+                [min]="quarterDateMin"
+                [max]="quarterDateMax"
+              >
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">End date</label>
+              <input
+                type="date"
+                class="form-control"
+                [(ngModel)]="ptoEndDate"
+                name="ptoEndDate"
+                [min]="ptoStartDate || quarterDateMin"
+                [max]="quarterDateMax"
+              >
+            </div>
+          </div>
+          <div class="form-text mb-3">Dates must fall within {{ formatRange(quarter.startDate, quarter.endDate) }}.</div>
+          <div class="mb-3">
+            <label class="form-label">Assign to</label>
+            <div class="d-flex gap-3 mb-2">
+              @if (ptoTeamOptions.length) {
+                <label class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="ptoMode"
+                    value="team"
+                    [(ngModel)]="ptoAssignmentMode"
+                  >
+                  <span class="form-check-label">Team</span>
+                </label>
+              }
+              <label class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="ptoMode"
+                  value="individual"
+                  [(ngModel)]="ptoAssignmentMode"
+                >
+                <span class="form-check-label">Individual</span>
+              </label>
+            </div>
+            @if (ptoAssignmentMode === 'team') {
+              <select class="form-select" [(ngModel)]="ptoTeamId" name="ptoTeamId">
+                @for (team of ptoTeamOptions; track team.id) {
+                  <option [value]="team.id">{{ team.name }}</option>
+                }
+              </select>
+              <div class="form-text">PTO applies to all members of the selected team.</div>
+            } @else {
+              <div class="assignee-list">
+                @for (person of assigneeOptions; track person.id) {
+                  <label class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      [checked]="isPtoUserSelected(person.id)"
+                      (change)="togglePtoUser(person.id)"
+                    >
+                    <span class="form-check-label">{{ person.name }}</span>
+                  </label>
+                } @empty {
+                  <div class="text-muted small">No participants available</div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" (click)="showAddPto = false">Cancel</button>
+          <button type="button" class="btn btn-primary" (click)="addPto()" [disabled]="addingPto || !canAddPto()">
+            {{ addingPto ? 'Adding...' : 'Add PTO' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showAddHoliday && quarter) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add holiday</h5>
+          <button type="button" class="btn-close" (click)="showAddHoliday = false"></button>
+        </div>
+        <div class="modal-body">
+          @if (holidayError) {
+            <div class="alert alert-danger py-2">{{ holidayError }}</div>
+          }
+          @if (isInProgress) {
+            <div class="alert alert-info py-2">Saving will create a new plan version.</div>
+          }
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-control" [(ngModel)]="holidayName" name="holidayName">
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Start date</label>
+              <input
+                type="date"
+                class="form-control"
+                [(ngModel)]="holidayStartDate"
+                name="holidayStartDate"
+                [min]="quarterDateMin"
+                [max]="quarterDateMax"
+              >
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">End date</label>
+              <input
+                type="date"
+                class="form-control"
+                [(ngModel)]="holidayEndDate"
+                name="holidayEndDate"
+                [min]="holidayStartDate || quarterDateMin"
+                [max]="quarterDateMax"
+              >
+            </div>
+          </div>
+          <div class="form-text mt-2">
+            Creates a holiday entry for each participant. Removing a chip affects only that user;
+            removing it from the holidays list removes it for everyone.
+            Dates must fall within {{ formatRange(quarter.startDate, quarter.endDate) }}.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" (click)="showAddHoliday = false">Cancel</button>
+          <button type="button" class="btn btn-primary" (click)="addHoliday()" [disabled]="addingHoliday || !canAddHoliday()">
+            {{ addingHoliday ? 'Adding...' : 'Add holiday' }}
           </button>
         </div>
       </div>
