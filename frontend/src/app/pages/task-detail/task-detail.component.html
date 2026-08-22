@@ -11,22 +11,44 @@
           <h3>{{ task.title }}</h3>
           <div class="d-flex align-items-center gap-2">
             <span class="badge priority-badge" [ngClass]="'priority-' + task.priority">{{ task.priority }}</span>
-            <button type="button" class="btn btn-outline-primary btn-sm" title="Edit" (click)="openEditModal()">
+            <button type="button" class="btn btn-outline-secondary btn-sm btn-icon" title="Edit" (click)="openEditModal()">
               <i class="bi bi-pencil"></i>
             </button>
           </div>
         </div>
         <p class="text-muted">{{ task.description || 'No description' }}</p>
-        <div class="row">
+        <div class="row g-3">
           <div class="col-md-6">
-            <p><strong>Status:</strong> <span class="badge status-badge" [ngClass]="statusClass(task.status)">{{ statusLabel(task.status) }}</span></p>
-            <p><strong>Due:</strong> {{ formatDate(task.dueDate) }}</p>
-            <p><strong>Created:</strong> {{ formatDate(task.createdAt) }}</p>
+            <dl class="task-meta">
+              <div class="task-meta-row">
+                <dt>Status</dt>
+                <dd><span class="badge status-badge" [ngClass]="statusClass(task.status)">{{ statusLabel(task.status) }}</span></dd>
+              </div>
+              <div class="task-meta-row">
+                <dt>Due</dt>
+                <dd>{{ formatDate(task.dueDate) }}</dd>
+              </div>
+              <div class="task-meta-row">
+                <dt>Created</dt>
+                <dd>{{ formatDate(task.createdAt) }}</dd>
+              </div>
+            </dl>
           </div>
           <div class="col-md-6">
-            <p><strong>Owner:</strong> {{ displayName(task.owner) }}</p>
-            <p><strong>Assignee:</strong> {{ displayName(task.assignee) }}</p>
-            <p><strong>Alert at:</strong> {{ formatDate(task.alertAt) }}</p>
+            <dl class="task-meta">
+              <div class="task-meta-row">
+                <dt>Owner</dt>
+                <dd>{{ displayName(task.owner) }}</dd>
+              </div>
+              <div class="task-meta-row">
+                <dt>Assignee</dt>
+                <dd>{{ displayName(task.assignee) }}</dd>
+              </div>
+              <div class="task-meta-row">
+                <dt>Alert at</dt>
+                <dd>{{ formatDate(task.alertAt) }}</dd>
+              </div>
+            </dl>
           </div>
         </div>
       </div>

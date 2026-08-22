@@ -1,12 +1,12 @@
 import { Component, HostListener } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, RouterLinkActive],
   template: `
     <nav class="navbar navbar-expand-lg app-navbar">
       <div class="container-fluid">
@@ -15,9 +15,9 @@ import { ThemeService } from '../../services/theme.service';
         </a>
         <div class="navbar-nav ms-auto flex-row gap-2 align-items-center">
           @if (auth.currentUser()) {
-            <a class="nav-link px-2" routerLink="/tasks">Tasks</a>
-            <a class="nav-link px-2" routerLink="/quarters">Quarters</a>
-            <a class="nav-link px-2" routerLink="/teams">Teams</a>
+            <a class="nav-link px-2" routerLink="/tasks" routerLinkActive="active">Tasks</a>
+            <a class="nav-link px-2" routerLink="/projects" routerLinkActive="active">Projects</a>
+            <a class="nav-link px-2" routerLink="/teams" routerLinkActive="active">Teams</a>
             <div class="dropdown user-menu">
               <button
                 class="btn btn-user-menu dropdown-toggle"
@@ -44,6 +44,7 @@ import { ThemeService } from '../../services/theme.service';
                       <i class="bi bi-gear me-2"></i>Settings
                     </a>
                   </li>
+                  <li><hr class="dropdown-divider"></li>
                   <li>
                     <button class="dropdown-item" type="button" (click)="logout()">
                       <i class="bi bi-box-arrow-right me-2"></i>Logout

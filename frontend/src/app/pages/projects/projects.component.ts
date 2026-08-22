@@ -1,27 +1,27 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { QuarterService } from '../../services/quarter.service';
+import { ProjectService } from '../../services/project.service';
 import { TeamService } from '../../services/team.service';
-import { AssignableMember, QuarterSummary, Team } from '../../models';
-import { formatDateOnly, localDateInput, quarterEndDateFromStart } from '../../utils/date';
+import { AssignableMember, ProjectSummary, Team } from '../../models';
+import { formatDateOnly, localDateInput, projectEndDateFromStart } from '../../utils/date';
 
 @Component({
-  selector: 'app-quarters',
+  selector: 'app-projects',
   standalone: true,
   imports: [FormsModule, RouterLink],
   template: `
     <div class="py-2">
-      <h2 class="page-title mb-4">Quarters</h2>
+      <h2 class="page-title mb-4">Projects</h2>
 
       @if (error) {
         <div class="alert alert-danger">{{ error }}</div>
       }
 
       <div class="card mb-4">
-        <div class="card-header"><i class="bi bi-calendar-plus me-2"></i>New Quarter</div>
+        <div class="card-header"><i class="bi bi-calendar-plus me-2"></i>New Project</div>
         <div class="card-body">
-          <form (ngSubmit)="createQuarter()">
+          <form (ngSubmit)="createProject()">
             <div class="row g-3 align-items-end">
               <div class="col-md-4">
                 <label class="form-label">Name</label>
@@ -85,7 +85,7 @@ import { formatDateOnly, localDateInput, quarterEndDateFromStart } from '../../u
 
             <div class="mt-3">
               <button type="submit" class="btn btn-primary" [disabled]="saving || !canCreate()">
-                {{ saving ? 'Creating...' : 'Create quarter' }}
+                {{ saving ? 'Creating...' : 'Create project' }}
               </button>
             </div>
           </form>
@@ -95,28 +95,28 @@ import { formatDateOnly, localDateInput, quarterEndDateFromStart } from '../../u
       @if (loading) {
         <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
       } @else {
-        @for (quarter of quarters; track quarter.id) {
-          <a class="card quarter-card mb-3" [routerLink]="['/quarters', quarter.id]">
+        @for (project of projects; track project.id) {
+          <a class="card project-card mb-3" [routerLink]="['/projects', project.id]">
             <div class="card-body d-flex justify-content-between align-items-center gap-3">
               <div>
-                <h5 class="mb-1">{{ quarter.name || formatRange(quarter.startDate, quarter.endDate) }}</h5>
+                <h5 class="mb-1">{{ project.name || formatRange(project.startDate, project.endDate) }}</h5>
                 <div class="text-muted">
-                  {{ formatRange(quarter.startDate, quarter.endDate) }}
-                  · {{ quarter.team?.name || 'No team' }}
-                  · {{ quarter._count.sprints }} sprints
-                  · {{ quarter._count.epics }} epics
+                  {{ formatRange(project.startDate, project.endDate) }}
+                  · {{ project.team?.name || 'No team' }}
+                  · {{ project._count.sprints }} sprints
+                  · {{ project._count.epics }} epics
                 </div>
               </div>
               <span
                 class="badge status-badge"
-                [class.status-todo]="quarter.status === 'draft'"
-                [class.status-in_progress]="quarter.status === 'in_progress'"
-                [class.status-completed]="quarter.status === 'completed'"
+                [class.status-todo]="project.status === 'draft'"
+                [class.status-in_progress]="project.status === 'in_progress'"
+                [class.status-completed]="project.status === 'completed'"
               >
                 {{
-                  quarter.status === 'draft'
+                  project.status === 'draft'
                     ? 'Draft'
-                    : quarter.status === 'in_progress'
+                    : project.status === 'in_progress'
                       ? 'In progress'
                       : 'Completed'
                 }}
@@ -124,19 +124,19 @@ import { formatDateOnly, localDateInput, quarterEndDateFromStart } from '../../u
             </div>
           </a>
         } @empty {
-          <p class="text-muted">No quarters yet. Create one above to start planning.</p>
+          <p class="text-muted">No projects yet. Create one above to start planning.</p>
         }
       }
     </div>
   `,
   styles: `
-    .quarter-card {
+    .project-card {
       display: block;
       color: inherit;
       text-decoration: none;
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .quarter-card:hover {
+    .project-card:hover {
       border-color: var(--app-primary);
       text-decoration: none;
       color: inherit;
@@ -154,13 +154,13 @@ import { formatDateOnly, localDateInput, quarterEndDateFromStart } from '../../u
     }
   `,
 })
-export class QuartersComponent implements OnInit {
-  quarters: QuarterSummary[] = [];
+export class ProjectsComponent implements OnInit {
+  projects: ProjectSummary[] = [];
   teams: Team[] = [];
   members: AssignableMember[] = [];
   name = '';
   startDate = localDateInput();
-  endDate = quarterEndDateFromStart(localDateInput());
+  endDate = projectEndDateFromStart(localDateInput());
   selectedTeamIds: string[] = [];
   selectedUserIds: string[] = [];
   loading = true;
@@ -168,7 +168,7 @@ export class QuartersComponent implements OnInit {
   error = '';
 
   constructor(
-    private quarterService: QuarterService,
+    private projectService: ProjectService,
     private teamService: TeamService,
     private router: Router,
   ) {}
@@ -176,18 +176,18 @@ export class QuartersComponent implements OnInit {
   ngOnInit() {
     this.teamService.getTeams().subscribe((teams) => (this.teams = teams));
     this.teamService.getAssignableMembers().subscribe((members) => (this.members = members));
-    this.loadQuarters();
+    this.loadProjects();
   }
 
-  loadQuarters() {
+  loadProjects() {
     this.loading = true;
-    this.quarterService.getQuarters().subscribe({
-      next: (quarters) => {
-        this.quarters = quarters;
+    this.projectService.getProjects().subscribe({
+      next: (projects) => {
+        this.projects = projects;
         this.loading = false;
       },
       error: () => {
-        this.error = 'Failed to load quarters';
+        this.error = 'Failed to load projects';
         this.loading = false;
       },
     });
@@ -219,7 +219,7 @@ export class QuartersComponent implements OnInit {
 
   onStartDateChange() {
     if (this.startDate) {
-      this.endDate = quarterEndDateFromStart(this.startDate);
+      this.endDate = projectEndDateFromStart(this.startDate);
     }
   }
 
@@ -227,12 +227,12 @@ export class QuartersComponent implements OnInit {
     return !!this.name.trim() && !!this.startDate && !!this.endDate && this.endDate >= this.startDate;
   }
 
-  createQuarter() {
+  createProject() {
     if (!this.canCreate()) return;
     this.saving = true;
     this.error = '';
-    this.quarterService
-      .createQuarter({
+    this.projectService
+      .createProject({
         name: this.name.trim(),
         startDate: this.startDate,
         endDate: this.endDate,
@@ -240,14 +240,14 @@ export class QuartersComponent implements OnInit {
         userIds: this.selectedUserIds.length ? this.selectedUserIds : undefined,
       })
       .subscribe({
-        next: (quarter) => {
+        next: (project) => {
           this.saving = false;
-          this.router.navigate(['/quarters', quarter.id]);
+          this.router.navigate(['/projects', project.id]);
         },
         error: (err) => {
           this.saving = false;
           const msg = err.error?.message;
-          this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to create quarter';
+          this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to create project';
         },
       });
   }

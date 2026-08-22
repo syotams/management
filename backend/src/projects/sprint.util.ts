@@ -27,7 +27,7 @@ export function generateSprints(startDate: Date, endDate: Date): { number: numbe
   let number = 1;
 
   while (current <= end) {
-    // Always emit a full sprint length. The last sprint may extend past the quarter end.
+    // Always emit a full sprint length. The last sprint may extend past the project end.
     const sprintEnd = addUtcDays(current, SPRINT_LENGTH_DAYS - 1);
     sprints.push({ number, startDate: current, endDate: sprintEnd });
     current = addUtcDays(sprintEnd, 1);

@@ -19,7 +19,7 @@ const emptyToUndefined = ({ value }: { value: unknown }) =>
 const emptyToNull = ({ value }: { value: unknown }) =>
   value === '' ? null : value;
 
-export class CreateQuarterDto {
+export class CreateProjectDto {
   @IsString()
   @MinLength(1)
   name: string;
@@ -48,7 +48,7 @@ export class CreateQuarterDto {
   userIds?: string[];
 }
 
-export class UpdateQuarterDto {
+export class UpdateProjectDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
@@ -69,7 +69,7 @@ export class UpdateQuarterDto {
   teamId?: string | null;
 }
 
-export class AddQuarterParticipantDto {
+export class AddProjectParticipantDto {
   @IsString()
   userId: string;
 }

@@ -19,6 +19,7 @@
   --app-shadow: 0 1px 2px rgba(26, 35, 50, 0.06), 0 4px 16px rgba(26, 35, 50, 0.08);
   --app-shadow-lg: 0 8px 32px rgba(26, 35, 50, 0.12);
   --app-table-header-bg: #f0f3f8;
+  --app-card-header-bg: #f0f3f8;
   --app-modal-backdrop: rgba(26, 35, 50, 0.45);
   --app-primary: #4f46e5;
   --app-primary-rgb: 79, 70, 229;
@@ -37,33 +38,33 @@
   --app-info-rgb: 79, 70, 229;
   --app-on-success: #ffffff;
   --app-table-header-text: #5a6a7e;
-  --app-count-badge-bg: rgba(90, 106, 126, 0.12);
+  --app-count-badge-bg: color-mix(in srgb, #5a6a7e 14%, #ffffff);
   --app-count-badge-text: #5a6a7e;
-  --app-count-badge-border: rgba(90, 106, 126, 0.25);
-  --app-status-todo-bg: rgba(90, 106, 126, 0.1);
+  --app-count-badge-border: color-mix(in srgb, #5a6a7e 28%, #ffffff);
+  --app-status-todo-bg: color-mix(in srgb, #5a6a7e 12%, #ffffff);
   --app-status-todo-text: #5a6a7e;
-  --app-status-todo-border: rgba(90, 106, 126, 0.25);
-  --app-status-in-progress-bg: rgba(79, 70, 229, 0.1);
+  --app-status-todo-border: color-mix(in srgb, #5a6a7e 28%, #ffffff);
+  --app-status-in-progress-bg: color-mix(in srgb, #4f46e5 14%, #ffffff);
   --app-status-in-progress-text: #4338ca;
-  --app-status-in-progress-border: rgba(79, 70, 229, 0.3);
-  --app-status-completed-bg: rgba(25, 135, 84, 0.1);
+  --app-status-in-progress-border: color-mix(in srgb, #4f46e5 32%, #ffffff);
+  --app-status-completed-bg: color-mix(in srgb, #198754 14%, #ffffff);
   --app-status-completed-text: #198754;
-  --app-status-completed-border: rgba(25, 135, 84, 0.3);
-  --app-status-archived-bg: rgba(90, 106, 126, 0.08);
+  --app-status-completed-border: color-mix(in srgb, #198754 32%, #ffffff);
+  --app-status-archived-bg: color-mix(in srgb, #5a6a7e 10%, #ffffff);
   --app-status-archived-text: #5a6a7e;
-  --app-status-archived-border: rgba(90, 106, 126, 0.2);
-  --app-priority-urgent-bg: rgba(132, 32, 41, 0.14);
+  --app-status-archived-border: color-mix(in srgb, #5a6a7e 22%, #ffffff);
+  --app-priority-urgent-bg: color-mix(in srgb, #842029 16%, #ffffff);
   --app-priority-urgent-text: #842029;
-  --app-priority-urgent-border: rgba(132, 32, 41, 0.35);
-  --app-priority-high-bg: rgba(220, 53, 69, 0.12);
+  --app-priority-urgent-border: color-mix(in srgb, #842029 36%, #ffffff);
+  --app-priority-high-bg: color-mix(in srgb, #dc3545 14%, #ffffff);
   --app-priority-high-text: #dc3545;
-  --app-priority-high-border: rgba(220, 53, 69, 0.3);
-  --app-priority-medium-bg: rgba(253, 126, 20, 0.12);
+  --app-priority-high-border: color-mix(in srgb, #dc3545 32%, #ffffff);
+  --app-priority-medium-bg: color-mix(in srgb, #fd7e14 16%, #ffffff);
   --app-priority-medium-text: #c45a00;
-  --app-priority-medium-border: rgba(253, 126, 20, 0.3);
-  --app-priority-low-bg: rgba(108, 117, 125, 0.12);
+  --app-priority-medium-border: color-mix(in srgb, #fd7e14 34%, #ffffff);
+  --app-priority-low-bg: color-mix(in srgb, #6c757d 12%, #ffffff);
   --app-priority-low-text: #5a6a7e;
-  --app-priority-low-border: rgba(108, 117, 125, 0.25);
+  --app-priority-low-border: color-mix(in srgb, #6c757d 28%, #ffffff);
   --app-btn-ghost-bg: rgba(26, 35, 50, 0.04);
   --app-btn-ghost-border: #b8c4d4;
   --app-btn-ghost-hover-bg: rgba(79, 70, 229, 0.08);
@@ -101,6 +102,7 @@
   --app-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.25);
   --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
   --app-table-header-bg: #21262d;
+  --app-card-header-bg: #21262d;
   --app-table-header-text: #b1bac4;
   --app-modal-backdrop: rgba(0, 0, 0, 0.65);
   --app-primary: #1f6feb;
@@ -123,33 +125,33 @@
   --app-btn-ghost-border: #484f58;
   --app-btn-ghost-hover-bg: rgba(88, 166, 255, 0.1);
   --app-btn-ghost-hover-border: #58a6ff;
-  --app-count-badge-bg: rgba(177, 186, 196, 0.1);
+  --app-count-badge-bg: color-mix(in srgb, #b1bac4 16%, #161b22);
   --app-count-badge-text: #b1bac4;
-  --app-count-badge-border: rgba(177, 186, 196, 0.25);
-  --app-status-todo-bg: rgba(177, 186, 196, 0.12);
+  --app-count-badge-border: color-mix(in srgb, #b1bac4 30%, #161b22);
+  --app-status-todo-bg: color-mix(in srgb, #b1bac4 16%, #161b22);
   --app-status-todo-text: #b1bac4;
-  --app-status-todo-border: rgba(177, 186, 196, 0.3);
-  --app-status-in-progress-bg: rgba(88, 166, 255, 0.12);
+  --app-status-todo-border: color-mix(in srgb, #b1bac4 32%, #161b22);
+  --app-status-in-progress-bg: color-mix(in srgb, #58a6ff 18%, #161b22);
   --app-status-in-progress-text: #58a6ff;
-  --app-status-in-progress-border: rgba(88, 166, 255, 0.35);
-  --app-status-completed-bg: rgba(63, 185, 80, 0.12);
+  --app-status-in-progress-border: color-mix(in srgb, #58a6ff 38%, #161b22);
+  --app-status-completed-bg: color-mix(in srgb, #3fb950 18%, #161b22);
   --app-status-completed-text: #3fb950;
-  --app-status-completed-border: rgba(63, 185, 80, 0.35);
-  --app-status-archived-bg: rgba(145, 152, 161, 0.1);
+  --app-status-completed-border: color-mix(in srgb, #3fb950 38%, #161b22);
+  --app-status-archived-bg: color-mix(in srgb, #9198a1 14%, #161b22);
   --app-status-archived-text: #9198a1;
-  --app-status-archived-border: rgba(145, 152, 161, 0.25);
-  --app-priority-urgent-bg: rgba(248, 81, 73, 0.22);
+  --app-status-archived-border: color-mix(in srgb, #9198a1 28%, #161b22);
+  --app-priority-urgent-bg: color-mix(in srgb, #f85149 24%, #161b22);
   --app-priority-urgent-text: #ff7b72;
-  --app-priority-urgent-border: rgba(248, 81, 73, 0.55);
-  --app-priority-high-bg: rgba(248, 81, 73, 0.12);
+  --app-priority-urgent-border: color-mix(in srgb, #f85149 48%, #161b22);
+  --app-priority-high-bg: color-mix(in srgb, #f85149 16%, #161b22);
   --app-priority-high-text: #f85149;
-  --app-priority-high-border: rgba(248, 81, 73, 0.35);
-  --app-priority-medium-bg: rgba(210, 153, 34, 0.14);
+  --app-priority-high-border: color-mix(in srgb, #f85149 36%, #161b22);
+  --app-priority-medium-bg: color-mix(in srgb, #d29922 18%, #161b22);
   --app-priority-medium-text: #e3b341;
-  --app-priority-medium-border: rgba(210, 153, 34, 0.4);
-  --app-priority-low-bg: rgba(177, 186, 196, 0.1);
+  --app-priority-medium-border: color-mix(in srgb, #d29922 40%, #161b22);
+  --app-priority-low-bg: color-mix(in srgb, #b1bac4 14%, #161b22);
   --app-priority-low-text: #b1bac4;
-  --app-priority-low-border: rgba(177, 186, 196, 0.25);
+  --app-priority-low-border: color-mix(in srgb, #b1bac4 28%, #161b22);
 
   --bs-body-bg: var(--app-bg);
   --bs-body-color: var(--app-text);
@@ -172,13 +174,8 @@
     --bs-btn-hover-bg: var(--app-btn-ghost-hover-bg);
     --bs-btn-hover-border-color: var(--app-btn-ghost-hover-border);
     --bs-btn-hover-color: var(--app-link);
-    --bs-btn-active-bg: rgba(88, 166, 255, 0.15);
+    --bs-btn-active-bg: color-mix(in srgb, var(--app-link) 15%, transparent);
     --bs-btn-active-border-color: var(--app-link);
-    --bs-btn-active-color: var(--app-link);
-  }
-
-  .btn-outline-primary {
-    --bs-btn-hover-color: var(--app-link);
     --bs-btn-active-color: var(--app-link);
   }
 }
@@ -202,6 +199,7 @@
   --app-shadow: none;
   --app-shadow-lg: none;
   --app-table-header-bg: #272727;
+  --app-card-header-bg: #272727;
   --app-modal-backdrop: rgba(0, 0, 0, 0.60);
   --app-on-primary: rgba(0, 0, 0, 0.87);
   --app-error: #cf6679;
@@ -214,33 +212,33 @@
   --app-info-rgb: var(--app-primary-rgb);
   --app-on-success: rgba(0, 0, 0, 0.87);
   --app-table-header-text: rgba(255, 255, 255, 0.60);
-  --app-count-badge-bg: rgba(255, 255, 255, 0.08);
+  --app-count-badge-bg: color-mix(in srgb, #ffffff 10%, #1e1e1e);
   --app-count-badge-text: rgba(255, 255, 255, 0.60);
-  --app-count-badge-border: rgba(255, 255, 255, 0.12);
-  --app-status-todo-bg: rgba(255, 255, 255, 0.08);
+  --app-count-badge-border: color-mix(in srgb, #ffffff 16%, #1e1e1e);
+  --app-status-todo-bg: color-mix(in srgb, #ffffff 10%, #1e1e1e);
   --app-status-todo-text: rgba(255, 255, 255, 0.60);
-  --app-status-todo-border: rgba(255, 255, 255, 0.12);
-  --app-status-in-progress-bg: rgba(var(--app-primary-rgb), 0.12);
+  --app-status-todo-border: color-mix(in srgb, #ffffff 16%, #1e1e1e);
+  --app-status-in-progress-bg: color-mix(in srgb, var(--app-primary) 18%, #1e1e1e);
   --app-status-in-progress-text: var(--app-primary);
-  --app-status-in-progress-border: rgba(var(--app-primary-rgb), 0.35);
-  --app-status-completed-bg: rgba(129, 199, 132, 0.12);
+  --app-status-in-progress-border: color-mix(in srgb, var(--app-primary) 36%, #1e1e1e);
+  --app-status-completed-bg: color-mix(in srgb, #81c784 18%, #1e1e1e);
   --app-status-completed-text: #81c784;
-  --app-status-completed-border: rgba(129, 199, 132, 0.35);
-  --app-status-archived-bg: rgba(255, 255, 255, 0.06);
+  --app-status-completed-border: color-mix(in srgb, #81c784 36%, #1e1e1e);
+  --app-status-archived-bg: color-mix(in srgb, #ffffff 8%, #1e1e1e);
   --app-status-archived-text: rgba(255, 255, 255, 0.38);
-  --app-status-archived-border: rgba(255, 255, 255, 0.1);
-  --app-priority-urgent-bg: rgba(207, 102, 121, 0.18);
+  --app-status-archived-border: color-mix(in srgb, #ffffff 14%, #1e1e1e);
+  --app-priority-urgent-bg: color-mix(in srgb, #cf6679 22%, #1e1e1e);
   --app-priority-urgent-text: #ef9a9a;
-  --app-priority-urgent-border: rgba(207, 102, 121, 0.45);
-  --app-priority-high-bg: rgba(207, 102, 121, 0.12);
+  --app-priority-urgent-border: color-mix(in srgb, #cf6679 42%, #1e1e1e);
+  --app-priority-high-bg: color-mix(in srgb, #cf6679 16%, #1e1e1e);
   --app-priority-high-text: #cf6679;
-  --app-priority-high-border: rgba(207, 102, 121, 0.35);
-  --app-priority-medium-bg: rgba(255, 183, 77, 0.14);
+  --app-priority-high-border: color-mix(in srgb, #cf6679 34%, #1e1e1e);
+  --app-priority-medium-bg: color-mix(in srgb, #ffb74d 18%, #1e1e1e);
   --app-priority-medium-text: #ffb74d;
-  --app-priority-medium-border: rgba(255, 183, 77, 0.4);
-  --app-priority-low-bg: rgba(255, 255, 255, 0.08);
+  --app-priority-medium-border: color-mix(in srgb, #ffb74d 38%, #1e1e1e);
+  --app-priority-low-bg: color-mix(in srgb, #ffffff 10%, #1e1e1e);
   --app-priority-low-text: rgba(255, 255, 255, 0.60);
-  --app-priority-low-border: rgba(255, 255, 255, 0.12);
+  --app-priority-low-border: color-mix(in srgb, #ffffff 16%, #1e1e1e);
   --app-btn-ghost-bg: rgba(255, 255, 255, 0.04);
   --app-btn-ghost-border: rgba(255, 255, 255, 0.12);
   --app-btn-ghost-hover-bg: rgba(var(--app-primary-rgb), 0.12);
@@ -412,7 +410,16 @@ app-root {
   .nav-link {
     color: var(--app-text-muted) !important;
     font-weight: 500;
-    &:hover, &.active { color: var(--app-primary) !important; }
+    border-radius: 8px;
+    &:hover {
+      color: var(--app-primary) !important;
+      background: color-mix(in srgb, var(--app-primary) 10%, transparent);
+    }
+    &.active {
+      color: var(--app-primary) !important;
+      background: color-mix(in srgb, var(--app-primary) 14%, transparent);
+      font-weight: 600;
+    }
   }
 
   .navbar-text { color: var(--app-text-muted) !important; }
@@ -611,14 +618,14 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 }
 
 .btn-outline-primary {
-  --bs-btn-color: var(--app-primary);
-  --bs-btn-border-color: var(--app-primary);
-  --bs-btn-hover-color: var(--app-primary);
-  --bs-btn-hover-bg: rgba(var(--app-primary-rgb), 0.08);
-  --bs-btn-hover-border-color: var(--app-primary);
-  --bs-btn-active-color: var(--app-primary);
-  --bs-btn-active-bg: rgba(var(--app-primary-rgb), 0.12);
-  --bs-btn-active-border-color: var(--app-primary);
+  --bs-btn-color: var(--app-link);
+  --bs-btn-border-color: var(--app-link);
+  --bs-btn-hover-color: var(--app-link-hover);
+  --bs-btn-hover-bg: color-mix(in srgb, var(--app-link) 12%, transparent);
+  --bs-btn-hover-border-color: var(--app-link-hover);
+  --bs-btn-active-color: var(--app-link-hover);
+  --bs-btn-active-bg: color-mix(in srgb, var(--app-link) 18%, transparent);
+  --bs-btn-active-border-color: var(--app-link-hover);
   --bs-btn-disabled-color: var(--app-text-disabled);
   --bs-btn-disabled-border-color: var(--app-border-subtle);
   --bs-btn-focus-shadow-rgb: var(--app-primary-rgb);
@@ -689,16 +696,16 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 }
 
 .btn-postpone {
-  --bs-btn-color: var(--app-text-muted);
-  --bs-btn-border-color: var(--app-btn-ghost-border, var(--app-border));
-  --bs-btn-bg: var(--app-btn-ghost-bg, transparent);
-  --bs-btn-hover-color: var(--app-link);
-  --bs-btn-hover-bg: var(--app-btn-ghost-hover-bg, rgba(var(--app-primary-rgb), 0.08));
-  --bs-btn-hover-border-color: var(--app-btn-ghost-hover-border, var(--app-link));
-  --bs-btn-active-color: var(--app-link);
-  --bs-btn-active-bg: rgba(var(--app-primary-rgb), 0.12);
-  --bs-btn-active-border-color: var(--app-link);
-  --bs-btn-focus-shadow-rgb: var(--app-primary-rgb);
+  --bs-btn-color: var(--app-warning);
+  --bs-btn-border-color: var(--app-warning);
+  --bs-btn-bg: transparent;
+  --bs-btn-hover-color: var(--app-warning);
+  --bs-btn-hover-bg: color-mix(in srgb, var(--app-warning) 14%, transparent);
+  --bs-btn-hover-border-color: var(--app-warning);
+  --bs-btn-active-color: var(--app-warning);
+  --bs-btn-active-bg: color-mix(in srgb, var(--app-warning) 20%, transparent);
+  --bs-btn-active-border-color: var(--app-warning);
+  --bs-btn-focus-shadow-rgb: var(--app-warning-rgb);
 }
 
 .btn-outline-success,
@@ -720,6 +727,26 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
   --bs-btn-active-color: var(--app-on-success);
 }
 
+// Icon-only action buttons (edit, start, complete, etc.)
+.btn-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &.btn-sm {
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+
+  .bi {
+    color: inherit;
+    line-height: 1;
+  }
+}
+
 // ── Dropdowns ────────────────────────────────────────────
 .dropdown-menu {
   background: var(--app-surface);
@@ -734,31 +761,65 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 
   &:hover,
   &:focus {
-    background: rgba(var(--app-primary-rgb), 0.08);
+    background: color-mix(in srgb, var(--app-primary) 10%, transparent);
     color: var(--app-text);
   }
 
   &:active {
-    background: rgba(var(--app-primary-rgb), 0.12);
+    background: color-mix(in srgb, var(--app-primary) 14%, transparent);
     color: var(--app-text);
   }
 }
 
-// ── Alerts (MD2: semantic color at low opacity on surface) ─
+.dropdown-divider {
+  border-top-color: var(--app-border-subtle);
+  opacity: 1;
+}
+
+// ── Theme text helpers (Bootstrap utilities → app tokens) ─
+.bi {
+  color: inherit;
+}
+
+.text-primary {
+  color: var(--app-primary) !important;
+}
+
+.text-muted {
+  color: var(--app-text-muted) !important;
+}
+
+.text-success {
+  color: var(--app-success) !important;
+}
+
+.text-danger {
+  color: var(--app-error) !important;
+}
+
+.text-warning {
+  color: var(--app-warning) !important;
+}
+
+.text-info {
+  color: var(--app-info, var(--app-primary)) !important;
+}
+
+// ── Alerts (semantic tint mixed onto surface, not raw alpha) ─
 .alert-danger {
-  background: rgba(var(--app-error-rgb), 0.12);
+  background: color-mix(in srgb, var(--app-error) 14%, var(--app-surface));
   border-color: var(--app-error);
   color: var(--app-error);
 }
 
 .alert-warning {
-  background: rgba(var(--app-warning-rgb), 0.12);
+  background: color-mix(in srgb, var(--app-warning) 14%, var(--app-surface));
   border-color: var(--app-warning);
   color: var(--app-warning);
 }
 
 .alert-info {
-  background: rgba(var(--app-info-rgb, var(--app-primary-rgb)), 0.12);
+  background: color-mix(in srgb, var(--app-info, var(--app-primary)) 14%, var(--app-surface));
   border-color: var(--app-info, var(--app-primary));
   color: var(--app-info, var(--app-primary));
 }
@@ -772,9 +833,9 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 }
 
 .badge.bg-warning {
-  background: rgba(var(--app-warning-rgb), 0.18) !important;
+  background: color-mix(in srgb, var(--app-warning) 18%, var(--app-surface)) !important;
   color: var(--app-warning) !important;
-  border: 1px solid rgba(var(--app-warning-rgb), 0.35);
+  border: 1px solid color-mix(in srgb, var(--app-warning) 36%, var(--app-border-subtle));
   font-weight: 500;
 }
 

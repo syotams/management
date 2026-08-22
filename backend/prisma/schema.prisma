@@ -23,15 +23,15 @@ model User {
   createdTasks   Task[]       @relation("TaskCreator")
   comments       Comment[]
   auditLogs      TaskAuditLog[]
-  createdQuarters       Quarter[]            @relation("QuarterCreator")
+  createdProjects       Project[]            @relation("ProjectCreator")
   createdEpics          Epic[]               @relation("EpicCreator")
   epicAssignments       EpicAssignee[]
-  quarterVersions       QuarterVersion[]     @relation("QuarterVersionCreator")
-  quarterParticipations QuarterParticipant[]
-  quarterPtos           QuarterPto[]
-  quarterHolidays       QuarterHoliday[]
-  createdHolidays       QuarterHoliday[]     @relation("HolidayCreator")
-  createdPtos           QuarterPto[]         @relation("PtoCreator")
+  projectVersions       ProjectVersion[]     @relation("ProjectVersionCreator")
+  projectParticipations ProjectParticipant[]
+  projectPtos           ProjectPto[]
+  projectHolidays       ProjectHoliday[]
+  createdHolidays       ProjectHoliday[]     @relation("HolidayCreator")
+  createdPtos           ProjectPto[]         @relation("PtoCreator")
 }
 
 model Team {
@@ -44,8 +44,8 @@ model Team {
   members TeamMember[]
   invites TeamInvite[]
   tasks         Task[]
-  quarters      Quarter[]
-  quarterTeams  QuarterTeam[]
+  projects      Project[]
+  projectTeams  ProjectTeam[]
 }
 
 model TeamMember {
@@ -126,7 +126,7 @@ model TaskAuditLog {
   user User @relation(fields: [userId], references: [id])
 }
 
-model Quarter {
+model Project {
   id        String   @id @default(uuid())
   name      String   @default("")
   startDate DateTime
@@ -138,19 +138,19 @@ model Quarter {
   updatedAt DateTime @updatedAt
 
   team            Team?                @relation(fields: [teamId], references: [id])
-  creator         User                 @relation("QuarterCreator", fields: [createdBy], references: [id])
+  creator         User                 @relation("ProjectCreator", fields: [createdBy], references: [id])
   sprints         Sprint[]
   epics           Epic[]
-  versions        QuarterVersion[]
-  quarterTeams    QuarterTeam[]
-  participants    QuarterParticipant[]
-  holidays        QuarterHoliday[]
-  ptos            QuarterPto[]
+  versions        ProjectVersion[]
+  projectTeams    ProjectTeam[]
+  participants    ProjectParticipant[]
+  holidays        ProjectHoliday[]
+  ptos            ProjectPto[]
 }
 
-model QuarterHoliday {
+model ProjectHoliday {
   id        String   @id @default(uuid())
-  quarterId String
+  projectId String
   userId    String
   groupKey  String
   name      String   @default("Holiday")
@@ -159,18 +159,18 @@ model QuarterHoliday {
   createdBy String
   createdAt DateTime @default(now())
 
-  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   creator User    @relation("HolidayCreator", fields: [createdBy], references: [id])
 
-  @@index([quarterId])
-  @@index([quarterId, userId])
-  @@index([quarterId, groupKey])
+  @@index([projectId])
+  @@index([projectId, userId])
+  @@index([projectId, groupKey])
 }
 
-model QuarterPto {
+model ProjectPto {
   id        String   @id @default(uuid())
-  quarterId String
+  projectId String
   userId    String
   name      String   @default("PTO")
   startDate DateTime
@@ -178,68 +178,68 @@ model QuarterPto {
   createdBy String
   createdAt DateTime @default(now())
 
-  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   creator User    @relation("PtoCreator", fields: [createdBy], references: [id])
 
-  @@index([quarterId])
-  @@index([quarterId, userId])
+  @@index([projectId])
+  @@index([projectId, userId])
 }
 
-model QuarterTeam {
+model ProjectTeam {
   id        String   @id @default(uuid())
-  quarterId String
+  projectId String
   teamId    String
   createdAt DateTime @default(now())
 
-  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
-  @@unique([quarterId, teamId])
+  @@unique([projectId, teamId])
 }
 
-model QuarterParticipant {
+model ProjectParticipant {
   id        String   @id @default(uuid())
-  quarterId String
+  projectId String
   userId    String
   addedAt   DateTime @default(now())
 
-  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([quarterId, userId])
+  @@unique([projectId, userId])
 }
 
-model QuarterVersion {
+model ProjectVersion {
   id            String   @id @default(uuid())
-  quarterId     String
+  projectId     String
   versionNumber Int
   snapshot      String
   createdBy     String
   createdAt     DateTime @default(now())
 
-  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
-  creator User    @relation("QuarterVersionCreator", fields: [createdBy], references: [id])
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User    @relation("ProjectVersionCreator", fields: [createdBy], references: [id])
 
-  @@unique([quarterId, versionNumber])
-  @@index([quarterId])
+  @@unique([projectId, versionNumber])
+  @@index([projectId])
 }
 
 model Sprint {
   id        String   @id @default(uuid())
-  quarterId String
+  projectId String
   number    Int
   startDate DateTime
   endDate   DateTime
 
-  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@index([quarterId])
+  @@index([projectId])
 }
 
 model Epic {
   id                String   @id @default(uuid())
-  quarterId         String
+  projectId         String
   sourceEpicId      String?
   groupKey          String?
   title             String
@@ -250,7 +250,7 @@ model Epic {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  quarter    Quarter        @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   creator    User           @relation("EpicCreator", fields: [createdBy], references: [id])
   sourceEpic Epic?          @relation("EpicCopies", fields: [sourceEpicId], references: [id], onDelete: Cascade)
   copies     Epic[]         @relation("EpicCopies")

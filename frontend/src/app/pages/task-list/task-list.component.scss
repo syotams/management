@@ -19,41 +19,25 @@
   }
 }
 
-.overdue-group .card-header {
-  color: var(--app-error) !important;
-  background: rgba(var(--app-error-rgb), 0.08) !important;
-}
-
+.overdue-group .card-header,
 .urgent-group .card-header {
-  color: var(--app-error) !important;
-  background: rgba(var(--app-error-rgb), 0.12) !important;
-}
-
-[data-bs-theme='dark'] {
-  .overdue-group .card-header {
-    background: rgba(var(--app-error-rgb), 0.12) !important;
-  }
-  .urgent-group .card-header {
-    background: rgba(var(--app-error-rgb), 0.18) !important;
-  }
-}
-
-[data-bs-theme='dark'][data-dark-variant='colorffy'] {
-  .overdue-group,
-  .urgent-group {
-    border-color: var(--app-priority-urgent-border);
-  }
-
-  .overdue-group .card-header,
-  .urgent-group .card-header {
-    background: var(--app-card-header-bg, var(--app-surface)) !important;
-    color: var(--app-error) !important;
-    border-bottom-color: var(--app-priority-urgent-border);
-  }
+  color: var(--app-priority-urgent-text) !important;
+  background: var(--app-priority-urgent-bg) !important;
+  border-bottom-color: var(--app-priority-urgent-border) !important;
 }
 
 .task-table {
   table-layout: fixed;
+
+  .priority-col {
+    width: 110px;
+    white-space: nowrap;
+  }
+
+  .actions-col {
+    width: 200px;
+    text-align: right;
+  }
 
   .task-title-cell {
     overflow: hidden;
@@ -78,9 +62,12 @@
   }
 
   .btn-outline-secondary,
-  .btn-outline-primary,
   .btn-postpone {
     font-weight: 500;
+
+    .bi {
+      color: inherit;
+    }
   }
 }
 
@@ -136,10 +123,14 @@
     display: block;
     position: absolute;
     top: 100%;
-    left: 0;
     z-index: 1050;
     min-width: 140px;
     margin-top: 2px;
+  }
+
+  .dropdown-menu-end.show {
+    right: 0;
+    left: auto;
   }
 
   .dropdown-item {

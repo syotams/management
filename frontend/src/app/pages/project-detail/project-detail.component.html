@@ -1,35 +1,35 @@
 <div class="py-2">
   <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
     <div>
-      <a routerLink="/quarters" class="back-link"><i class="bi bi-arrow-left me-1"></i>All quarters</a>
-      @if (quarter) {
-        <h2 class="page-title mb-1">{{ quarter.name || formatRange(quarter.startDate, quarter.endDate) }}</h2>
+      <a routerLink="/projects" class="back-link"><i class="bi bi-arrow-left me-1"></i>All projects</a>
+      @if (project) {
+        <h2 class="page-title mb-1">{{ project.name || formatRange(project.startDate, project.endDate) }}</h2>
         <div class="text-muted">
-          {{ formatRange(quarter.startDate, quarter.endDate) }}
+          {{ formatRange(project.startDate, project.endDate) }}
           · {{ teamsLabel }}
-          · {{ quarter.sprints.length }} sprints
-          · {{ quarter.epics.length }} epics
-          @if (quarter.currentVersion) {
-            · v{{ quarter.currentVersion }}
+          · {{ project.sprints.length }} sprints
+          · {{ project.epics.length }} epics
+          @if (project.currentVersion) {
+            · v{{ project.currentVersion }}
           }
           <span
             class="badge status-badge ms-2"
-            [class.status-todo]="quarter.status === 'draft'"
-            [class.status-in_progress]="quarter.status === 'in_progress'"
-            [class.status-completed]="quarter.status === 'completed'"
+            [class.status-todo]="project.status === 'draft'"
+            [class.status-in_progress]="project.status === 'in_progress'"
+            [class.status-completed]="project.status === 'completed'"
           >
             {{ statusLabel }}
           </span>
         </div>
       }
     </div>
-    @if (quarter && (isManager || canCompare)) {
+    @if (project && (isManager || canCompare)) {
       <div class="d-flex gap-2 action-icons">
         @if (isManager && !isCompleted) {
           <button
             type="button"
             class="btn btn-outline-secondary btn-icon"
-            title="Edit quarter"
+            title="Edit project"
             (click)="openEdit()"
           >
             <i class="bi bi-pencil"></i>
@@ -39,8 +39,8 @@
           <button
             type="button"
             class="btn btn-outline-secondary btn-icon"
-            title="Start quarter"
-            (click)="startQuarter()"
+            title="Start project"
+            (click)="startProject()"
           >
             <i class="bi bi-play-fill"></i>
           </button>
@@ -49,8 +49,8 @@
           <button
             type="button"
             class="btn btn-outline-success btn-icon"
-            title="Complete quarter"
-            (click)="completeQuarter()"
+            title="Complete project"
+            (click)="completeProject()"
           >
             <i class="bi bi-check2-circle"></i>
           </button>
@@ -58,7 +58,7 @@
         @if (canCompare) {
           <a
             class="btn btn-outline-secondary btn-icon"
-            [routerLink]="['/quarters', quarter.id, 'compare']"
+            [routerLink]="['/projects', project.id, 'compare']"
             title="Compare plan"
           >
             <i class="bi bi-columns-gap"></i>
@@ -74,7 +74,7 @@
 
   @if (loading) {
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
-  } @else if (quarter) {
+  } @else if (project) {
     <div cdkDropListGroup>
     @if (canEditEpics || backlogEpics.length) {
       <div class="card mb-4">
@@ -160,16 +160,16 @@
       <div class="card-header d-flex justify-content-between align-items-center gap-2">
         <span>
           @if (isDraft) {
-            <i class="bi bi-calendar2-week me-2"></i>Quarter Plan
+            <i class="bi bi-calendar2-week me-2"></i>Project Plan
           } @else if (isInProgress) {
             <i class="bi bi-kanban me-2"></i>Current Plan
-            @if (quarter.currentVersion) {
-              <span class="text-muted fw-normal">v{{ quarter.currentVersion }}</span>
+            @if (project.currentVersion) {
+              <span class="text-muted fw-normal">v{{ project.currentVersion }}</span>
             }
           } @else {
-            <i class="bi bi-calendar2-check me-2"></i>Quarter Plan
+            <i class="bi bi-calendar2-check me-2"></i>Project Plan
             @if (canCompare) {
-              <a class="ms-2 small" [routerLink]="['/quarters', quarter.id, 'compare']">View comparison</a>
+              <a class="ms-2 small" [routerLink]="['/projects', project.id, 'compare']">View comparison</a>
             }
           }
         </span>
@@ -179,7 +179,7 @@
               type="button"
               class="btn btn-link btn-sm action-link"
               (click)="openAddHoliday()"
-              title="Add a quarter holiday"
+              title="Add a project holiday"
             >
               <i class="bi bi-plus-lg me-1"></i>Add holiday
             </button>
@@ -203,10 +203,10 @@
         }
       </div>
       <div class="card-body p-0">
-        @if (quarter.holidays?.length) {
+        @if (project.holidays?.length) {
           <div class="px-3 py-2 border-bottom holidays-bar">
             <span class="text-muted small me-2">Holidays:</span>
-            @for (holiday of quarter.holidays; track holiday.groupKey || holiday.id) {
+            @for (holiday of project.holidays; track holiday.groupKey || holiday.id) {
               <span class="badge holiday-badge me-1">
                 {{ holiday.name }} · {{ formatRange(holiday.startDate, holiday.endDate) }} · {{ holiday.workingDays }}d
                 @if (canEditEpics) {
@@ -224,11 +224,11 @@
           </div>
         }
         <div class="table-responsive">
-          <table class="table align-middle mb-0 quarter-grid">
+          <table class="table align-middle mb-0 project-grid">
             <thead>
               <tr>
                 <th class="participant-col">Participant</th>
-                @for (sprint of quarter.sprints; track sprint.id) {
+                @for (sprint of project.sprints; track sprint.id) {
                   <th>
                     <div class="sprint-number">Sprint {{ sprint.number }}</div>
                     <div class="sprint-dates">{{ sprintDates(sprint.startDate, sprint.endDate) }}</div>
@@ -237,7 +237,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (person of quarter.participants; track person.id) {
+              @for (person of project.participants; track person.id) {
                 <tr>
                   <th class="participant-col">
                     <div>{{ person.name }}</div>
@@ -248,7 +248,7 @@
                       {{ person.epicDaysAssigned ?? 0 }}/{{ person.totalWorkingDays ?? 0 }} committed
                     </div>
                   </th>
-                  @for (sprint of quarter.sprints; track sprint.id) {
+                  @for (sprint of project.sprints; track sprint.id) {
                     <td>
                       <div
                         class="epic-stack"
@@ -327,7 +327,7 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td [attr.colspan]="quarter.sprints.length + 1" class="text-muted p-4">
+                  <td [attr.colspan]="project.sprints.length + 1" class="text-muted p-4">
                     No participants yet.
                     @if (isManager && !isCompleted && addableParticipants.length) {
                       <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="openAddParticipant()">
@@ -335,14 +335,14 @@
                       </button>
                       to start assigning epics.
                     } @else {
-                      Add teams when creating the quarter or add users here.
+                      Add teams when creating the project or add users here.
                     }
                   </td>
                 </tr>
               }
-              @if (isManager && !isCompleted && quarter.participants.length && addableParticipants.length) {
+              @if (isManager && !isCompleted && project.participants.length && addableParticipants.length) {
                 <tr class="add-participant-row">
-                  <th class="participant-col" [attr.colspan]="quarter.sprints.length + 1">
+                  <th class="participant-col" [attr.colspan]="project.sprints.length + 1">
                     <button type="button" class="btn btn-link btn-sm action-link add-participant-btn" (click)="openAddParticipant()">
                       <i class="bi bi-plus-lg me-1"></i>Add another user
                     </button>
@@ -355,7 +355,7 @@
       </div>
     </div>
 
-    @if (quarter.capacity?.length) {
+    @if (project.capacity?.length) {
       <div class="card mt-4">
         <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Users Capacity</div>
         <div class="card-body p-0">
@@ -375,7 +375,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (row of quarter.capacity; track row.userId) {
+                @for (row of project.capacity; track row.userId) {
                   <tr [class]="capacityClass(row.epicDaysAssigned, row.totalCapacity)">
                     <td>{{ row.name }}</td>
                     <td class="text-end">{{ row.ptoDays }}d</td>
@@ -398,12 +398,12 @@
   }
 </div>
 
-@if (showEdit && quarter) {
+@if (showEdit && project) {
   <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Edit quarter</h5>
+          <h5 class="modal-title">Edit project</h5>
           <button type="button" class="btn-close" (click)="showEdit = false"></button>
         </div>
         <div class="modal-body">
@@ -444,7 +444,7 @@
   </div>
 }
 
-@if (showAddParticipant && quarter) {
+@if (showAddParticipant && project) {
   <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -479,7 +479,7 @@
   </div>
 }
 
-@if (showAddPto && quarter) {
+@if (showAddPto && project) {
   <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -506,8 +506,8 @@
                 class="form-control"
                 [(ngModel)]="ptoStartDate"
                 name="ptoStartDate"
-                [min]="quarterDateMin"
-                [max]="quarterDateMax"
+                [min]="projectDateMin"
+                [max]="projectDateMax"
               >
             </div>
             <div class="col-md-6">
@@ -517,12 +517,12 @@
                 class="form-control"
                 [(ngModel)]="ptoEndDate"
                 name="ptoEndDate"
-                [min]="ptoStartDate || quarterDateMin"
-                [max]="quarterDateMax"
+                [min]="ptoStartDate || projectDateMin"
+                [max]="projectDateMax"
               >
             </div>
           </div>
-          <div class="form-text mb-3">Dates must fall within {{ formatRange(quarter.startDate, quarter.endDate) }}.</div>
+          <div class="form-text mb-3">Dates must fall within {{ formatRange(project.startDate, project.endDate) }}.</div>
           <div class="mb-3">
             <label class="form-label">Assign to</label>
             <div class="d-flex gap-3 mb-2">
@@ -586,7 +586,7 @@
   </div>
 }
 
-@if (showAddHoliday && quarter) {
+@if (showAddHoliday && project) {
   <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -613,8 +613,8 @@
                 class="form-control"
                 [(ngModel)]="holidayStartDate"
                 name="holidayStartDate"
-                [min]="quarterDateMin"
-                [max]="quarterDateMax"
+                [min]="projectDateMin"
+                [max]="projectDateMax"
               >
             </div>
             <div class="col-md-6">
@@ -624,15 +624,15 @@
                 class="form-control"
                 [(ngModel)]="holidayEndDate"
                 name="holidayEndDate"
-                [min]="holidayStartDate || quarterDateMin"
-                [max]="quarterDateMax"
+                [min]="holidayStartDate || projectDateMin"
+                [max]="projectDateMax"
               >
             </div>
           </div>
           <div class="form-text mt-2">
             Creates a holiday entry for each participant. Removing a chip affects only that user;
             removing it from the holidays list removes it for everyone.
-            Dates must fall within {{ formatRange(quarter.startDate, quarter.endDate) }}.
+            Dates must fall within {{ formatRange(project.startDate, project.endDate) }}.
           </div>
         </div>
         <div class="modal-footer">
@@ -646,7 +646,7 @@
   </div>
 }
 
-@if (showAddEpic && quarter) {
+@if (showAddEpic && project) {
   <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
@@ -674,7 +674,7 @@
               <label class="form-label">Start sprint <span class="text-muted fw-normal">(optional)</span></label>
               <select class="form-select" [(ngModel)]="epicStartSprint" name="epicStartSprint">
                 <option [ngValue]="null">Not scheduled</option>
-                @for (sprint of quarter.sprints; track sprint.id) {
+                @for (sprint of project.sprints; track sprint.id) {
                   <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
                 }
               </select>
@@ -733,7 +733,7 @@
   </div>
 }
 
-@if (showEditEpic && quarter && editingEpic) {
+@if (showEditEpic && project && editingEpic) {
   <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
@@ -758,7 +758,7 @@
               <label class="form-label">Start sprint</label>
               <select class="form-select" [(ngModel)]="editEpicStartSprint" name="editEpicStartSprint">
                 <option [ngValue]="null">Not scheduled</option>
-                @for (sprint of quarter.sprints; track sprint.id) {
+                @for (sprint of project.sprints; track sprint.id) {
                   <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
                 }
               </select>

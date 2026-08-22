@@ -99,7 +99,7 @@ export function localDateInput(date = new Date()): string {
 }
 
 /** Last calendar day of the third month starting from `startDate` (start month = month 1). Uses UTC to match API date-only fields. */
-export function quarterEndDateFromStart(startDate: string): string {
+export function projectEndDateFromStart(startDate: string): string {
   const [year, month] = startDate.split('-').map(Number);
   if (!year || !month) return startDate;
   const lastDay = new Date(Date.UTC(year, month - 1 + 3, 0));

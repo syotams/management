@@ -29,18 +29,18 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
-    path: 'quarters',
-    loadComponent: () => import('./pages/quarters/quarters.component').then(m => m.QuartersComponent),
+    path: 'projects',
+    loadComponent: () => import('./pages/projects/projects.component').then(m => m.ProjectsComponent),
     canActivate: [authGuard],
   },
   {
-    path: 'quarters/:id/compare',
-    loadComponent: () => import('./pages/quarter-compare/quarter-compare.component').then(m => m.QuarterCompareComponent),
+    path: 'projects/:id/compare',
+    loadComponent: () => import('./pages/project-compare/project-compare.component').then(m => m.ProjectCompareComponent),
     canActivate: [authGuard],
   },
   {
-    path: 'quarters/:id',
-    loadComponent: () => import('./pages/quarter-detail/quarter-detail.component').then(m => m.QuarterDetailComponent),
+    path: 'projects/:id',
+    loadComponent: () => import('./pages/project-detail/project-detail.component').then(m => m.ProjectDetailComponent),
     canActivate: [authGuard],
   },
   {

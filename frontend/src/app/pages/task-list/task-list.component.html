@@ -11,7 +11,13 @@
       <div class="row g-3 align-items-end">
         <div class="col">
           <label class="form-label">Title *</label>
-          <input type="text" class="form-control" [(ngModel)]="newTitle" placeholder="What needs to be done?" (keyup.enter)="addTask()">
+          <input
+            type="text"
+            class="form-control"
+            [(ngModel)]="newTitle"
+            placeholder="What needs to be done?"
+            (keydown)="onTitleKeydown($event)"
+          >
         </div>
         <div class="col-auto">
           <label class="form-label d-block">&nbsp;</label>
@@ -21,8 +27,26 @@
         </div>
       </div>
 
-      @if (!showDueDateField || !showAlertField || !showAssigneeField) {
+      @if (showDescriptionField) {
+        <div class="mt-3">
+          <label class="form-label">Description</label>
+          <textarea
+            #newDescriptionInput
+            class="form-control"
+            rows="3"
+            [(ngModel)]="newDescription"
+            placeholder="Add more details…"
+          ></textarea>
+        </div>
+      }
+
+      @if (!showDescriptionField || !showDueDateField || !showAlertField || !showAssigneeField) {
         <div class="optional-actions mt-2">
+          @if (!showDescriptionField) {
+            <button type="button" class="btn btn-link btn-sm optional-action-link" (click)="showDescriptionInput()">
+              <i class="bi bi-text-left me-1"></i>Add description
+            </button>
+          }
           @if (!showDueDateField) {
             <button type="button" class="btn btn-link btn-sm optional-action-link" (click)="showDueDateInput()">
               <i class="bi bi-calendar-event me-1"></i>Add due date
@@ -100,12 +124,12 @@
               <table class="table table-hover align-middle mb-0 task-table">
                 <thead>
                   <tr>
-                    <th style="width:90px">Priority</th>
+                    <th class="priority-col">Priority</th>
                     <th>Title</th>
                     <th style="width:160px">Due Date</th>
                     <th style="width:120px">Assignee</th>
                     <th style="width:110px">Status</th>
-                    <th style="width:180px">Actions</th>
+                    <th class="actions-col"></th>
                   </tr>
                 </thead>
                 <tbody
@@ -140,18 +164,26 @@
                       <td [title]="formatDateTime(task.dueDate)">{{ formatDate(task.dueDate) }}</td>
                       <td>{{ displayName(task.assignee) }}</td>
                       <td><span class="badge status-badge" [ngClass]="statusClass(task.status)">{{ statusLabel(task.status) }}</span></td>
-                      <td (click)="$event.stopPropagation()">
-                        <div class="d-flex gap-1 align-items-center">
+                      <td class="actions-col" (click)="$event.stopPropagation()">
+                        <div class="d-flex gap-1 align-items-center justify-content-end">
+                          <button class="btn btn-outline-secondary btn-sm btn-icon" title="Edit" (click)="openEditModal(task, $event)">
+                            <i class="bi bi-pencil"></i>
+                          </button>
+                          @if (isOwner(task)) {
+                            <button class="btn btn-outline-secondary btn-sm btn-icon btn-postpone" title="Postpone" (click)="openPostpone(task, $event)">
+                              <i class="bi bi-calendar-event"></i>
+                            </button>
+                          }
                           <div class="dropdown">
                             <button
                               class="btn btn-outline-secondary btn-sm dropdown-toggle"
                               type="button"
                               (click)="toggleDropdown(task.id, $event)"
                             >
-                              Actions
+                              Status
                             </button>
                             @if (openDropdownId === task.id) {
-                              <ul class="dropdown-menu show">
+                              <ul class="dropdown-menu dropdown-menu-end show">
                                 @if (task.status === 'todo') {
                                   <li>
                                     <button class="dropdown-item" (click)="start(task, $event)">
@@ -172,14 +204,6 @@
                               </ul>
                             }
                           </div>
-                          <button class="btn btn-outline-primary btn-sm" title="Edit" (click)="openEditModal(task, $event)">
-                            <i class="bi bi-sliders"></i>
-                          </button>
-                          @if (isOwner(task)) {
-                            <button class="btn btn-postpone btn-sm" title="Postpone" (click)="openPostpone(task, $event)">
-                              <i class="bi bi-calendar-event"></i>
-                            </button>
-                          }
                         </div>
                       </td>
                       <ng-template cdkDragPreview>

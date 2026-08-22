@@ -1,27 +1,27 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { QuarterService } from '../../services/quarter.service';
-import { QuarterComparison, QuarterDetail, QuarterPlanView } from '../../models';
+import { ProjectService } from '../../services/project.service';
+import { ProjectComparison, ProjectDetail, ProjectPlanView } from '../../models';
 import { contrastText, formatDateOnly } from '../../utils/date';
 
 @Component({
-  selector: 'app-quarter-compare',
+  selector: 'app-project-compare',
   standalone: true,
   imports: [RouterLink, NgTemplateOutlet],
-  templateUrl: './quarter-compare.component.html',
-  styleUrl: './quarter-compare.component.scss',
+  templateUrl: './project-compare.component.html',
+  styleUrl: './project-compare.component.scss',
 })
-export class QuarterCompareComponent implements OnInit {
-  quarter: QuarterDetail | null = null;
-  comparison: QuarterComparison | null = null;
+export class ProjectCompareComponent implements OnInit {
+  project: ProjectDetail | null = null;
+  comparison: ProjectComparison | null = null;
   loading = true;
   error = '';
   contrastText = contrastText;
 
   constructor(
     private route: ActivatedRoute,
-    private quarterService: QuarterService,
+    private projectService: ProjectService,
   ) {}
 
   ngOnInit() {
@@ -32,21 +32,21 @@ export class QuarterCompareComponent implements OnInit {
   }
 
   get isCompleted(): boolean {
-    return this.quarter?.status === 'completed';
+    return this.project?.status === 'completed';
   }
 
   load(id: string) {
     this.loading = true;
     this.error = '';
-    this.quarterService.getQuarter(id).subscribe({
-      next: (quarter) => {
-        this.quarter = quarter;
-        if (quarter.status === 'draft') {
-          this.error = 'Start the quarter before comparing plan versions';
+    this.projectService.getProject(id).subscribe({
+      next: (project) => {
+        this.project = project;
+        if (project.status === 'draft') {
+          this.error = 'Start the project before comparing plan versions';
           this.loading = false;
           return;
         }
-        this.quarterService.compareQuarter(id).subscribe({
+        this.projectService.compareProject(id).subscribe({
           next: (comparison) => {
             this.comparison = comparison;
             this.loading = false;
@@ -58,7 +58,7 @@ export class QuarterCompareComponent implements OnInit {
         });
       },
       error: (err) => {
-        this.error = err.error?.message || 'Failed to load quarter';
+        this.error = err.error?.message || 'Failed to load project';
         this.loading = false;
       },
     });
@@ -72,7 +72,7 @@ export class QuarterCompareComponent implements OnInit {
     return `${formatDateOnly(start, false)} – ${formatDateOnly(end, false)}`;
   }
 
-  planCells(plan: QuarterPlanView, participantId: string, sprintId: string) {
+  planCells(plan: ProjectPlanView, participantId: string, sprintId: string) {
     return plan.participants.find((p) => p.id === participantId)?.cells?.[sprintId] ?? [];
   }
 
