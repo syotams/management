@@ -11,31 +11,32 @@
       var valid = {
         light: true,
         'dark-github': true,
-        'dark-material-indigo': true,
         'dark-material-purple': true,
-        'dark-material-orange': true,
         'dark-colorffy': true
       };
       var t = localStorage.getItem('theme');
       if (t === 'dark') t = 'dark-github';
-      if (t === 'dark-material') t = 'dark-material-purple';
+      if (
+        t === 'dark-material' ||
+        t === 'dark-material-indigo' ||
+        t === 'dark-material-orange'
+      ) {
+        t = 'dark-material-purple';
+      }
+      if (t === 'light-beachfront' || t === 'light-therapy') t = 'light';
       if (!valid[t]) {
         t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-github' : 'light';
       }
-      var isDark = t !== 'light';
+      var isDark = t.indexOf('dark') === 0;
       var variant = t === 'dark-github'
         ? 'github'
-        : t === 'dark-material-indigo'
-          ? 'material-indigo'
-          : t === 'dark-material-purple'
-            ? 'material-purple'
-            : t === 'dark-material-orange'
-              ? 'material-orange'
-              : t === 'dark-colorffy'
-                ? 'colorffy'
-                : 'light';
+        : t === 'dark-material-purple'
+          ? 'material-purple'
+          : t === 'dark-colorffy'
+            ? 'colorffy'
+            : 'light';
       document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
-      document.documentElement.setAttribute('data-dark-variant', isDark ? variant : 'light');
+      document.documentElement.setAttribute('data-dark-variant', variant);
     })();
   </script>
 </head>

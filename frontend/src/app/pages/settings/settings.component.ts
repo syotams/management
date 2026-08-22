@@ -18,11 +18,11 @@ import { Theme, ThemeService, THEME_OPTIONS } from '../../services/theme.service
         <div class="card-header">Appearance</div>
         <div class="card-body">
           <p class="text-muted mb-4">
-            Choose how Task Manager looks on this device. Material themes follow the
+            Choose how Task Manager looks on this device. Material Purple follows the
             <a href="https://m2.material.io/design/color/the-color-system.html" target="_blank" rel="noopener">
               MD2 color system
             </a>
-            with 200-tonal primaries on #121212 surfaces. Colorffy uses the
+            with a 200-tonal primary on #121212 surfaces. Colorffy uses the
             <a href="https://colorffy.com/dark-theme-generator" target="_blank" rel="noopener">
               Colorffy dark theme generator
             </a>

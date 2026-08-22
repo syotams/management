@@ -11,9 +11,8 @@ import {
   parseStoredColorffySeeds,
 } from './colorffy-palette';
 
-export type MaterialPalette = 'indigo' | 'purple' | 'orange';
-export type Theme = 'light' | 'dark-github' | `dark-material-${MaterialPalette}` | 'dark-colorffy';
-export type DarkVariant = 'github' | `material-${MaterialPalette}` | 'colorffy' | 'light';
+export type Theme = 'light' | 'dark-github' | 'dark-material-purple' | 'dark-colorffy';
+export type DarkVariant = 'github' | 'material-purple' | 'colorffy' | 'light';
 
 export interface ThemeOption {
   id: Theme;
@@ -21,29 +20,6 @@ export interface ThemeOption {
   description: string;
   swatches: [string, string, string];
 }
-
-export const MATERIAL_PALETTES: MaterialPalette[] = ['indigo', 'purple', 'orange'];
-
-const MATERIAL_THEME_META: Record<
-  MaterialPalette,
-  { name: string; description: string; swatches: [string, string, string] }
-> = {
-  indigo: {
-    name: 'Material Indigo',
-    description: 'MD2 dark theme with Indigo 200 (#9FA8DA) primary on #121212 surfaces.',
-    swatches: ['#121212', '#1e1e1e', '#9fa8da'],
-  },
-  purple: {
-    name: 'Material Purple',
-    description: 'MD2 dark theme with Purple 200 (#CE93D8) primary on #121212 surfaces.',
-    swatches: ['#121212', '#1e1e1e', '#ce93d8'],
-  },
-  orange: {
-    name: 'Material Orange',
-    description: 'MD2 dark theme with Orange 200 (#FFCC80) primary on #121212 surfaces.',
-    swatches: ['#121212', '#1e1e1e', '#ffcc80'],
-  },
-};
 
 export const THEME_OPTIONS: ThemeOption[] = [
   {
@@ -58,10 +34,12 @@ export const THEME_OPTIONS: ThemeOption[] = [
     description: 'Deep blue-gray tones inspired by GitHub’s dark mode.',
     swatches: ['#0d1117', '#161b22', '#1f6feb'],
   },
-  ...MATERIAL_PALETTES.map((palette) => ({
-    id: `dark-material-${palette}` as Theme,
-    ...MATERIAL_THEME_META[palette],
-  })),
+  {
+    id: 'dark-material-purple',
+    name: 'Material Purple',
+    description: 'MD2 dark theme with Purple 200 (#CE93D8) primary on #121212 surfaces.',
+    swatches: ['#121212', '#1e1e1e', '#ce93d8'],
+  },
   {
     id: 'dark-colorffy',
     name: 'Colorffy',
@@ -77,6 +55,10 @@ export const THEME_OPTIONS: ThemeOption[] = [
 const VALID_THEMES = new Set<string>(THEME_OPTIONS.map((option) => option.id));
 const COLORFFY_STYLE_ID = 'colorffy-theme-vars';
 
+function isDarkTheme(theme: Theme): boolean {
+  return theme.startsWith('dark');
+}
+
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
   private readonly storageKey = 'theme';
@@ -86,14 +68,9 @@ export class ThemeService {
   colorffyPalette = signal<ColorffySeeds>(this.loadColorffyPalette());
 
   readonly colorffyPresets = COLORFFY_PRESETS;
-  isDark = computed(() => this.current() !== 'light');
-  isMaterial = computed(() => this.current().startsWith('dark-material-'));
+  isDark = computed(() => isDarkTheme(this.current()));
+  isMaterial = computed(() => this.current() === 'dark-material-purple');
   isColorffy = computed(() => this.current() === 'dark-colorffy');
-  materialPalette = computed<MaterialPalette | null>(() => {
-    const theme = this.current();
-    if (!theme.startsWith('dark-material-')) return null;
-    return theme.replace('dark-material-', '') as MaterialPalette;
-  });
   colorffyPreset = computed<ColorffyPreset | null>(() => findColorffyPreset(this.colorffyPalette()));
 
   constructor() {
@@ -113,7 +90,7 @@ export class ThemeService {
     this.current.set(theme);
     this.apply(theme);
     localStorage.setItem(this.storageKey, theme);
-    if (theme !== 'light') {
+    if (isDarkTheme(theme)) {
       localStorage.setItem(this.lastDarkThemeKey, theme);
     }
   }
@@ -155,16 +132,30 @@ export class ThemeService {
     if (stored === 'dark') {
       return 'dark-github';
     }
-    if (stored === 'dark-material') {
+    if (
+      stored === 'dark-material' ||
+      stored === 'dark-material-indigo' ||
+      stored === 'dark-material-orange'
+    ) {
       return 'dark-material-purple';
+    }
+    if (stored === 'light-beachfront' || stored === 'light-therapy') {
+      return 'light';
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-github' : 'light';
   }
 
   private loadLastDarkTheme(): Theme {
     const stored = localStorage.getItem(this.lastDarkThemeKey);
-    if (stored && stored !== 'light' && VALID_THEMES.has(stored)) {
+    if (stored && isDarkTheme(stored as Theme) && VALID_THEMES.has(stored)) {
       return stored as Theme;
+    }
+    if (
+      stored === 'dark-material' ||
+      stored === 'dark-material-indigo' ||
+      stored === 'dark-material-orange'
+    ) {
+      return 'dark-material-purple';
     }
     return 'dark-github';
   }
@@ -175,7 +166,7 @@ export class ThemeService {
   }
 
   private apply(theme: Theme) {
-    const isDark = theme !== 'light';
+    const isDark = isDarkTheme(theme);
     const variant = this.themeToVariant(theme);
 
     document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
@@ -192,7 +183,7 @@ export class ThemeService {
     if (theme === 'light') return 'light';
     if (theme === 'dark-github') return 'github';
     if (theme === 'dark-colorffy') return 'colorffy';
-    return theme.replace('dark-material-', 'material-') as DarkVariant;
+    return 'material-purple';
   }
 
   private applyColorffyVars(seeds: ColorffySeeds) {

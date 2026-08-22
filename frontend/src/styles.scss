@@ -257,20 +257,6 @@
 }
 
 // MD2 palette primaries use the 200 tonal value in dark theme
-[data-bs-theme='dark'][data-dark-variant='material-indigo'] {
-  @include md2-dark-surfaces;
-  --app-primary: #9fa8da;
-  --app-primary-rgb: 159, 168, 218;
-  --app-primary-hover: #b0b8e3;
-  --app-primary-active: #7986cb;
-  --app-link: #9fa8da;
-  --app-link-hover: #b0b8e3;
-  --bs-primary: var(--app-primary);
-  --bs-primary-rgb: var(--app-primary-rgb);
-  --bs-link-color: var(--app-link);
-  --bs-link-hover-color: var(--app-link-hover);
-}
-
 [data-bs-theme='dark'][data-dark-variant='material-purple'] {
   @include md2-dark-surfaces;
   --app-primary: #ce93d8;
@@ -279,20 +265,6 @@
   --app-primary-active: #ba68c8;
   --app-link: #ce93d8;
   --app-link-hover: #daabe3;
-  --bs-primary: var(--app-primary);
-  --bs-primary-rgb: var(--app-primary-rgb);
-  --bs-link-color: var(--app-link);
-  --bs-link-hover-color: var(--app-link-hover);
-}
-
-[data-bs-theme='dark'][data-dark-variant='material-orange'] {
-  @include md2-dark-surfaces;
-  --app-primary: #ffcc80;
-  --app-primary-rgb: 255, 204, 128;
-  --app-primary-hover: #ffd699;
-  --app-primary-active: #ffb74d;
-  --app-link: #ffcc80;
-  --app-link-hover: #ffd699;
   --bs-primary: var(--app-primary);
   --bs-primary-rgb: var(--app-primary-rgb);
   --bs-link-color: var(--app-link);
@@ -820,6 +792,10 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
     letter-spacing: 0.05em;
     border-bottom: 1px solid var(--app-border);
   }
+}
+
+.table-sm > :not(caption) > * > * {
+  padding: 0.25rem 1rem;
 }
 
 // ── Modals ───────────────────────────────────────────────
