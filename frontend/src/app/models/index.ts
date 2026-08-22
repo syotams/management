@@ -118,15 +118,15 @@ export interface GroupedTasks {
   groups: DayGroup[];
 }
 
-export type QuarterStatus = 'draft' | 'in_progress' | 'completed';
+export type ProjectStatus = 'draft' | 'in_progress' | 'completed';
 
-export interface QuarterSummary {
+export interface ProjectSummary {
   id: string;
   name: string;
   startDate: string;
   endDate: string;
   teamId: string | null;
-  status: QuarterStatus;
+  status: ProjectStatus;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -134,7 +134,7 @@ export interface QuarterSummary {
   _count: { sprints: number; epics: number; versions?: number };
 }
 
-export interface QuarterSprint {
+export interface ProjectSprint {
   id: string;
   number: number;
   startDate: string;
@@ -153,7 +153,7 @@ export interface GridChip {
 /** @deprecated Use GridChip */
 export type EpicChip = GridChip;
 
-export interface QuarterHoliday {
+export interface ProjectHoliday {
   id: string;
   groupKey: string;
   name: string;
@@ -163,7 +163,7 @@ export interface QuarterHoliday {
   userCount?: number;
 }
 
-export interface QuarterPto {
+export interface ProjectPto {
   id: string;
   name: string;
   startDate: string;
@@ -183,7 +183,7 @@ export interface ParticipantCapacity {
   epicDaysAssigned: number;
 }
 
-export interface QuarterParticipant {
+export interface ProjectParticipant {
   id: string;
   name: string;
   email: string;
@@ -192,7 +192,7 @@ export interface QuarterParticipant {
   totalWorkingDays?: number;
 }
 
-export interface QuarterEpic {
+export interface ProjectEpic {
   id: string;
   groupKey: string | null;
   sourceEpicId: string | null;
@@ -204,20 +204,20 @@ export interface QuarterEpic {
   assignees: User[];
 }
 
-export interface QuarterPlanView {
+export interface ProjectPlanView {
   name: string;
   startDate: string;
   endDate: string;
   teamId: string | null;
   team: { id: string; name: string } | null;
-  sprints: QuarterSprint[];
-  participants: QuarterParticipant[];
-  epics: QuarterEpic[];
+  sprints: ProjectSprint[];
+  participants: ProjectParticipant[];
+  epics: ProjectEpic[];
 }
 
-export interface QuarterComparison {
-  original: QuarterPlanView;
-  latest: QuarterPlanView;
+export interface ProjectComparison {
+  original: ProjectPlanView;
+  latest: ProjectPlanView;
   originalVersion: number;
   latestVersion: number;
   stats: ComparisonStats;
@@ -246,13 +246,13 @@ export interface ComparisonEpicEntry {
   changes: string[];
 }
 
-export interface QuarterDetail {
+export interface ProjectDetail {
   id: string;
   name: string;
   startDate: string;
   endDate: string;
   teamId: string | null;
-  status: QuarterStatus;
+  status: ProjectStatus;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -261,10 +261,10 @@ export interface QuarterDetail {
   addedParticipants: User[];
   versionCount: number;
   currentVersion: number | null;
-  sprints: QuarterSprint[];
-  participants: QuarterParticipant[];
-  epics: QuarterEpic[];
-  holidays?: QuarterHoliday[];
-  ptos?: QuarterPto[];
+  sprints: ProjectSprint[];
+  participants: ProjectParticipant[];
+  epics: ProjectEpic[];
+  holidays?: ProjectHoliday[];
+  ptos?: ProjectPto[];
   capacity?: ParticipantCapacity[];
 }

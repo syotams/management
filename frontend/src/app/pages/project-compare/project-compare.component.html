@@ -1,13 +1,13 @@
 <div class="py-2">
   <div class="mb-4">
-    @if (quarter) {
-      <a [routerLink]="['/quarters', quarter.id]" class="back-link"><i class="bi bi-arrow-left me-1"></i>Back to quarter</a>
+    @if (project) {
+      <a [routerLink]="['/projects', project.id]" class="back-link"><i class="bi bi-arrow-left me-1"></i>Back to project</a>
       <h2 class="page-title mb-1">Plan comparison</h2>
       <div class="text-muted">
-        {{ quarter.name || formatRange(quarter.startDate, quarter.endDate) }}
+        {{ project.name || formatRange(project.startDate, project.endDate) }}
       </div>
     } @else {
-      <a routerLink="/quarters" class="back-link"><i class="bi bi-arrow-left me-1"></i>All quarters</a>
+      <a routerLink="/projects" class="back-link"><i class="bi bi-arrow-left me-1"></i>All projects</a>
       <h2 class="page-title mb-1">Plan comparison</h2>
     }
   </div>
@@ -146,7 +146,7 @@
 
 <ng-template #readonlyPlan let-plan="plan">
   <div class="table-responsive">
-    <table class="table align-middle mb-0 quarter-grid">
+    <table class="table align-middle mb-0 project-grid">
       <thead>
         <tr>
           <th class="participant-col">Participant</th>

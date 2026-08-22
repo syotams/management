@@ -4,13 +4,9 @@
   margin-bottom: 0.35rem;
 }
 
-.action-icons .btn-icon {
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.action-icons {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .color-swatches {
@@ -52,7 +48,7 @@
   }
 }
 
-.quarter-grid {
+.project-grid {
   min-width: 720px;
 
   th, td {

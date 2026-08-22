@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -45,15 +45,19 @@ interface TaskSection {
   styleUrl: './task-list.component.scss',
 })
 export class TaskListComponent implements OnInit {
+  @ViewChild('newDescriptionInput') newDescriptionInput?: ElementRef<HTMLTextAreaElement>;
+
   sections: TaskSection[] = [];
   loading = true;
   error = '';
   priorities = PRIORITIES;
 
   newTitle = '';
+  newDescription = '';
   newDueDate = '';
   newAlertAt = '';
   newAssigneeId = '';
+  showDescriptionField = false;
   showDueDateField = false;
   showAlertField = false;
   showAssigneeField = false;
@@ -98,8 +102,10 @@ export class TaskListComponent implements OnInit {
     this.teamService.getAssignableMembers().subscribe((m) => (this.members = m));
   }
 
-  loadTasks() {
-    this.loading = true;
+  loadTasks(options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      this.loading = true;
+    }
     this.taskService.getTasks().subscribe({
       next: (tasks) => {
         const grouped = groupTasks(tasks);
@@ -133,15 +139,27 @@ export class TaskListComponent implements OnInit {
     });
   }
 
+  onTitleKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (event.shiftKey) {
+      this.showDescriptionInput();
+      return;
+    }
+    this.addTask();
+  }
+
   addTask() {
     if (!this.newTitle.trim()) return;
     this.error = '';
     const dueDate = this.showDueDateField && this.newDueDate
       ? fromDatetimeLocal(this.newDueDate)
       : this.defaultDueDate();
+    const description = this.showDescriptionField ? this.newDescription.trim() : '';
     const data = {
       title: this.newTitle.trim(),
       dueDate: dueDate.toISOString(),
+      ...(description && { description }),
       ...(this.showAlertField && this.newAlertAt && { alertAt: datetimeLocalToUtcIso(this.newAlertAt) }),
       ...(this.showAssigneeField && this.newAssigneeId && { assigneeId: this.newAssigneeId }),
     };
@@ -159,6 +177,11 @@ export class TaskListComponent implements OnInit {
         }
       },
     });
+  }
+
+  showDescriptionInput() {
+    this.showDescriptionField = true;
+    setTimeout(() => this.newDescriptionInput?.nativeElement.focus(), 0);
   }
 
   showDueDateInput() {
@@ -184,9 +207,11 @@ export class TaskListComponent implements OnInit {
 
   private resetNewTaskForm() {
     this.newTitle = '';
+    this.newDescription = '';
     this.newDueDate = '';
     this.newAlertAt = '';
     this.newAssigneeId = '';
+    this.showDescriptionField = false;
     this.showDueDateField = false;
     this.showAlertField = false;
     this.showAssigneeField = false;
@@ -212,19 +237,19 @@ export class TaskListComponent implements OnInit {
   start(task: Task, event: Event) {
     event.stopPropagation();
     this.closeDropdown();
-    this.taskService.start(task.id).subscribe(() => this.loadTasks());
+    this.taskService.start(task.id).subscribe(() => this.loadTasks({ silent: true }));
   }
 
   complete(task: Task, event: Event) {
     event.stopPropagation();
     this.closeDropdown();
-    this.taskService.complete(task.id).subscribe(() => this.loadTasks());
+    this.taskService.complete(task.id).subscribe(() => this.loadTasks({ silent: true }));
   }
 
   archive(task: Task, event: Event) {
     event.stopPropagation();
     this.closeDropdown();
-    this.taskService.archive(task.id).subscribe(() => this.loadTasks());
+    this.taskService.archive(task.id).subscribe(() => this.loadTasks({ silent: true }));
   }
 
   openPostpone(task: Task, event: Event) {

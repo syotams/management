@@ -7,15 +7,15 @@ import {
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  AddQuarterParticipantDto,
+  AddProjectParticipantDto,
   AssignEpicDto,
   CreateEpicDto,
   CreateHolidayDto,
   CreatePtoDto,
-  CreateQuarterDto,
+  CreateProjectDto,
   UpdateEpicDto,
-  UpdateQuarterDto,
-} from './dto/quarter.dto';
+  UpdateProjectDto,
+} from './dto/project.dto';
 import {
   countWeekdays,
   countWeekdaysOverlap,
@@ -70,15 +70,15 @@ type PlanSnapshot = {
 type SnapshotEpic = PlanSnapshot['epics'][number];
 
 @Injectable()
-export class QuartersService {
+export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(userId: string, dto: CreateQuarterDto) {
+  async create(userId: string, dto: CreateProjectDto) {
     const { startDate, endDate } = this.parseRange(dto.startDate, dto.endDate);
     const teamIds = await this.resolveTeamIds(userId, dto.teamIds, dto.teamId);
     const userIds = await this.resolveParticipantUserIds(userId, dto.userIds);
 
-    const quarter = await this.prisma.quarter.create({
+    const project = await this.prisma.project.create({
       data: {
         name: dto.name.trim(),
         startDate,
@@ -87,7 +87,7 @@ export class QuartersService {
         status: 'draft',
         createdBy: userId,
         sprints: { create: generateSprints(startDate, endDate) },
-        quarterTeams: teamIds.length
+        projectTeams: teamIds.length
           ? { create: teamIds.map((teamId) => ({ teamId })) }
           : undefined,
         participants: userIds.length
@@ -96,7 +96,7 @@ export class QuartersService {
       },
     });
 
-    return this.findOne(quarter.id, userId);
+    return this.findOne(project.id, userId);
   }
 
   async findAll(userId: string) {
@@ -106,12 +106,12 @@ export class QuartersService {
     });
     const teamIds = memberships.map((m) => m.teamId);
 
-    const quarters = await this.prisma.quarter.findMany({
+    const projects = await this.prisma.project.findMany({
       where: {
         OR: [
           { createdBy: userId },
           { teamId: { in: teamIds } },
-          { quarterTeams: { some: { teamId: { in: teamIds } } } },
+          { projectTeams: { some: { teamId: { in: teamIds } } } },
           { participants: { some: { userId } } },
         ],
       },
@@ -122,24 +122,24 @@ export class QuartersService {
       orderBy: { startDate: 'desc' },
     });
 
-    return quarters.map((q) => ({
+    return projects.map((q) => ({
       ...q,
       status: this.normalizeStatus(q.status),
     }));
   }
 
   async findOne(id: string, userId: string) {
-    const quarter = await this.loadQuarter(id);
-    await this.ensureCanView(quarter, userId);
-    return this.toDetail(quarter);
+    const project = await this.loadProject(id);
+    await this.ensureCanView(project, userId);
+    return this.toDetail(project);
   }
 
   async compare(id: string, userId: string) {
-    const quarter = await this.loadQuarter(id);
-    await this.ensureCanView(quarter, userId);
-    const status = this.normalizeStatus(quarter.status);
+    const project = await this.loadProject(id);
+    await this.ensureCanView(project, userId);
+    const status = this.normalizeStatus(project.status);
     if (status === 'draft') {
-      throw new BadRequestException('Start the quarter before comparing plan versions');
+      throw new BadRequestException('Start the project before comparing plan versions');
     }
     const comparison = await this.buildComparison(id);
     if (!comparison) {
@@ -148,24 +148,24 @@ export class QuartersService {
     return comparison;
   }
 
-  async update(id: string, userId: string, dto: UpdateQuarterDto) {
-    const quarter = await this.loadQuarter(id);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async update(id: string, userId: string, dto: UpdateProjectDto) {
+    const project = await this.loadProject(id);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    const startDate = dto.startDate ? parseDateOnly(dto.startDate) : quarter.startDate;
-    const endDate = dto.endDate ? parseDateOnly(dto.endDate) : quarter.endDate;
+    const startDate = dto.startDate ? parseDateOnly(dto.startDate) : project.startDate;
+    const endDate = dto.endDate ? parseDateOnly(dto.endDate) : project.endDate;
     this.assertRange(startDate, endDate);
 
     const teamId =
-      dto.teamId === undefined ? quarter.teamId : await this.resolveTeamId(userId, dto.teamId);
+      dto.teamId === undefined ? project.teamId : await this.resolveTeamId(userId, dto.teamId);
 
     const datesChanged =
-      startDate.getTime() !== quarter.startDate.getTime() ||
-      endDate.getTime() !== quarter.endDate.getTime();
+      startDate.getTime() !== project.startDate.getTime() ||
+      endDate.getTime() !== project.endDate.getTime();
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.quarter.update({
+      await tx.project.update({
         where: { id },
         data: {
           ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
@@ -176,9 +176,9 @@ export class QuartersService {
       });
 
       if (datesChanged) {
-        await tx.sprint.deleteMany({ where: { quarterId: id } });
+        await tx.sprint.deleteMany({ where: { projectId: id } });
         await tx.sprint.createMany({
-          data: generateSprints(startDate, endDate).map((s) => ({ ...s, quarterId: id })),
+          data: generateSprints(startDate, endDate).map((s) => ({ ...s, projectId: id })),
         });
       }
     });
@@ -187,20 +187,20 @@ export class QuartersService {
     return this.findOne(id, userId);
   }
 
-  async addParticipant(id: string, userId: string, dto: AddQuarterParticipantDto) {
-    const quarter = await this.loadQuarter(id);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async addParticipant(id: string, userId: string, dto: AddProjectParticipantDto) {
+    const project = await this.loadProject(id);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    await this.ensureAssignable(quarter, userId, [dto.userId]);
+    await this.ensureAssignable(project, userId, [dto.userId]);
 
-    const existing = quarter.participants.find((p) => p.userId === dto.userId);
+    const existing = project.participants.find((p) => p.userId === dto.userId);
     if (existing) {
-      throw new BadRequestException('User is already a quarter participant');
+      throw new BadRequestException('User is already a project participant');
     }
 
-    await this.prisma.quarterParticipant.create({
-      data: { quarterId: id, userId: dto.userId },
+    await this.prisma.projectParticipant.create({
+      data: { projectId: id, userId: dto.userId },
     });
 
     await this.maybeVersionAfterChange(id, userId);
@@ -208,18 +208,18 @@ export class QuartersService {
   }
 
   async start(id: string, userId: string) {
-    const quarter = await this.loadQuarter(id);
-    this.ensureCreator(quarter, userId);
-    const status = this.normalizeStatus(quarter.status);
+    const project = await this.loadProject(id);
+    this.ensureCreator(project, userId);
+    const status = this.normalizeStatus(project.status);
     if (status !== 'draft') {
-      throw new BadRequestException('Only draft quarters can be started');
+      throw new BadRequestException('Only draft projects can be started');
     }
-    if (!quarter.epics.length) {
-      throw new BadRequestException('Add at least one epic before starting the quarter');
+    if (!project.epics.length) {
+      throw new BadRequestException('Add at least one epic before starting the project');
     }
 
     await this.createVersionSnapshot(id, userId);
-    await this.prisma.quarter.update({
+    await this.prisma.project.update({
       where: { id },
       data: { status: 'in_progress' },
     });
@@ -228,18 +228,18 @@ export class QuartersService {
   }
 
   async complete(id: string, userId: string) {
-    const quarter = await this.loadQuarter(id);
-    this.ensureCreator(quarter, userId);
-    const status = this.normalizeStatus(quarter.status);
+    const project = await this.loadProject(id);
+    this.ensureCreator(project, userId);
+    const status = this.normalizeStatus(project.status);
     if (status === 'completed') {
-      throw new BadRequestException('Quarter is already completed');
+      throw new BadRequestException('Project is already completed');
     }
     if (status !== 'in_progress') {
-      throw new BadRequestException('Start the quarter before completing it');
+      throw new BadRequestException('Start the project before completing it');
     }
 
     await this.createVersionSnapshot(id, userId);
-    await this.prisma.quarter.update({
+    await this.prisma.project.update({
       where: { id },
       data: { status: 'completed' },
     });
@@ -247,26 +247,26 @@ export class QuartersService {
     return this.findOne(id, userId);
   }
 
-  async addEpic(quarterId: string, userId: string, dto: CreateEpicDto) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async addEpic(projectId: string, userId: string, dto: CreateEpicDto) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
     const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : [];
     const startSprintNumber = dto.startSprintNumber ?? null;
 
     if (startSprintNumber !== null) {
-      this.assertStartSprint(quarter, startSprintNumber);
+      this.assertStartSprint(project, startSprintNumber);
     }
 
     if (assigneeIds.length) {
-      await this.ensureAssignable(quarter, userId, assigneeIds);
+      await this.ensureAssignable(project, userId, assigneeIds);
     }
 
     if (!assigneeIds.length) {
       await this.prisma.epic.create({
         data: {
-          quarterId,
+          projectId,
           title: dto.title.trim(),
           workingDays: dto.workingDays,
           startSprintNumber,
@@ -280,7 +280,7 @@ export class QuartersService {
         assigneeIds.map((assigneeId) =>
           this.prisma.epic.create({
             data: {
-              quarterId,
+              projectId,
               groupKey,
               title: dto.title.trim(),
               workingDays: dto.workingDays,
@@ -294,28 +294,28 @@ export class QuartersService {
       );
     }
 
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
   async assignEpic(
-    quarterId: string,
+    projectId: string,
     templateEpicId: string,
     userId: string,
     dto: AssignEpicDto,
   ) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    const template = quarter.epics.find((e) => e.id === templateEpicId);
+    const template = project.epics.find((e) => e.id === templateEpicId);
     if (!template) throw new NotFoundException('Epic not found');
     if (!this.isBacklogTemplate(template)) {
       throw new BadRequestException('Only backlog epics can be assigned from the list');
     }
 
-    this.assertStartSprint(quarter, dto.startSprintNumber);
-    await this.ensureAssignable(quarter, userId, [dto.assigneeId]);
+    this.assertStartSprint(project, dto.startSprintNumber);
+    await this.ensureAssignable(project, userId, [dto.assigneeId]);
 
     const duplicate = await this.prisma.epic.findFirst({
       where: {
@@ -329,7 +329,7 @@ export class QuartersService {
 
     await this.prisma.epic.create({
       data: {
-        quarterId,
+        projectId,
         sourceEpicId: templateEpicId,
         groupKey: template.groupKey ?? templateEpicId,
         title: template.title,
@@ -341,16 +341,16 @@ export class QuartersService {
       },
     });
 
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
-  async updateEpic(quarterId: string, epicId: string, userId: string, dto: UpdateEpicDto) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async updateEpic(projectId: string, epicId: string, userId: string, dto: UpdateEpicDto) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    const epic = quarter.epics.find((e) => e.id === epicId);
+    const epic = project.epics.find((e) => e.id === epicId);
     if (!epic) throw new NotFoundException('Epic not found');
 
     const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : undefined;
@@ -359,7 +359,7 @@ export class QuartersService {
         throw new BadRequestException('Each epic entry has at most one assignee');
       }
       if (assigneeIds.length === 1) {
-        await this.ensureAssignable(quarter, userId, assigneeIds);
+        await this.ensureAssignable(project, userId, assigneeIds);
         if (epic.sourceEpicId) {
           const duplicate = await this.prisma.epic.findFirst({
             where: {
@@ -376,7 +376,7 @@ export class QuartersService {
     }
 
     if (dto.startSprintNumber !== undefined && dto.startSprintNumber !== null) {
-      this.assertStartSprint(quarter, dto.startSprintNumber);
+      this.assertStartSprint(project, dto.startSprintNumber);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -404,41 +404,41 @@ export class QuartersService {
       }
     });
 
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
-  async deleteEpic(quarterId: string, epicId: string, userId: string) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async deleteEpic(projectId: string, epicId: string, userId: string) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    const epic = quarter.epics.find((e) => e.id === epicId);
+    const epic = project.epics.find((e) => e.id === epicId);
     if (!epic) throw new NotFoundException('Epic not found');
 
     await this.prisma.epic.delete({ where: { id: epicId } });
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
-  async addHoliday(quarterId: string, userId: string, dto: CreateHolidayDto) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async addHoliday(projectId: string, userId: string, dto: CreateHolidayDto) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
     const { startDate, endDate } = this.parseRange(dto.startDate, dto.endDate);
-    this.assertWithinQuarter(quarter, startDate, endDate);
+    this.assertWithinProject(project, startDate, endDate);
 
-    const participants = await this.resolveParticipants(quarter);
+    const participants = await this.resolveParticipants(project);
     if (!participants.length) {
       throw new BadRequestException('Add participants before creating a holiday');
     }
 
     const name = (dto.name?.trim() || 'Holiday').slice(0, 200);
     const groupKey = randomUUID();
-    await this.prisma.quarterHoliday.createMany({
+    await this.prisma.projectHoliday.createMany({
       data: participants.map((p) => ({
-        quarterId,
+        projectId,
         userId: p.id,
         groupKey,
         name,
@@ -448,55 +448,55 @@ export class QuartersService {
       })),
     });
 
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
-  async deleteHoliday(quarterId: string, holidayId: string, userId: string) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async deleteHoliday(projectId: string, holidayId: string, userId: string) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    const holiday = quarter.holidays.find((h) => h.id === holidayId);
+    const holiday = project.holidays.find((h) => h.id === holidayId);
     if (!holiday) throw new NotFoundException('Holiday not found');
 
-    await this.prisma.quarterHoliday.delete({ where: { id: holidayId } });
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.prisma.projectHoliday.delete({ where: { id: holidayId } });
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
-  async deleteHolidayGroup(quarterId: string, groupKey: string, userId: string) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async deleteHolidayGroup(projectId: string, groupKey: string, userId: string) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    const matching = quarter.holidays.filter((h) => h.groupKey === groupKey);
+    const matching = project.holidays.filter((h) => h.groupKey === groupKey);
     if (!matching.length) throw new NotFoundException('Holiday not found');
 
-    await this.prisma.quarterHoliday.deleteMany({
-      where: { quarterId, groupKey },
+    await this.prisma.projectHoliday.deleteMany({
+      where: { projectId, groupKey },
     });
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
-  async addPto(quarterId: string, userId: string, dto: CreatePtoDto) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async addPto(projectId: string, userId: string, dto: CreatePtoDto) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
     const { startDate, endDate } = this.parseRange(dto.startDate, dto.endDate);
-    this.assertWithinQuarter(quarter, startDate, endDate);
+    this.assertWithinProject(project, startDate, endDate);
 
-    const targetUserIds = await this.resolvePtoTargetUserIds(quarter, userId, dto);
+    const targetUserIds = await this.resolvePtoTargetUserIds(project, userId, dto);
     if (!targetUserIds.length) {
       throw new BadRequestException('Select a team or at least one user for PTO');
     }
 
     const name = (dto.name?.trim() || 'PTO').slice(0, 200);
-    await this.prisma.quarterPto.createMany({
+    await this.prisma.projectPto.createMany({
       data: targetUserIds.map((uid) => ({
-        quarterId,
+        projectId,
         userId: uid,
         name,
         startDate,
@@ -505,47 +505,47 @@ export class QuartersService {
       })),
     });
 
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
-  async deletePto(quarterId: string, ptoId: string, userId: string) {
-    const quarter = await this.loadQuarter(quarterId);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+  async deletePto(projectId: string, ptoId: string, userId: string) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    const pto = quarter.ptos.find((p) => p.id === ptoId);
+    const pto = project.ptos.find((p) => p.id === ptoId);
     if (!pto) throw new NotFoundException('PTO entry not found');
 
-    await this.prisma.quarterPto.delete({ where: { id: ptoId } });
-    await this.maybeVersionAfterChange(quarterId, userId);
-    return this.findOne(quarterId, userId);
+    await this.prisma.projectPto.delete({ where: { id: ptoId } });
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
   }
 
-  private async maybeVersionAfterChange(quarterId: string, userId: string) {
-    const quarter = await this.prisma.quarter.findUnique({
-      where: { id: quarterId },
+  private async maybeVersionAfterChange(projectId: string, userId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
       select: { status: true },
     });
-    if (!quarter) return;
-    if (this.normalizeStatus(quarter.status) === 'in_progress') {
-      await this.createVersionSnapshot(quarterId, userId);
+    if (!project) return;
+    if (this.normalizeStatus(project.status) === 'in_progress') {
+      await this.createVersionSnapshot(projectId, userId);
     }
   }
 
-  private async createVersionSnapshot(quarterId: string, userId: string) {
-    const quarter = await this.loadQuarter(quarterId);
-    const latest = await this.prisma.quarterVersion.findFirst({
-      where: { quarterId },
+  private async createVersionSnapshot(projectId: string, userId: string) {
+    const project = await this.loadProject(projectId);
+    const latest = await this.prisma.projectVersion.findFirst({
+      where: { projectId },
       orderBy: { versionNumber: 'desc' },
       select: { versionNumber: true },
     });
     const versionNumber = (latest?.versionNumber ?? 0) + 1;
-    const snapshot = this.buildSnapshot(quarter);
+    const snapshot = this.buildSnapshot(project);
 
-    await this.prisma.quarterVersion.create({
+    await this.prisma.projectVersion.create({
       data: {
-        quarterId,
+        projectId,
         versionNumber,
         snapshot: JSON.stringify(snapshot),
         createdBy: userId,
@@ -554,25 +554,25 @@ export class QuartersService {
   }
 
   private buildSnapshot(
-    quarter: Awaited<ReturnType<QuartersService['loadQuarter']>>,
+    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
   ): PlanSnapshot {
-    const teams = quarter.quarterTeams.map((qt) => qt.team);
+    const teams = project.projectTeams.map((qt) => qt.team);
     return {
-      name: quarter.name,
-      startDate: quarter.startDate.toISOString(),
-      endDate: quarter.endDate.toISOString(),
-      teamId: quarter.teamId,
+      name: project.name,
+      startDate: project.startDate.toISOString(),
+      endDate: project.endDate.toISOString(),
+      teamId: project.teamId,
       teamIds: teams.map((t) => t.id),
-      team: quarter.team,
+      team: project.team,
       teams,
-      participantUserIds: quarter.participants.map((p) => p.userId),
-      sprints: quarter.sprints.map((s) => ({
+      participantUserIds: project.participants.map((p) => p.userId),
+      sprints: project.sprints.map((s) => ({
         id: s.id,
         number: s.number,
         startDate: s.startDate.toISOString(),
         endDate: s.endDate.toISOString(),
       })),
-      epics: quarter.epics.map((epic) => ({
+      epics: project.epics.map((epic) => ({
         id: epic.id,
         groupKey: epic.groupKey,
         sourceEpicId: epic.sourceEpicId,
@@ -586,9 +586,9 @@ export class QuartersService {
     };
   }
 
-  private async buildComparison(quarterId: string) {
-    const versions = await this.prisma.quarterVersion.findMany({
-      where: { quarterId },
+  private async buildComparison(projectId: string) {
+    const versions = await this.prisma.projectVersion.findMany({
+      where: { projectId },
       orderBy: { versionNumber: 'asc' },
     });
     if (!versions.length) return null;
@@ -660,8 +660,8 @@ export class QuartersService {
     let unchangedCount = 0;
     let changedCount = 0;
     let extendedEpicCount = 0;
-    const unchangedEpics: ReturnType<QuartersService['toComparisonEpicEntry']>[] = [];
-    const changedEpics: ReturnType<QuartersService['toComparisonEpicEntry']>[] = [];
+    const unchangedEpics: ReturnType<ProjectsService['toComparisonEpicEntry']>[] = [];
+    const changedEpics: ReturnType<ProjectsService['toComparisonEpicEntry']>[] = [];
 
     for (const orig of originalEpics) {
       const match = this.findLatestMatch(orig, latestEpics, usedLatest);
@@ -878,12 +878,12 @@ export class QuartersService {
     return Array.from(byId.values());
   }
 
-  private async loadQuarter(id: string) {
-    const quarter = await this.prisma.quarter.findUnique({
+  private async loadProject(id: string) {
+    const project = await this.prisma.project.findUnique({
       where: { id },
       include: {
         team: { select: { id: true, name: true } },
-        quarterTeams: { include: { team: { select: { id: true, name: true } } } },
+        projectTeams: { include: { team: { select: { id: true, name: true } } } },
         participants: { include: { user: { select: userSelect } } },
         sprints: { orderBy: { number: 'asc' } },
         epics: {
@@ -909,51 +909,51 @@ export class QuartersService {
         _count: { select: { versions: true } },
       },
     });
-    if (!quarter) throw new NotFoundException('Quarter not found');
-    return quarter;
+    if (!project) throw new NotFoundException('Project not found');
+    return project;
   }
 
   private async toDetail(
-    quarter: Awaited<ReturnType<QuartersService['loadQuarter']>>,
+    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
   ) {
-    const participants = await this.resolveParticipants(quarter);
+    const participants = await this.resolveParticipants(project);
     const participantIds = participants.map((p) => p.id);
-    const holidays = quarter.holidays;
-    const ptos = quarter.ptos;
+    const holidays = project.holidays;
+    const ptos = project.ptos;
     const grid = this.buildGrid(
-      quarter.sprints,
-      quarter.epics,
+      project.sprints,
+      project.epics,
       participantIds,
       ptos,
       holidays,
     );
     const capacity = this.computeCapacity(
-      quarter.sprints,
+      project.sprints,
       participants,
       ptos,
       holidays,
-      quarter.epics,
+      project.epics,
     );
     const capacityByUser = new Map(capacity.map((c) => [c.userId, c]));
-    const status = this.normalizeStatus(quarter.status);
-    const teams = quarter.quarterTeams.map((qt) => qt.team);
+    const status = this.normalizeStatus(project.status);
+    const teams = project.projectTeams.map((qt) => qt.team);
 
     return {
-      id: quarter.id,
-      name: quarter.name,
-      startDate: quarter.startDate,
-      endDate: quarter.endDate,
-      teamId: quarter.teamId,
+      id: project.id,
+      name: project.name,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      teamId: project.teamId,
       status,
-      createdBy: quarter.createdBy,
-      createdAt: quarter.createdAt,
-      updatedAt: quarter.updatedAt,
-      team: quarter.team,
+      createdBy: project.createdBy,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      team: project.team,
       teams,
-      addedParticipants: quarter.participants.map((p) => p.user),
-      versionCount: quarter._count.versions,
-      currentVersion: quarter.versions[0]?.versionNumber ?? null,
-      sprints: quarter.sprints.map((s) => ({
+      addedParticipants: project.participants.map((p) => p.user),
+      versionCount: project._count.versions,
+      currentVersion: project.versions[0]?.versionNumber ?? null,
+      sprints: project.sprints.map((s) => ({
         id: s.id,
         number: s.number,
         startDate: s.startDate,
@@ -970,7 +970,7 @@ export class QuartersService {
         };
       }),
       capacity,
-      holidays: this.groupHolidays(holidays, quarter.sprints),
+      holidays: this.groupHolidays(holidays, project.sprints),
       ptos: ptos.map((p) => ({
         id: p.id,
         name: p.name,
@@ -978,9 +978,9 @@ export class QuartersService {
         endDate: p.endDate,
         userId: p.userId,
         user: p.user,
-        workingDays: this.ptoWorkingDays(p, quarter.sprints),
+        workingDays: this.ptoWorkingDays(p, project.sprints),
       })),
-      epics: quarter.epics.map((epic) => ({
+      epics: project.epics.map((epic) => ({
         id: epic.id,
         groupKey: epic.groupKey,
         sourceEpicId: epic.sourceEpicId,
@@ -1051,13 +1051,13 @@ export class QuartersService {
   }
 
   async listAddableParticipants(id: string, userId: string) {
-    const quarter = await this.loadQuarter(id);
-    this.ensureCreator(quarter, userId);
-    this.ensureEditable(quarter);
+    const project = await this.loadProject(id);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
 
-    const onPlan = await this.resolveParticipants(quarter);
+    const onPlan = await this.resolveParticipants(project);
     const onPlanIds = new Set(onPlan.map((p) => p.id));
-    const allowed = await this.getAllowedAssigneeIds(userId, quarter);
+    const allowed = await this.getAllowedAssigneeIds(userId, project);
 
     const users = await this.prisma.user.findMany({
       where: { id: { in: Array.from(allowed) } },
@@ -1069,15 +1069,15 @@ export class QuartersService {
   }
 
   private async resolveParticipants(
-    quarter: Awaited<ReturnType<QuartersService['loadQuarter']>>,
+    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
   ) {
     const byId = new Map<string, { id: string; name: string; email: string }>();
-    byId.set(quarter.creator.id, quarter.creator);
+    byId.set(project.creator.id, project.creator);
 
-    const teamIds = quarter.quarterTeams.length
-      ? quarter.quarterTeams.map((qt) => qt.teamId)
-      : quarter.teamId
-        ? [quarter.teamId]
+    const teamIds = project.projectTeams.length
+      ? project.projectTeams.map((qt) => qt.teamId)
+      : project.teamId
+        ? [project.teamId]
         : [];
 
     if (teamIds.length) {
@@ -1089,11 +1089,11 @@ export class QuartersService {
       for (const m of members) byId.set(m.user.id, m.user);
     }
 
-    for (const participant of quarter.participants) {
+    for (const participant of project.participants) {
       byId.set(participant.user.id, participant.user);
     }
 
-    for (const epic of quarter.epics) {
+    for (const epic of project.epics) {
       for (const assignee of epic.assignees) {
         if (!byId.has(assignee.user.id)) byId.set(assignee.user.id, assignee.user);
       }
@@ -1221,7 +1221,7 @@ export class QuartersService {
     return grid;
   }
 
-  private quarterSpan(sprints: { startDate: Date; endDate: Date }[]) {
+  private projectSpan(sprints: { startDate: Date; endDate: Date }[]) {
     if (!sprints.length) return null;
     return { start: sprints[0].startDate, end: sprints[sprints.length - 1].endDate };
   }
@@ -1230,7 +1230,7 @@ export class QuartersService {
     holiday: { startDate: Date; endDate: Date },
     sprints: { startDate: Date; endDate: Date }[],
   ) {
-    const span = this.quarterSpan(sprints);
+    const span = this.projectSpan(sprints);
     if (!span) return 0;
     return countWeekdaysOverlap(holiday.startDate, holiday.endDate, span.start, span.end);
   }
@@ -1239,7 +1239,7 @@ export class QuartersService {
     pto: { startDate: Date; endDate: Date },
     sprints: { startDate: Date; endDate: Date }[],
   ) {
-    const span = this.quarterSpan(sprints);
+    const span = this.projectSpan(sprints);
     if (!span) return 0;
     return countWeekdaysOverlap(pto.startDate, pto.endDate, span.start, span.end);
   }
@@ -1251,7 +1251,7 @@ export class QuartersService {
     holidays: { userId: string; startDate: Date; endDate: Date }[],
     epics: EpicWithAssignees[],
   ) {
-    const span = this.quarterSpan(sprints);
+    const span = this.projectSpan(sprints);
     const totalSprintDays = sprints.reduce(
       (sum, s) => sum + countWeekdays(s.startDate, s.endDate),
       0,
@@ -1294,20 +1294,20 @@ export class QuartersService {
     });
   }
 
-  private assertWithinQuarter(
-    quarter: { startDate: Date; endDate: Date },
+  private assertWithinProject(
+    project: { startDate: Date; endDate: Date },
     startDate: Date,
     endDate: Date,
   ) {
-    const qStart = parseDateOnly(quarter.startDate);
-    const qEnd = parseDateOnly(quarter.endDate);
+    const qStart = parseDateOnly(project.startDate);
+    const qEnd = parseDateOnly(project.endDate);
     if (startDate < qStart || endDate > qEnd) {
-      throw new BadRequestException('Dates must fall within the quarter range');
+      throw new BadRequestException('Dates must fall within the project range');
     }
   }
 
   private async resolvePtoTargetUserIds(
-    quarter: Awaited<ReturnType<QuartersService['loadQuarter']>>,
+    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
     creatorId: string,
     dto: CreatePtoDto,
   ) {
@@ -1316,10 +1316,10 @@ export class QuartersService {
     }
 
     if (dto.teamId) {
-      const linkedTeamIds = quarter.quarterTeams.map((qt) => qt.teamId);
-      if (quarter.teamId) linkedTeamIds.push(quarter.teamId);
+      const linkedTeamIds = project.projectTeams.map((qt) => qt.teamId);
+      if (project.teamId) linkedTeamIds.push(project.teamId);
       if (!linkedTeamIds.includes(dto.teamId)) {
-        throw new BadRequestException('Team is not linked to this quarter');
+        throw new BadRequestException('Team is not linked to this project');
       }
       await this.resolveTeamId(creatorId, dto.teamId);
       const members = await this.prisma.teamMember.findMany({
@@ -1331,7 +1331,7 @@ export class QuartersService {
 
     if (dto.userIds?.length) {
       const unique = [...new Set(dto.userIds)];
-      await this.ensureAssignable(quarter, creatorId, unique);
+      await this.ensureAssignable(project, creatorId, unique);
       return unique;
     }
 
@@ -1381,61 +1381,61 @@ export class QuartersService {
   }
 
   private async ensureCanView(
-    quarter: {
+    project: {
       id: string;
       createdBy: string;
       teamId: string | null;
-      quarterTeams: { teamId: string }[];
+      projectTeams: { teamId: string }[];
       participants: { userId: string }[];
     },
     userId: string,
   ) {
-    if (quarter.createdBy === userId) return;
-    if (quarter.participants.some((p) => p.userId === userId)) return;
+    if (project.createdBy === userId) return;
+    if (project.participants.some((p) => p.userId === userId)) return;
 
-    const teamIds = quarter.quarterTeams.length
-      ? quarter.quarterTeams.map((qt) => qt.teamId)
-      : quarter.teamId
-        ? [quarter.teamId]
+    const teamIds = project.projectTeams.length
+      ? project.projectTeams.map((qt) => qt.teamId)
+      : project.teamId
+        ? [project.teamId]
         : [];
 
-    if (!teamIds.length) throw new ForbiddenException('Not allowed to view this quarter');
+    if (!teamIds.length) throw new ForbiddenException('Not allowed to view this project');
 
     const member = await this.prisma.teamMember.findFirst({
       where: { teamId: { in: teamIds }, userId },
     });
-    if (!member) throw new ForbiddenException('Not allowed to view this quarter');
+    if (!member) throw new ForbiddenException('Not allowed to view this project');
   }
 
-  private ensureCreator(quarter: { createdBy: string }, userId: string) {
-    if (quarter.createdBy !== userId) {
-      throw new ForbiddenException('Only the project manager who created this quarter can change it');
+  private ensureCreator(project: { createdBy: string }, userId: string) {
+    if (project.createdBy !== userId) {
+      throw new ForbiddenException('Only the project manager who created this project can change it');
     }
   }
 
-  private ensureEditable(quarter: { status: string }) {
-    const status = this.normalizeStatus(quarter.status);
+  private ensureEditable(project: { status: string }) {
+    const status = this.normalizeStatus(project.status);
     if (status === 'completed') {
-      throw new BadRequestException('Cannot change a completed quarter');
+      throw new BadRequestException('Cannot change a completed project');
     }
   }
 
   private assertStartSprint(
-    quarter: { sprints: { number: number }[] },
+    project: { sprints: { number: number }[] },
     startSprintNumber: number,
   ) {
-    const maxSprint = quarter.sprints[quarter.sprints.length - 1]?.number ?? 0;
+    const maxSprint = project.sprints[project.sprints.length - 1]?.number ?? 0;
     if (!maxSprint || startSprintNumber > maxSprint) {
       throw new BadRequestException(
         maxSprint
           ? `startSprintNumber must be between 1 and ${maxSprint}`
-          : 'Quarter has no sprints to place an epic in',
+          : 'Project has no sprints to place an epic in',
       );
     }
   }
 
   private async ensureAssignable(
-    quarter: {
+    project: {
       teamId: string | null;
       participants: { userId: string }[];
     },
@@ -1450,7 +1450,7 @@ export class QuartersService {
       throw new BadRequestException('One or more assignees were not found');
     }
 
-    const allowed = await this.getAllowedAssigneeIds(creatorId, quarter);
+    const allowed = await this.getAllowedAssigneeIds(creatorId, project);
     if (assigneeIds.some((id) => !allowed.has(id))) {
       throw new BadRequestException('Assignees must be teammates you can assign work to');
     }
@@ -1465,10 +1465,10 @@ export class QuartersService {
 
   private async getAllowedAssigneeIds(
     creatorId: string,
-    quarter: { participants: { userId: string }[] },
+    project: { participants: { userId: string }[] },
   ) {
     const allowed = new Set<string>([creatorId]);
-    for (const p of quarter.participants) allowed.add(p.userId);
+    for (const p of project.participants) allowed.add(p.userId);
 
     const memberships = await this.prisma.teamMember.findMany({
       where: { userId: creatorId },

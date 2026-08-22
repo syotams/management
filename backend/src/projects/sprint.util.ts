@@ -27,16 +27,10 @@ export function generateSprints(startDate: Date, endDate: Date): { number: numbe
   let number = 1;
 
   while (current <= end) {
-    const rawEnd = addUtcDays(current, SPRINT_LENGTH_DAYS - 1);
-    if (rawEnd > end) {
-      // Ignore an incomplete trailing sprint; keep a short sprint only if it is the only one.
-      if (sprints.length === 0) {
-        sprints.push({ number, startDate: current, endDate: end });
-      }
-      break;
-    }
-    sprints.push({ number, startDate: current, endDate: rawEnd });
-    current = addUtcDays(rawEnd, 1);
+    // Always emit a full sprint length. The last sprint may extend past the project end.
+    const sprintEnd = addUtcDays(current, SPRINT_LENGTH_DAYS - 1);
+    sprints.push({ number, startDate: current, endDate: sprintEnd });
+    current = addUtcDays(sprintEnd, 1);
     number += 1;
   }
 
