@@ -23,10 +23,11 @@ model User {
   createdTasks   Task[]       @relation("TaskCreator")
   comments       Comment[]
   auditLogs      TaskAuditLog[]
-  createdQuarters  Quarter[]        @relation("QuarterCreator")
-  createdEpics     Epic[]           @relation("EpicCreator")
-  epicAssignments  EpicAssignee[]
-  quarterVersions  QuarterVersion[] @relation("QuarterVersionCreator")
+  createdQuarters       Quarter[]            @relation("QuarterCreator")
+  createdEpics          Epic[]               @relation("EpicCreator")
+  epicAssignments       EpicAssignee[]
+  quarterVersions       QuarterVersion[]     @relation("QuarterVersionCreator")
+  quarterParticipations QuarterParticipant[]
 }
 
 model Team {
@@ -38,8 +39,9 @@ model Team {
   creator User         @relation("TeamCreator", fields: [createdBy], references: [id])
   members TeamMember[]
   invites TeamInvite[]
-  tasks   Task[]
-  quarters Quarter[]
+  tasks         Task[]
+  quarters      Quarter[]
+  quarterTeams  QuarterTeam[]
 }
 
 model TeamMember {
@@ -131,11 +133,37 @@ model Quarter {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  team     Team?            @relation(fields: [teamId], references: [id])
-  creator  User             @relation("QuarterCreator", fields: [createdBy], references: [id])
-  sprints  Sprint[]
-  epics    Epic[]
-  versions QuarterVersion[]
+  team            Team?                @relation(fields: [teamId], references: [id])
+  creator         User                 @relation("QuarterCreator", fields: [createdBy], references: [id])
+  sprints         Sprint[]
+  epics           Epic[]
+  versions        QuarterVersion[]
+  quarterTeams    QuarterTeam[]
+  participants    QuarterParticipant[]
+}
+
+model QuarterTeam {
+  id        String   @id @default(uuid())
+  quarterId String
+  teamId    String
+  createdAt DateTime @default(now())
+
+  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([quarterId, teamId])
+}
+
+model QuarterParticipant {
+  id        String   @id @default(uuid())
+  quarterId String
+  userId    String
+  addedAt   DateTime @default(now())
+
+  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([quarterId, userId])
 }
 
 model QuarterVersion {
@@ -168,17 +196,23 @@ model Sprint {
 model Epic {
   id                String   @id @default(uuid())
   quarterId         String
+  sourceEpicId      String?
+  groupKey          String?
   title             String
   workingDays       Int
-  startSprintNumber Int      @default(1)
+  startSprintNumber Int?
   backgroundColor   String
   createdBy         String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  quarter   Quarter        @relation(fields: [quarterId], references: [id], onDelete: Cascade)
-  creator   User           @relation("EpicCreator", fields: [createdBy], references: [id])
-  assignees EpicAssignee[]
+  quarter    Quarter        @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  creator    User           @relation("EpicCreator", fields: [createdBy], references: [id])
+  sourceEpic Epic?          @relation("EpicCopies", fields: [sourceEpicId], references: [id], onDelete: Cascade)
+  copies     Epic[]         @relation("EpicCopies")
+  assignees  EpicAssignee[]
+
+  @@index([sourceEpicId])
 }
 
 model EpicAssignee {

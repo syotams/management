@@ -4,17 +4,26 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateEpicDto, CreateQuarterDto, UpdateEpicDto, UpdateQuarterDto } from './dto/quarter.dto';
+import {
+  AddQuarterParticipantDto,
+  AssignEpicDto,
+  CreateEpicDto,
+  CreateQuarterDto,
+  UpdateEpicDto,
+  UpdateQuarterDto,
+} from './dto/quarter.dto';
 import { countWeekdays, generateSprints, parseDateOnly } from './sprint.util';
 
 const userSelect = { id: true, name: true, email: true };
 
 type EpicWithAssignees = {
   id: string;
+  groupKey: string | null;
   title: string;
   workingDays: number;
-  startSprintNumber: number;
+  startSprintNumber: number | null;
   backgroundColor: string;
   createdAt: Date | string;
   assignees: { userId?: string; user: { id: string; name: string; email: string } }[];
@@ -25,7 +34,10 @@ type PlanSnapshot = {
   startDate: string;
   endDate: string;
   teamId: string | null;
+  teamIds: string[];
   team: { id: string; name: string } | null;
+  teams: { id: string; name: string }[];
+  participantUserIds: string[];
   sprints: {
     id: string;
     number: number;
@@ -34,14 +46,18 @@ type PlanSnapshot = {
   }[];
   epics: {
     id: string;
+    groupKey: string | null;
+    sourceEpicId: string | null;
     title: string;
     workingDays: number;
-    startSprintNumber: number;
+    startSprintNumber: number | null;
     backgroundColor: string;
     createdAt: string;
     assignees: { id: string; name: string; email: string }[];
   }[];
 };
+
+type SnapshotEpic = PlanSnapshot['epics'][number];
 
 @Injectable()
 export class QuartersService {
@@ -49,17 +65,24 @@ export class QuartersService {
 
   async create(userId: string, dto: CreateQuarterDto) {
     const { startDate, endDate } = this.parseRange(dto.startDate, dto.endDate);
-    const teamId = await this.resolveTeamId(userId, dto.teamId);
+    const teamIds = await this.resolveTeamIds(userId, dto.teamIds, dto.teamId);
+    const userIds = await this.resolveParticipantUserIds(userId, dto.userIds);
 
     const quarter = await this.prisma.quarter.create({
       data: {
         name: dto.name.trim(),
         startDate,
         endDate,
-        teamId,
+        teamId: teamIds[0] ?? null,
         status: 'draft',
         createdBy: userId,
         sprints: { create: generateSprints(startDate, endDate) },
+        quarterTeams: teamIds.length
+          ? { create: teamIds.map((teamId) => ({ teamId })) }
+          : undefined,
+        participants: userIds.length
+          ? { create: userIds.map((uid) => ({ userId: uid })) }
+          : undefined,
       },
     });
 
@@ -75,7 +98,12 @@ export class QuartersService {
 
     const quarters = await this.prisma.quarter.findMany({
       where: {
-        OR: [{ createdBy: userId }, { teamId: { in: teamIds } }],
+        OR: [
+          { createdBy: userId },
+          { teamId: { in: teamIds } },
+          { quarterTeams: { some: { teamId: { in: teamIds } } } },
+          { participants: { some: { userId } } },
+        ],
       },
       include: {
         team: { select: { id: true, name: true } },
@@ -93,14 +121,7 @@ export class QuartersService {
   async findOne(id: string, userId: string) {
     const quarter = await this.loadQuarter(id);
     await this.ensureCanView(quarter, userId);
-    const detail = await this.toDetail(quarter);
-
-    if (detail.status === 'completed') {
-      const comparison = await this.buildComparison(id);
-      return { ...detail, comparison };
-    }
-
-    return { ...detail, comparison: null };
+    return this.toDetail(quarter);
   }
 
   async compare(id: string, userId: string) {
@@ -156,6 +177,26 @@ export class QuartersService {
     return this.findOne(id, userId);
   }
 
+  async addParticipant(id: string, userId: string, dto: AddQuarterParticipantDto) {
+    const quarter = await this.loadQuarter(id);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    await this.ensureAssignable(quarter, userId, [dto.userId]);
+
+    const existing = quarter.participants.find((p) => p.userId === dto.userId);
+    if (existing) {
+      throw new BadRequestException('User is already a quarter participant');
+    }
+
+    await this.prisma.quarterParticipant.create({
+      data: { quarterId: id, userId: dto.userId },
+    });
+
+    await this.maybeVersionAfterChange(id, userId);
+    return this.findOne(id, userId);
+  }
+
   async start(id: string, userId: string) {
     const quarter = await this.loadQuarter(id);
     this.ensureCreator(quarter, userId);
@@ -201,20 +242,92 @@ export class QuartersService {
     this.ensureCreator(quarter, userId);
     this.ensureEditable(quarter);
 
-    this.assertStartSprint(quarter, dto.startSprintNumber);
+    const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : [];
+    const startSprintNumber = dto.startSprintNumber ?? null;
 
-    const assigneeIds = [...new Set(dto.assigneeIds)];
-    await this.ensureAssignable(quarter, userId, assigneeIds);
+    if (startSprintNumber !== null) {
+      this.assertStartSprint(quarter, startSprintNumber);
+    }
+
+    if (assigneeIds.length) {
+      await this.ensureAssignable(quarter, userId, assigneeIds);
+    }
+
+    if (!assigneeIds.length) {
+      await this.prisma.epic.create({
+        data: {
+          quarterId,
+          title: dto.title.trim(),
+          workingDays: dto.workingDays,
+          startSprintNumber,
+          backgroundColor: dto.backgroundColor.toLowerCase(),
+          createdBy: userId,
+        },
+      });
+    } else {
+      const groupKey = randomUUID();
+      await this.prisma.$transaction(
+        assigneeIds.map((assigneeId) =>
+          this.prisma.epic.create({
+            data: {
+              quarterId,
+              groupKey,
+              title: dto.title.trim(),
+              workingDays: dto.workingDays,
+              startSprintNumber,
+              backgroundColor: dto.backgroundColor.toLowerCase(),
+              createdBy: userId,
+              assignees: { create: { userId: assigneeId } },
+            },
+          }),
+        ),
+      );
+    }
+
+    await this.maybeVersionAfterChange(quarterId, userId);
+    return this.findOne(quarterId, userId);
+  }
+
+  async assignEpic(
+    quarterId: string,
+    templateEpicId: string,
+    userId: string,
+    dto: AssignEpicDto,
+  ) {
+    const quarter = await this.loadQuarter(quarterId);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const template = quarter.epics.find((e) => e.id === templateEpicId);
+    if (!template) throw new NotFoundException('Epic not found');
+    if (!this.isBacklogTemplate(template)) {
+      throw new BadRequestException('Only backlog epics can be assigned from the list');
+    }
+
+    this.assertStartSprint(quarter, dto.startSprintNumber);
+    await this.ensureAssignable(quarter, userId, [dto.assigneeId]);
+
+    const duplicate = await this.prisma.epic.findFirst({
+      where: {
+        sourceEpicId: templateEpicId,
+        assignees: { some: { userId: dto.assigneeId } },
+      },
+    });
+    if (duplicate) {
+      throw new BadRequestException('This epic is already assigned to that user');
+    }
 
     await this.prisma.epic.create({
       data: {
         quarterId,
-        title: dto.title.trim(),
-        workingDays: dto.workingDays,
+        sourceEpicId: templateEpicId,
+        groupKey: template.groupKey ?? templateEpicId,
+        title: template.title,
+        workingDays: template.workingDays,
         startSprintNumber: dto.startSprintNumber,
-        backgroundColor: dto.backgroundColor.toLowerCase(),
+        backgroundColor: template.backgroundColor,
         createdBy: userId,
-        assignees: { create: assigneeIds.map((id) => ({ userId: id })) },
+        assignees: { create: { userId: dto.assigneeId } },
       },
     });
 
@@ -230,13 +343,30 @@ export class QuartersService {
     const epic = quarter.epics.find((e) => e.id === epicId);
     if (!epic) throw new NotFoundException('Epic not found');
 
-    if (dto.startSprintNumber !== undefined) {
-      this.assertStartSprint(quarter, dto.startSprintNumber);
-    }
-
     const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : undefined;
     if (assigneeIds) {
-      await this.ensureAssignable(quarter, userId, assigneeIds);
+      if (assigneeIds.length > 1) {
+        throw new BadRequestException('Each epic entry has at most one assignee');
+      }
+      if (assigneeIds.length === 1) {
+        await this.ensureAssignable(quarter, userId, assigneeIds);
+        if (epic.sourceEpicId) {
+          const duplicate = await this.prisma.epic.findFirst({
+            where: {
+              sourceEpicId: epic.sourceEpicId,
+              id: { not: epicId },
+              assignees: { some: { userId: assigneeIds[0] } },
+            },
+          });
+          if (duplicate) {
+            throw new BadRequestException('This epic is already assigned to that user');
+          }
+        }
+      }
+    }
+
+    if (dto.startSprintNumber !== undefined && dto.startSprintNumber !== null) {
+      this.assertStartSprint(quarter, dto.startSprintNumber);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -254,11 +384,13 @@ export class QuartersService {
         },
       });
 
-      if (assigneeIds) {
+      if (assigneeIds !== undefined) {
         await tx.epicAssignee.deleteMany({ where: { epicId } });
-        await tx.epicAssignee.createMany({
-          data: assigneeIds.map((id) => ({ epicId, userId: id })),
-        });
+        if (assigneeIds.length) {
+          await tx.epicAssignee.createMany({
+            data: assigneeIds.map((id) => ({ epicId, userId: id })),
+          });
+        }
       }
     });
 
@@ -313,12 +445,16 @@ export class QuartersService {
   private buildSnapshot(
     quarter: Awaited<ReturnType<QuartersService['loadQuarter']>>,
   ): PlanSnapshot {
+    const teams = quarter.quarterTeams.map((qt) => qt.team);
     return {
       name: quarter.name,
       startDate: quarter.startDate.toISOString(),
       endDate: quarter.endDate.toISOString(),
       teamId: quarter.teamId,
+      teamIds: teams.map((t) => t.id),
       team: quarter.team,
+      teams,
+      participantUserIds: quarter.participants.map((p) => p.userId),
       sprints: quarter.sprints.map((s) => ({
         id: s.id,
         number: s.number,
@@ -327,6 +463,8 @@ export class QuartersService {
       })),
       epics: quarter.epics.map((epic) => ({
         id: epic.id,
+        groupKey: epic.groupKey,
+        sourceEpicId: epic.sourceEpicId,
         title: epic.title,
         workingDays: epic.workingDays,
         startSprintNumber: epic.startSprintNumber,
@@ -344,9 +482,14 @@ export class QuartersService {
     });
     if (!versions.length) return null;
 
-    const original = await this.planFromSnapshot(JSON.parse(versions[0].snapshot) as PlanSnapshot);
-    const latest = await this.planFromSnapshot(
-      JSON.parse(versions[versions.length - 1].snapshot) as PlanSnapshot,
+    const originalSnapshot = JSON.parse(versions[0].snapshot) as PlanSnapshot;
+    const latestSnapshot = JSON.parse(versions[versions.length - 1].snapshot) as PlanSnapshot;
+
+    const original = await this.planFromSnapshot(originalSnapshot);
+    const latest = await this.planFromSnapshot(latestSnapshot);
+    const stats = this.computeComparisonStats(
+      this.scheduledEpics(originalSnapshot.epics),
+      this.scheduledEpics(latestSnapshot.epics),
     );
 
     return {
@@ -354,7 +497,196 @@ export class QuartersService {
       latest,
       originalVersion: versions[0].versionNumber,
       latestVersion: versions[versions.length - 1].versionNumber,
+      stats,
     };
+  }
+
+  private toComparisonEpicEntry(
+    epic: SnapshotEpic,
+    status: 'unchanged' | 'changed' | 'added' | 'removed',
+    changes?: string[],
+  ) {
+    return {
+      id: epic.id,
+      title: epic.title,
+      assignee: epic.assignees[0]?.name ?? null,
+      workingDays: epic.workingDays,
+      startSprintNumber: epic.startSprintNumber,
+      status,
+      changes: changes ?? [],
+    };
+  }
+
+  private describeEpicChanges(orig: SnapshotEpic, latest: SnapshotEpic) {
+    const changes: string[] = [];
+    if (orig.title !== latest.title) changes.push(`Title: "${orig.title}" → "${latest.title}"`);
+    if (orig.workingDays !== latest.workingDays) {
+      changes.push(`Working days: ${orig.workingDays} → ${latest.workingDays}`);
+    }
+    if (orig.startSprintNumber !== latest.startSprintNumber) {
+      const from = orig.startSprintNumber ?? 'unscheduled';
+      const to = latest.startSprintNumber ?? 'unscheduled';
+      changes.push(`Start sprint: ${from} → ${to}`);
+    }
+    const origAssignee = orig.assignees[0]?.name ?? 'unassigned';
+    const latestAssignee = latest.assignees[0]?.name ?? 'unassigned';
+    if (origAssignee !== latestAssignee) changes.push(`Assignee: ${origAssignee} → ${latestAssignee}`);
+    if (orig.backgroundColor !== latest.backgroundColor) changes.push('Color changed');
+    return changes;
+  }
+
+  private scheduledEpics(epics: SnapshotEpic[]) {
+    return epics.filter((e) => e.assignees.length > 0 && e.startSprintNumber != null);
+  }
+
+  private computeComparisonStats(originalEpics: SnapshotEpic[], latestEpics: SnapshotEpic[]) {
+    const originalTotalWorkingDays = originalEpics.reduce((sum, e) => sum + e.workingDays, 0);
+    const latestTotalWorkingDays = latestEpics.reduce((sum, e) => sum + e.workingDays, 0);
+
+    const usedLatest = new Set<string>();
+    const matchedOriginal = new Set<string>();
+
+    let unchangedCount = 0;
+    let changedCount = 0;
+    let extendedEpicCount = 0;
+    const unchangedEpics: ReturnType<QuartersService['toComparisonEpicEntry']>[] = [];
+    const changedEpics: ReturnType<QuartersService['toComparisonEpicEntry']>[] = [];
+
+    for (const orig of originalEpics) {
+      const match = this.findLatestMatch(orig, latestEpics, usedLatest);
+      if (!match) {
+        changedCount++;
+        changedEpics.push(this.toComparisonEpicEntry(orig, 'removed', ['Removed from plan']));
+        continue;
+      }
+      usedLatest.add(match.id);
+      matchedOriginal.add(orig.id);
+      if (this.epicsEqual(orig, match)) {
+        unchangedCount++;
+        unchangedEpics.push(this.toComparisonEpicEntry(orig, 'unchanged'));
+      } else {
+        changedCount++;
+        const changes = this.describeEpicChanges(orig, match);
+        changedEpics.push(this.toComparisonEpicEntry(match, 'changed', changes));
+        if (match.workingDays > orig.workingDays) {
+          extendedEpicCount++;
+        }
+      }
+    }
+
+    let addedCount = 0;
+    for (const epic of latestEpics) {
+      if (usedLatest.has(epic.id)) continue;
+      const origMatch = this.findOriginalMatch(epic, originalEpics, matchedOriginal);
+      if (!origMatch) {
+        addedCount++;
+        changedCount++;
+        changedEpics.push(this.toComparisonEpicEntry(epic, 'added', ['Added to plan']));
+      }
+    }
+
+    return {
+      unchangedCount,
+      changedCount,
+      addedCount,
+      removedCount: originalEpics.filter((o) => !matchedOriginal.has(o.id)).length,
+      originalTotalWorkingDays,
+      latestTotalWorkingDays,
+      workingDaysDiff: latestTotalWorkingDays - originalTotalWorkingDays,
+      extendedEpicCount,
+      unchangedEpics,
+      changedEpics,
+    };
+  }
+
+  private findLatestMatch(
+    orig: SnapshotEpic,
+    latestEpics: SnapshotEpic[],
+    usedLatest: Set<string>,
+  ): SnapshotEpic | undefined {
+    const assigneeId = orig.assignees[0]?.id ?? '';
+    const candidates = latestEpics.filter((e) => !usedLatest.has(e.id));
+
+    const byKey = candidates.find((e) => this.epicMatchKey(e) === this.epicMatchKey(orig));
+    if (byKey) return byKey;
+
+    const byTitle = candidates.find(
+      (e) =>
+        e.title === orig.title &&
+        (e.assignees[0]?.id ?? '') === assigneeId,
+    );
+    if (byTitle) return byTitle;
+
+    const byTemplate = candidates.find(
+      (e) => e.groupKey === orig.id && (e.assignees[0]?.id ?? '') === assigneeId,
+    );
+    if (byTemplate) return byTemplate;
+
+    if (orig.groupKey) {
+      const byGroup = candidates.find(
+        (e) => e.groupKey === orig.groupKey && (e.assignees[0]?.id ?? '') === assigneeId,
+      );
+      if (byGroup) return byGroup;
+    }
+
+    if (orig.sourceEpicId) {
+      const bySource = candidates.find(
+        (e) =>
+          (e.id === orig.sourceEpicId || e.groupKey === orig.sourceEpicId) &&
+          (e.assignees[0]?.id ?? '') === assigneeId,
+      );
+      if (bySource) return bySource;
+    }
+
+    return undefined;
+  }
+
+  private findOriginalMatch(
+    latest: SnapshotEpic,
+    originalEpics: SnapshotEpic[],
+    matchedOriginal: Set<string>,
+  ): SnapshotEpic | undefined {
+    const assigneeId = latest.assignees[0]?.id ?? '';
+    const candidates = originalEpics.filter((e) => !matchedOriginal.has(e.id));
+
+    const byKey = candidates.find((e) => this.epicMatchKey(e) === this.epicMatchKey(latest));
+    if (byKey) return byKey;
+
+    const byTitle = candidates.find(
+      (e) =>
+        e.title === latest.title &&
+        (e.assignees[0]?.id ?? '') === assigneeId,
+    );
+    if (byTitle) return byTitle;
+
+    if (latest.groupKey) {
+      const byGroup = candidates.find(
+        (e) =>
+          (e.id === latest.groupKey || e.groupKey === latest.groupKey) &&
+          (e.assignees[0]?.id ?? '') === assigneeId,
+      );
+      if (byGroup) return byGroup;
+    }
+
+    return undefined;
+  }
+
+  private epicMatchKey(epic: SnapshotEpic) {
+    const assigneeId = epic.assignees[0]?.id ?? '';
+    if (epic.groupKey) return `${epic.groupKey}:${assigneeId}`;
+    return `${epic.id}:${assigneeId}`;
+  }
+
+  private epicsEqual(a: SnapshotEpic, b: SnapshotEpic) {
+    const aAssignee = a.assignees[0]?.id ?? '';
+    const bAssignee = b.assignees[0]?.id ?? '';
+    return (
+      a.title === b.title &&
+      a.workingDays === b.workingDays &&
+      a.startSprintNumber === b.startSprintNumber &&
+      a.backgroundColor === b.backgroundColor &&
+      aAssignee === bAssignee
+    );
   }
 
   private async planFromSnapshot(snapshot: PlanSnapshot) {
@@ -366,6 +698,7 @@ export class QuartersService {
     }));
     const epics: EpicWithAssignees[] = snapshot.epics.map((epic) => ({
       id: epic.id,
+      groupKey: epic.groupKey ?? null,
       title: epic.title,
       workingDays: epic.workingDays,
       startSprintNumber: epic.startSprintNumber,
@@ -402,23 +735,33 @@ export class QuartersService {
   private async resolveParticipantsFromSnapshot(snapshot: PlanSnapshot) {
     const byId = new Map<string, { id: string; name: string; email: string }>();
 
-    if (snapshot.teamId) {
+    const teamIds = snapshot.teamIds?.length
+      ? snapshot.teamIds
+      : snapshot.teamId
+        ? [snapshot.teamId]
+        : [];
+
+    if (teamIds.length) {
       const members = await this.prisma.teamMember.findMany({
-        where: { teamId: snapshot.teamId },
+        where: { teamId: { in: teamIds } },
         include: { user: { select: userSelect } },
         orderBy: { joinedAt: 'asc' },
       });
       for (const m of members) byId.set(m.user.id, m.user);
     }
 
+    if (snapshot.participantUserIds?.length) {
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: snapshot.participantUserIds } },
+        select: userSelect,
+      });
+      for (const user of users) byId.set(user.id, user);
+    }
+
     for (const epic of snapshot.epics) {
       for (const user of epic.assignees) {
         if (!byId.has(user.id)) byId.set(user.id, user);
       }
-    }
-
-    if (!byId.size && snapshot.team) {
-      // no members found; keep empty
     }
 
     return Array.from(byId.values());
@@ -429,6 +772,8 @@ export class QuartersService {
       where: { id },
       include: {
         team: { select: { id: true, name: true } },
+        quarterTeams: { include: { team: { select: { id: true, name: true } } } },
+        participants: { include: { user: { select: userSelect } } },
         sprints: { orderBy: { number: 'asc' } },
         epics: {
           orderBy: { createdAt: 'asc' },
@@ -456,6 +801,7 @@ export class QuartersService {
     const participantIds = participants.map((p) => p.id);
     const grid = this.buildGrid(quarter.sprints, quarter.epics, participantIds);
     const status = this.normalizeStatus(quarter.status);
+    const teams = quarter.quarterTeams.map((qt) => qt.team);
 
     return {
       id: quarter.id,
@@ -468,6 +814,8 @@ export class QuartersService {
       createdAt: quarter.createdAt,
       updatedAt: quarter.updatedAt,
       team: quarter.team,
+      teams,
+      addedParticipants: quarter.participants.map((p) => p.user),
       versionCount: quarter._count.versions,
       currentVersion: quarter.versions[0]?.versionNumber ?? null,
       sprints: quarter.sprints.map((s) => ({
@@ -483,6 +831,8 @@ export class QuartersService {
       })),
       epics: quarter.epics.map((epic) => ({
         id: epic.id,
+        groupKey: epic.groupKey,
+        sourceEpicId: epic.sourceEpicId,
         title: epic.title,
         workingDays: epic.workingDays,
         startSprintNumber: epic.startSprintNumber,
@@ -493,20 +843,55 @@ export class QuartersService {
     };
   }
 
+  private isBacklogTemplate(epic: {
+    sourceEpicId: string | null;
+    assignees: unknown[];
+    startSprintNumber: number | null;
+  }) {
+    return !epic.sourceEpicId && !epic.assignees.length && epic.startSprintNumber == null;
+  }
+
+  async listAddableParticipants(id: string, userId: string) {
+    const quarter = await this.loadQuarter(id);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const onPlan = await this.resolveParticipants(quarter);
+    const onPlanIds = new Set(onPlan.map((p) => p.id));
+    const allowed = await this.getAllowedAssigneeIds(userId, quarter);
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(allowed) } },
+      select: userSelect,
+      orderBy: { name: 'asc' },
+    });
+
+    return users.filter((user) => !onPlanIds.has(user.id));
+  }
+
   private async resolveParticipants(
     quarter: Awaited<ReturnType<QuartersService['loadQuarter']>>,
   ) {
     const byId = new Map<string, { id: string; name: string; email: string }>();
+    byId.set(quarter.creator.id, quarter.creator);
 
-    if (quarter.teamId) {
+    const teamIds = quarter.quarterTeams.length
+      ? quarter.quarterTeams.map((qt) => qt.teamId)
+      : quarter.teamId
+        ? [quarter.teamId]
+        : [];
+
+    if (teamIds.length) {
       const members = await this.prisma.teamMember.findMany({
-        where: { teamId: quarter.teamId },
+        where: { teamId: { in: teamIds } },
         include: { user: { select: userSelect } },
         orderBy: { joinedAt: 'asc' },
       });
       for (const m of members) byId.set(m.user.id, m.user);
-    } else {
-      byId.set(quarter.creator.id, quarter.creator);
+    }
+
+    for (const participant of quarter.participants) {
+      byId.set(participant.user.id, participant.user);
     }
 
     for (const epic of quarter.epics) {
@@ -541,7 +926,8 @@ export class QuartersService {
     }
 
     for (const epic of epics) {
-      const startFrom = epic.startSprintNumber ?? 1;
+      if (!epic.assignees.length || epic.startSprintNumber == null) continue;
+      const startFrom = epic.startSprintNumber;
       const eligible = sprints.filter((s) => s.number >= startFrom);
       for (const assignee of epic.assignees) {
         const userId = assignee.userId ?? assignee.user.id;
@@ -601,6 +987,21 @@ export class QuartersService {
     }
   }
 
+  private async resolveTeamIds(userId: string, teamIds?: string[], teamId?: string) {
+    const ids = [...new Set([...(teamIds ?? []), ...(teamId ? [teamId] : [])])];
+    for (const id of ids) {
+      await this.resolveTeamId(userId, id);
+    }
+    return ids;
+  }
+
+  private async resolveParticipantUserIds(userId: string, userIds?: string[]) {
+    if (!userIds?.length) return [];
+    const unique = [...new Set(userIds)];
+    await this.ensureTeammates(userId, unique);
+    return unique;
+  }
+
   private async resolveTeamId(userId: string, teamId?: string | null) {
     if (!teamId) return null;
     const member = await this.prisma.teamMember.findUnique({
@@ -611,13 +1012,28 @@ export class QuartersService {
   }
 
   private async ensureCanView(
-    quarter: { createdBy: string; teamId: string | null },
+    quarter: {
+      id: string;
+      createdBy: string;
+      teamId: string | null;
+      quarterTeams: { teamId: string }[];
+      participants: { userId: string }[];
+    },
     userId: string,
   ) {
     if (quarter.createdBy === userId) return;
-    if (!quarter.teamId) throw new ForbiddenException('Not allowed to view this quarter');
-    const member = await this.prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: quarter.teamId, userId } },
+    if (quarter.participants.some((p) => p.userId === userId)) return;
+
+    const teamIds = quarter.quarterTeams.length
+      ? quarter.quarterTeams.map((qt) => qt.teamId)
+      : quarter.teamId
+        ? [quarter.teamId]
+        : [];
+
+    if (!teamIds.length) throw new ForbiddenException('Not allowed to view this quarter');
+
+    const member = await this.prisma.teamMember.findFirst({
+      where: { teamId: { in: teamIds }, userId },
     });
     if (!member) throw new ForbiddenException('Not allowed to view this quarter');
   }
@@ -650,7 +1066,10 @@ export class QuartersService {
   }
 
   private async ensureAssignable(
-    quarter: { teamId: string | null },
+    quarter: {
+      teamId: string | null;
+      participants: { userId: string }[];
+    },
     creatorId: string,
     assigneeIds: string[],
   ) {
@@ -662,23 +1081,31 @@ export class QuartersService {
       throw new BadRequestException('One or more assignees were not found');
     }
 
-    if (quarter.teamId) {
-      const members = await this.prisma.teamMember.findMany({
-        where: { teamId: quarter.teamId, userId: { in: assigneeIds } },
-        select: { userId: true },
-      });
-      if (members.length !== assigneeIds.length) {
-        throw new BadRequestException('Assignees must be members of the quarter team');
-      }
-      return;
+    const allowed = await this.getAllowedAssigneeIds(creatorId, quarter);
+    if (assigneeIds.some((id) => !allowed.has(id))) {
+      throw new BadRequestException('Assignees must be teammates you can assign work to');
     }
+  }
+
+  private async ensureTeammates(creatorId: string, userIds: string[]) {
+    const allowed = await this.getAllowedAssigneeIds(creatorId, { participants: [] });
+    if (userIds.some((id) => !allowed.has(id))) {
+      throw new BadRequestException('Users must be teammates you can assign work to');
+    }
+  }
+
+  private async getAllowedAssigneeIds(
+    creatorId: string,
+    quarter: { participants: { userId: string }[] },
+  ) {
+    const allowed = new Set<string>([creatorId]);
+    for (const p of quarter.participants) allowed.add(p.userId);
 
     const memberships = await this.prisma.teamMember.findMany({
       where: { userId: creatorId },
       select: { teamId: true },
     });
     const teamIds = memberships.map((m) => m.teamId);
-    const allowed = new Set<string>([creatorId]);
     if (teamIds.length) {
       const teammates = await this.prisma.teamMember.findMany({
         where: { teamId: { in: teamIds } },
@@ -686,8 +1113,6 @@ export class QuartersService {
       });
       for (const t of teammates) allowed.add(t.userId);
     }
-    if (assigneeIds.some((id) => !allowed.has(id))) {
-      throw new BadRequestException('Assignees must be teammates you can assign work to');
-    }
+    return allowed;
   }
 }

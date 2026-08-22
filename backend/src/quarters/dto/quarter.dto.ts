@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsDateString,
@@ -33,6 +34,18 @@ export class CreateQuarterDto {
   @IsOptional()
   @IsString()
   teamId?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  teamIds?: string[];
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  userIds?: string[];
 }
 
 export class UpdateQuarterDto {
@@ -56,6 +69,11 @@ export class UpdateQuarterDto {
   teamId?: string | null;
 }
 
+export class AddQuarterParticipantDto {
+  @IsString()
+  userId: string;
+}
+
 export class CreateEpicDto {
   @IsString()
   @MinLength(1)
@@ -66,19 +84,33 @@ export class CreateEpicDto {
   @Min(1)
   workingDays: number;
 
+  @Transform(emptyToNull)
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  startSprintNumber: number;
+  startSprintNumber?: number | null;
 
+  @Transform(emptyToUndefined)
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @IsString({ each: true })
-  assigneeIds: string[];
+  assigneeIds?: string[];
 
   @IsString()
   @Matches(/^#([0-9a-fA-F]{6})$/, { message: 'backgroundColor must be a hex color like #4f46e5' })
   backgroundColor: string;
+}
+
+export class AssignEpicDto {
+  @IsString()
+  assigneeId: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  startSprintNumber: number;
 }
 
 export class UpdateEpicDto {
@@ -93,15 +125,17 @@ export class UpdateEpicDto {
   @Min(1)
   workingDays?: number;
 
+  @Transform(emptyToNull)
   @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  startSprintNumber?: number;
+  startSprintNumber?: number | null;
 
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMaxSize(1)
   @IsString({ each: true })
   assigneeIds?: string[];
 

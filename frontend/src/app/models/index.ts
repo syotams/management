@@ -147,9 +147,11 @@ export interface QuarterParticipant {
 
 export interface QuarterEpic {
   id: string;
+  groupKey: string | null;
+  sourceEpicId: string | null;
   title: string;
   workingDays: number;
-  startSprintNumber: number;
+  startSprintNumber: number | null;
   backgroundColor: string;
   createdAt: string;
   assignees: User[];
@@ -171,6 +173,30 @@ export interface QuarterComparison {
   latest: QuarterPlanView;
   originalVersion: number;
   latestVersion: number;
+  stats: ComparisonStats;
+}
+
+export interface ComparisonStats {
+  unchangedCount: number;
+  changedCount: number;
+  addedCount: number;
+  removedCount: number;
+  originalTotalWorkingDays: number;
+  latestTotalWorkingDays: number;
+  workingDaysDiff: number;
+  extendedEpicCount: number;
+  unchangedEpics: ComparisonEpicEntry[];
+  changedEpics: ComparisonEpicEntry[];
+}
+
+export interface ComparisonEpicEntry {
+  id: string;
+  title: string;
+  assignee: string | null;
+  workingDays: number;
+  startSprintNumber: number | null;
+  status: 'unchanged' | 'changed' | 'added' | 'removed';
+  changes: string[];
 }
 
 export interface QuarterDetail {
@@ -184,10 +210,11 @@ export interface QuarterDetail {
   createdAt: string;
   updatedAt: string;
   team: { id: string; name: string } | null;
+  teams: { id: string; name: string }[];
+  addedParticipants: User[];
   versionCount: number;
   currentVersion: number | null;
   sprints: QuarterSprint[];
   participants: QuarterParticipant[];
   epics: QuarterEpic[];
-  comparison: QuarterComparison | null;
 }

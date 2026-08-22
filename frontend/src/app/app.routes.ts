@@ -34,6 +34,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'quarters/:id/compare',
+    loadComponent: () => import('./pages/quarter-compare/quarter-compare.component').then(m => m.QuarterCompareComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'quarters/:id',
     loadComponent: () => import('./pages/quarter-detail/quarter-detail.component').then(m => m.QuarterDetailComponent),
     canActivate: [authGuard],

@@ -6,7 +6,7 @@
         <h2 class="page-title mb-1">{{ quarter.name || formatRange(quarter.startDate, quarter.endDate) }}</h2>
         <div class="text-muted">
           {{ formatRange(quarter.startDate, quarter.endDate) }}
-          · {{ quarter.team?.name || 'No team' }}
+          · {{ teamsLabel }}
           · {{ quarter.sprints.length }} sprints
           · {{ quarter.epics.length }} epics
           @if (quarter.currentVersion) {
@@ -24,46 +24,45 @@
       }
     </div>
     @if (quarter && (isManager || canCompare)) {
-      <div class="dropdown" (click)="$event.stopPropagation()">
-        <button
-          class="btn btn-outline-secondary dropdown-toggle"
-          type="button"
-          (click)="toggleActions($event)"
-        >
-          Actions
-        </button>
-        @if (actionsOpen) {
-          <ul class="dropdown-menu show">
-            @if (isManager && !isCompleted) {
-              <li>
-                <button class="dropdown-item" (click)="openEdit($event)">
-                  <i class="bi bi-pencil me-2"></i>Edit quarter
-                </button>
-              </li>
-            }
-            @if (isManager && isDraft) {
-              <li>
-                <button class="dropdown-item" (click)="startQuarter($event)">
-                  <i class="bi bi-play-fill me-2"></i>Start quarter
-                </button>
-              </li>
-            }
-            @if (isManager && isInProgress) {
-              <li>
-                <button class="dropdown-item" (click)="completeQuarter($event)">
-                  <i class="bi bi-check2-circle me-2"></i>Complete quarter
-                </button>
-              </li>
-            }
-            @if (canCompare) {
-              <li>
-                <button class="dropdown-item" (click)="openCompare($event)" [disabled]="loadingCompare">
-                  <i class="bi bi-columns-gap me-2"></i>
-                  {{ loadingCompare ? 'Loading...' : 'Compare plan' }}
-                </button>
-              </li>
-            }
-          </ul>
+      <div class="d-flex gap-2 action-icons">
+        @if (isManager && !isCompleted) {
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-icon"
+            title="Edit quarter"
+            (click)="openEdit()"
+          >
+            <i class="bi bi-pencil"></i>
+          </button>
+        }
+        @if (isManager && isDraft) {
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-icon"
+            title="Start quarter"
+            (click)="startQuarter()"
+          >
+            <i class="bi bi-play-fill"></i>
+          </button>
+        }
+        @if (isManager && isInProgress) {
+          <button
+            type="button"
+            class="btn btn-outline-success btn-icon"
+            title="Complete quarter"
+            (click)="completeQuarter()"
+          >
+            <i class="bi bi-check2-circle"></i>
+          </button>
+        }
+        @if (canCompare) {
+          <a
+            class="btn btn-outline-secondary btn-icon"
+            [routerLink]="['/quarters', quarter.id, 'compare']"
+            title="Compare plan"
+          >
+            <i class="bi bi-columns-gap"></i>
+          </a>
         }
       </div>
     }
@@ -76,6 +75,7 @@
   @if (loading) {
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
   } @else if (quarter) {
+    <div cdkDropListGroup>
     @if (isManager && !isCompleted) {
       <div class="card mb-4">
         <div class="card-header"><i class="bi bi-flag me-2"></i>Add epic</div>
@@ -90,8 +90,9 @@
               <input type="number" min="1" class="form-control" [(ngModel)]="epicWorkingDays" name="epicWorkingDays">
             </div>
             <div class="col-md-2">
-              <label class="form-label">Start sprint</label>
+              <label class="form-label">Start sprint <span class="text-muted fw-normal">(optional)</span></label>
               <select class="form-select" [(ngModel)]="epicStartSprint" name="epicStartSprint">
+                <option [ngValue]="null">Not scheduled</option>
                 @for (sprint of quarter.sprints; track sprint.id) {
                   <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
                 }
@@ -116,7 +117,7 @@
               </div>
             </div>
             <div class="col-md-3">
-              <label class="form-label">Assignees</label>
+              <label class="form-label">Assignees <span class="text-muted fw-normal">(optional)</span></label>
               <div class="assignee-list">
                 @for (person of assigneeOptions; track person.id) {
                   <label class="form-check">
@@ -132,6 +133,11 @@
                   <div class="text-muted small">No participants available</div>
                 }
               </div>
+              @if (epicAssigneeIds.length > 1) {
+                <div class="form-text">Each assignee gets a separate epic entry with its own sprint schedule.</div>
+              } @else if (!epicAssigneeIds.length) {
+                <div class="form-text">Leave unassigned to drag onto the plan later.</div>
+              }
             </div>
           </div>
           <button class="btn btn-primary mt-3" type="button" (click)="addEpic()" [disabled]="addingEpic || !canAddEpic()">
@@ -144,26 +150,70 @@
       </div>
     }
 
-    @if (isCompleted && quarter.comparison) {
+    @if (canEditEpics || backlogEpics.length) {
       <div class="card mb-4">
-        <div class="card-header">Original plan <span class="text-muted fw-normal">v{{ quarter.comparison.originalVersion }}</span></div>
-        <div class="card-body p-0">
-          <ng-container
-            *ngTemplateOutlet="readonlyPlan; context: { plan: quarter.comparison.original }"
-          ></ng-container>
+        <div class="card-header"><i class="bi bi-inbox me-2"></i>Epic backlog</div>
+        <div class="card-body">
+          <div
+            class="epic-backlog"
+            cdkDropList
+            id="epic-backlog"
+            [cdkDropListData]="backlogDropData"
+            [cdkDropListSortingDisabled]="true"
+            [cdkDropListEnterPredicate]="rejectBacklogDrop"
+          >
+            @for (epic of backlogEpics; track epic.id) {
+              <div
+                class="epic-chip epic-chip-backlog"
+                [class.epic-chip-editable]="canEditEpics"
+                [style.background]="epic.backgroundColor"
+                [style.color]="contrastText(epic.backgroundColor)"
+                [title]="epic.title + ' · ' + epic.workingDays + 'd'"
+                cdkDrag
+                [cdkDragData]="epic"
+                [cdkDragDisabled]="!canEditEpics || movingEpic"
+              >
+                <span class="epic-chip-title">{{ epic.title }}</span>
+                <span class="epic-chip-meta">
+                  <span class="epic-chip-days">{{ epic.workingDays }}d</span>
+                  @if (canEditEpics) {
+                    <span class="epic-chip-actions">
+                      <button
+                        type="button"
+                        class="epic-chip-btn"
+                        title="Edit epic"
+                        (click)="openEditEpic(epic.id, $event)"
+                        (mousedown)="$event.stopPropagation()"
+                      >
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="epic-chip-btn"
+                        title="Delete epic"
+                        (click)="deleteEpic(epic.id, $event)"
+                        (mousedown)="$event.stopPropagation()"
+                      >
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </span>
+                  }
+                </span>
+              </div>
+            } @empty {
+              <div class="text-muted small">No unscheduled epics. Create one above without assignee or sprint.</div>
+            }
+          </div>
+          @if (canEditEpics) {
+            <div class="form-text mt-2">Drag epics onto a participant and sprint to schedule them. The epic stays in the backlog so you can assign it to other users.</div>
+          }
         </div>
       </div>
-      <div class="card mb-4">
-        <div class="card-header">Final version <span class="text-muted fw-normal">v{{ quarter.comparison.latestVersion }}</span></div>
-        <div class="card-body p-0">
-          <ng-container
-            *ngTemplateOutlet="readonlyPlan; context: { plan: quarter.comparison.latest }"
-          ></ng-container>
-        </div>
-      </div>
-    } @else {
-      <div class="card">
-        <div class="card-header">
+    }
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <span>
           @if (isDraft) {
             Quarter plan
           } @else if (isInProgress) {
@@ -173,141 +223,125 @@
             }
           } @else {
             Quarter plan
+            @if (canCompare) {
+              <a class="ms-2 small" [routerLink]="['/quarters', quarter.id, 'compare']">View comparison</a>
+            }
           }
-        </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table align-middle mb-0 quarter-grid" cdkDropListGroup>
-              <thead>
+        </span>
+        @if (isManager && !isCompleted) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            (click)="openAddParticipant()"
+            title="Add a teammate to assign epics"
+          >
+            <i class="bi bi-person-plus me-1"></i>Add user
+          </button>
+        }
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0 quarter-grid">
+            <thead>
+              <tr>
+                <th class="participant-col">Participant</th>
+                @for (sprint of quarter.sprints; track sprint.id) {
+                  <th>
+                    <div class="sprint-number">Sprint {{ sprint.number }}</div>
+                    <div class="sprint-dates">{{ sprintDates(sprint.startDate, sprint.endDate) }}</div>
+                  </th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (person of quarter.participants; track person.id) {
                 <tr>
-                  <th class="participant-col">Participant</th>
+                  <th class="participant-col">{{ person.name }}</th>
                   @for (sprint of quarter.sprints; track sprint.id) {
-                    <th>
-                      <div class="sprint-number">Sprint {{ sprint.number }}</div>
-                      <div class="sprint-dates">{{ sprintDates(sprint.startDate, sprint.endDate) }}</div>
-                    </th>
+                    <td>
+                      <div
+                        class="epic-stack"
+                        [class.epic-stack-droptarget]="canEditEpics"
+                        cdkDropList
+                        [cdkDropListData]="cellDropData(person.id, sprint.id)"
+                        [cdkDropListDisabled]="!canEditEpics || movingEpic"
+                        (cdkDropListDropped)="onEpicDrop($any($event))"
+                      >
+                        @for (chip of cellsFor(person.id, sprint.id); track chip.epicId) {
+                          <div
+                            class="epic-chip"
+                            [class.epic-chip-editable]="canEditEpics"
+                            [style.background]="chip.backgroundColor"
+                            [style.color]="contrastText(chip.backgroundColor)"
+                            [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
+                            cdkDrag
+                            [cdkDragData]="chip"
+                            [cdkDragDisabled]="!canEditEpics || movingEpic"
+                          >
+                            <span class="epic-chip-title">{{ chip.title }}</span>
+                            <span class="epic-chip-meta">
+                              <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
+                              @if (canEditEpics) {
+                                <span class="epic-chip-actions">
+                                  <button
+                                    type="button"
+                                    class="epic-chip-btn"
+                                    title="Edit epic"
+                                    (click)="openEditEpic(chip.epicId, $event)"
+                                    (mousedown)="$event.stopPropagation()"
+                                  >
+                                    <i class="bi bi-pencil"></i>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="epic-chip-btn"
+                                    title="Delete epic"
+                                    (click)="deleteEpic(chip.epicId, $event)"
+                                    (mousedown)="$event.stopPropagation()"
+                                  >
+                                    <i class="bi bi-trash"></i>
+                                  </button>
+                                </span>
+                              }
+                            </span>
+                          </div>
+                        }
+                      </div>
+                    </td>
                   }
                 </tr>
-              </thead>
-              <tbody>
-                @for (person of quarter.participants; track person.id) {
-                  <tr>
-                    <th class="participant-col">{{ person.name }}</th>
-                    @for (sprint of quarter.sprints; track sprint.id) {
-                      <td>
-                        <div
-                          class="epic-stack"
-                          cdkDropList
-                          [cdkDropListData]="cellDropData(person.id, sprint.id)"
-                          [cdkDropListDisabled]="!canEditEpics || movingEpic"
-                          (cdkDropListDropped)="onEpicDrop($event)"
-                        >
-                          @for (chip of cellsFor(person.id, sprint.id); track chip.epicId) {
-                            <div
-                              class="epic-chip"
-                              [class.epic-chip-editable]="canEditEpics"
-                              [style.background]="chip.backgroundColor"
-                              [style.color]="contrastText(chip.backgroundColor)"
-                              [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
-                              cdkDrag
-                              [cdkDragData]="chip"
-                              [cdkDragDisabled]="!canEditEpics || movingEpic"
-                            >
-                              <span class="epic-chip-title">{{ chip.title }}</span>
-                              <span class="epic-chip-meta">
-                                <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
-                                @if (canEditEpics) {
-                                  <span class="epic-chip-actions">
-                                    <button
-                                      type="button"
-                                      class="epic-chip-btn"
-                                      title="Edit epic"
-                                      (click)="openEditEpic(chip.epicId, $event)"
-                                      (mousedown)="$event.stopPropagation()"
-                                    >
-                                      <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      class="epic-chip-btn"
-                                      title="Delete epic"
-                                      (click)="deleteEpic(chip.epicId, $event)"
-                                      (mousedown)="$event.stopPropagation()"
-                                    >
-                                      <i class="bi bi-trash"></i>
-                                    </button>
-                                  </span>
-                                }
-                              </span>
-                            </div>
-                          }
-                        </div>
-                      </td>
+              } @empty {
+                <tr>
+                  <td [attr.colspan]="quarter.sprints.length + 1" class="text-muted p-4">
+                    No participants yet.
+                    @if (isManager && !isCompleted && addableParticipants.length) {
+                      <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="openAddParticipant()">
+                        Add a user
+                      </button>
+                      to start assigning epics.
+                    } @else {
+                      Add teams when creating the quarter or add users here.
                     }
-                  </tr>
-                } @empty {
-                  <tr>
-                    <td [attr.colspan]="quarter.sprints.length + 1" class="text-muted p-4">
-                      No participants yet. Choose a team or add an epic with assignees.
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+                  </td>
+                </tr>
+              }
+              @if (isManager && !isCompleted && quarter.participants.length && addableParticipants.length) {
+                <tr class="add-participant-row">
+                  <th class="participant-col" [attr.colspan]="quarter.sprints.length + 1">
+                    <button type="button" class="btn btn-link btn-sm add-participant-btn" (click)="openAddParticipant()">
+                      <i class="bi bi-person-plus me-1"></i>Add another user
+                    </button>
+                  </th>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       </div>
-    }
+    </div>
+    </div>
   }
 </div>
-
-<ng-template #readonlyPlan let-plan="plan">
-  <div class="table-responsive">
-    <table class="table align-middle mb-0 quarter-grid">
-      <thead>
-        <tr>
-          <th class="participant-col">Participant</th>
-          @for (sprint of plan.sprints; track sprint.id) {
-            <th>
-              <div class="sprint-number">Sprint {{ sprint.number }}</div>
-              <div class="sprint-dates">{{ sprintDates(sprint.startDate, sprint.endDate) }}</div>
-            </th>
-          }
-        </tr>
-      </thead>
-      <tbody>
-        @for (person of plan.participants; track person.id) {
-          <tr>
-            <th class="participant-col">{{ person.name }}</th>
-            @for (sprint of plan.sprints; track sprint.id) {
-              <td>
-                <div class="epic-stack">
-                  @for (chip of planCells(plan, person.id, sprint.id); track chip.epicId) {
-                    <div
-                      class="epic-chip"
-                      [style.background]="chip.backgroundColor"
-                      [style.color]="contrastText(chip.backgroundColor)"
-                      [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
-                    >
-                      <span class="epic-chip-title">{{ chip.title }}</span>
-                      <span class="epic-chip-meta">
-                        <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
-                      </span>
-                    </div>
-                  }
-                </div>
-              </td>
-            }
-          </tr>
-        } @empty {
-          <tr>
-            <td [attr.colspan]="plan.sprints.length + 1" class="text-muted p-4">No participants</td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-</ng-template>
 
 @if (showEdit && quarter) {
   <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
@@ -327,14 +361,15 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Start date</label>
-            <input type="date" class="form-control" [(ngModel)]="editStartDate" name="editStartDate">
+            <input type="date" class="form-control" [(ngModel)]="editStartDate" name="editStartDate" (ngModelChange)="onEditStartDateChange()">
           </div>
           <div class="mb-3">
             <label class="form-label">End date</label>
-            <input type="date" class="form-control" [(ngModel)]="editEndDate" name="editEndDate">
+            <input type="date" class="form-control" [(ngModel)]="editEndDate" name="editEndDate" readonly>
+            <div class="form-text">Automatically set to the last day of the third month from the start date.</div>
           </div>
           <div class="mb-0">
-            <label class="form-label">Team <span class="text-muted fw-normal">(optional)</span></label>
+            <label class="form-label">Primary team <span class="text-muted fw-normal">(optional)</span></label>
             <select class="form-select" [(ngModel)]="editTeamId" name="editTeamId">
               <option value="">No team</option>
               @for (team of teams; track team.id) {
@@ -347,6 +382,41 @@
           <button type="button" class="btn btn-outline-secondary" (click)="showEdit = false">Cancel</button>
           <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="saving || !editName.trim() || !editStartDate || !editEndDate">
             {{ saving ? 'Saving...' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showAddParticipant && quarter) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add participant</h5>
+          <button type="button" class="btn-close" (click)="showAddParticipant = false"></button>
+        </div>
+        <div class="modal-body">
+          @if (participantError) {
+            <div class="alert alert-danger py-2">{{ participantError }}</div>
+          }
+          @if (addableParticipants.length) {
+            <label class="form-label">User</label>
+            <select class="form-select" [(ngModel)]="newParticipantId" name="newParticipantId">
+              @for (person of addableParticipants; track person.id) {
+                <option [ngValue]="person.id">{{ person.name }}</option>
+              }
+            </select>
+            <div class="form-text mt-2">You can assign epics to this user once they are added.</div>
+          } @else {
+            <div class="text-muted">No teammates available to add. Invite someone to your team first.</div>
+          }
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" (click)="showAddParticipant = false">Cancel</button>
+          <button type="button" class="btn btn-primary" (click)="addParticipant()" [disabled]="addingParticipant || !newParticipantId">
+            {{ addingParticipant ? 'Adding...' : 'Add user' }}
           </button>
         </div>
       </div>
@@ -378,6 +448,7 @@
             <div class="col-md-3">
               <label class="form-label">Start sprint</label>
               <select class="form-select" [(ngModel)]="editEpicStartSprint" name="editEpicStartSprint">
+                <option [ngValue]="null">Not scheduled</option>
                 @for (sprint of quarter.sprints; track sprint.id) {
                   <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
                 }
@@ -402,22 +473,13 @@
               </div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Assignees</label>
-              <div class="assignee-list">
+              <label class="form-label">Assignee</label>
+              <select class="form-select" [(ngModel)]="editEpicAssigneeId" name="editEpicAssigneeId">
+                <option value="">Unassigned</option>
                 @for (person of assigneeOptions; track person.id) {
-                  <label class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      [checked]="isEditAssigneeSelected(person.id)"
-                      (change)="toggleEditAssignee(person.id)"
-                    >
-                    <span class="form-check-label">{{ person.name }}</span>
-                  </label>
-                } @empty {
-                  <div class="text-muted small">No participants available</div>
+                  <option [value]="person.id">{{ person.name }}</option>
                 }
-              </div>
+              </select>
             </div>
           </div>
         </div>
@@ -426,43 +488,6 @@
           <button type="button" class="btn btn-primary" (click)="saveEditEpic()" [disabled]="savingEpic || !canSaveEpic()">
             {{ savingEpic ? 'Saving...' : 'Save changes' }}
           </button>
-        </div>
-      </div>
-    </div>
-  </div>
-}
-
-@if (showCompare && comparison) {
-  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Compare plan</h5>
-          <button type="button" class="btn-close" (click)="showCompare = false"></button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-4">
-            <h6 class="mb-2">Original plan <span class="text-muted">v{{ comparison.originalVersion }}</span></h6>
-            <div class="border rounded overflow-hidden">
-              <ng-container
-                *ngTemplateOutlet="readonlyPlan; context: { plan: comparison.original }"
-              ></ng-container>
-            </div>
-          </div>
-          <div>
-            <h6 class="mb-2">
-              {{ isCompleted ? 'Final version' : 'Last version' }}
-              <span class="text-muted">v{{ comparison.latestVersion }}</span>
-            </h6>
-            <div class="border rounded overflow-hidden">
-              <ng-container
-                *ngTemplateOutlet="readonlyPlan; context: { plan: comparison.latest }"
-              ></ng-container>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" (click)="showCompare = false">Close</button>
         </div>
       </div>
     </div>

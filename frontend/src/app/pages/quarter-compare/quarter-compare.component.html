@@ -1,0 +1,193 @@
+<div class="py-2">
+  <div class="mb-4">
+    @if (quarter) {
+      <a [routerLink]="['/quarters', quarter.id]" class="back-link"><i class="bi bi-arrow-left me-1"></i>Back to quarter</a>
+      <h2 class="page-title mb-1">Plan comparison</h2>
+      <div class="text-muted">
+        {{ quarter.name || formatRange(quarter.startDate, quarter.endDate) }}
+      </div>
+    } @else {
+      <a routerLink="/quarters" class="back-link"><i class="bi bi-arrow-left me-1"></i>All quarters</a>
+      <h2 class="page-title mb-1">Plan comparison</h2>
+    }
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger">{{ error }}</div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (comparison) {
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card stat-card h-100">
+          <div class="card-body">
+            <div class="stat-label">Unchanged from original</div>
+            <div class="stat-value">{{ comparison.stats.unchangedCount }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stat-card h-100">
+          <div class="card-body">
+            <div class="stat-label">Changed from original</div>
+            <div class="stat-value">{{ comparison.stats.changedCount }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stat-card h-100">
+          <div class="card-body">
+            <div class="stat-label">Extended duration</div>
+            <div class="stat-value">{{ comparison.stats.extendedEpicCount }} epics</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stat-card h-100">
+          <div class="card-body">
+            <div class="stat-label">Total working days</div>
+            <div class="stat-value">
+              {{ comparison.stats.originalTotalWorkingDays }}
+              → {{ comparison.stats.latestTotalWorkingDays }}
+              <span
+                class="stat-diff"
+                [class.positive]="comparison.stats.workingDaysDiff > 0"
+                [class.negative]="comparison.stats.workingDaysDiff < 0"
+              >
+                ({{ diffLabel(comparison.stats.workingDaysDiff) }})
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header">Unchanged epics ({{ comparison.stats.unchangedEpics.length }})</div>
+          <ul class="list-group list-group-flush epic-diff-list">
+            @for (epic of comparison.stats.unchangedEpics; track epic.id) {
+              <li class="list-group-item">
+                <div class="fw-semibold">{{ epic.title }}</div>
+                <div class="text-muted small">
+                  {{ epic.assignee || 'Unassigned' }}
+                  · {{ epic.workingDays }}d
+                  @if (epic.startSprintNumber) {
+                    · Sprint {{ epic.startSprintNumber }}
+                  } @else {
+                    · Unscheduled
+                  }
+                </div>
+              </li>
+            } @empty {
+              <li class="list-group-item text-muted">No unchanged epics</li>
+            }
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header">Changed epics ({{ comparison.stats.changedEpics.length }})</div>
+          <ul class="list-group list-group-flush epic-diff-list">
+            @for (epic of comparison.stats.changedEpics; track epic.id + epic.status) {
+              <li class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div class="fw-semibold">{{ epic.title }}</div>
+                  <span class="badge bg-light text-dark border text-capitalize">{{ epic.status }}</span>
+                </div>
+                <div class="text-muted small">
+                  {{ epic.assignee || 'Unassigned' }}
+                  · {{ epic.workingDays }}d
+                  @if (epic.startSprintNumber) {
+                    · Sprint {{ epic.startSprintNumber }}
+                  } @else {
+                    · Unscheduled
+                  }
+                </div>
+                @if (epic.changes.length) {
+                  <ul class="small mb-0 mt-1 ps-3">
+                    @for (change of epic.changes; track change) {
+                      <li>{{ change }}</li>
+                    }
+                  </ul>
+                }
+              </li>
+            } @empty {
+              <li class="list-group-item text-muted">No changed epics</li>
+            }
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        Original plan <span class="text-muted fw-normal">v{{ comparison.originalVersion }}</span>
+      </div>
+      <div class="card-body p-0">
+        <ng-container *ngTemplateOutlet="readonlyPlan; context: { plan: comparison.original }"></ng-container>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        {{ isCompleted ? 'Final version' : 'Latest version' }}
+        <span class="text-muted fw-normal">v{{ comparison.latestVersion }}</span>
+      </div>
+      <div class="card-body p-0">
+        <ng-container *ngTemplateOutlet="readonlyPlan; context: { plan: comparison.latest }"></ng-container>
+      </div>
+    </div>
+  }
+</div>
+
+<ng-template #readonlyPlan let-plan="plan">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0 quarter-grid">
+      <thead>
+        <tr>
+          <th class="participant-col">Participant</th>
+          @for (sprint of plan.sprints; track sprint.id) {
+            <th>
+              <div class="sprint-number">Sprint {{ sprint.number }}</div>
+              <div class="sprint-dates">{{ sprintDates(sprint.startDate, sprint.endDate) }}</div>
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (person of plan.participants; track person.id) {
+          <tr>
+            <th class="participant-col">{{ person.name }}</th>
+            @for (sprint of plan.sprints; track sprint.id) {
+              <td>
+                <div class="epic-stack">
+                  @for (chip of planCells(plan, person.id, sprint.id); track chip.epicId) {
+                    <div
+                      class="epic-chip"
+                      [style.background]="chip.backgroundColor"
+                      [style.color]="contrastText(chip.backgroundColor)"
+                      [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
+                    >
+                      <span class="epic-chip-title">{{ chip.title }}</span>
+                      <span class="epic-chip-meta">
+                        <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
+                      </span>
+                    </div>
+                  }
+                </div>
+              </td>
+            }
+          </tr>
+        } @empty {
+          <tr>
+            <td [attr.colspan]="plan.sprints.length + 1" class="text-muted p-4">No participants</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ng-template>

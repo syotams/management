@@ -98,6 +98,15 @@ export function localDateInput(date = new Date()): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/** Last calendar day of the third month starting from `startDate` (start month = month 1). Uses UTC to match API date-only fields. */
+export function quarterEndDateFromStart(startDate: string): string {
+  const [year, month] = startDate.split('-').map(Number);
+  if (!year || !month) return startDate;
+  const lastDay = new Date(Date.UTC(year, month - 1 + 3, 0));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${lastDay.getUTCFullYear()}-${pad(lastDay.getUTCMonth() + 1)}-${pad(lastDay.getUTCDate())}`;
+}
+
 /** Contrast text color for a hex background. */
 export function contrastText(hex: string): string {
   const raw = hex.replace('#', '');

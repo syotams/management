@@ -7,6 +7,8 @@ export interface CreateQuarterPayload {
   startDate: string;
   endDate: string;
   teamId?: string | null;
+  teamIds?: string[];
+  userIds?: string[];
 }
 
 export interface UpdateQuarterPayload {
@@ -19,15 +21,15 @@ export interface UpdateQuarterPayload {
 export interface CreateEpicPayload {
   title: string;
   workingDays: number;
-  startSprintNumber: number;
-  assigneeIds: string[];
+  startSprintNumber?: number | null;
+  assigneeIds?: string[];
   backgroundColor: string;
 }
 
 export interface UpdateEpicPayload {
   title?: string;
   workingDays?: number;
-  startSprintNumber?: number;
+  startSprintNumber?: number | null;
   assigneeIds?: string[];
   backgroundColor?: string;
 }
@@ -74,5 +76,22 @@ export class QuarterService {
 
   deleteEpic(quarterId: string, epicId: string) {
     return this.api.delete<QuarterDetail>(`/quarters/${quarterId}/epics/${epicId}`);
+  }
+
+  assignEpic(quarterId: string, epicId: string, assigneeId: string, startSprintNumber: number) {
+    return this.api.post<QuarterDetail>(`/quarters/${quarterId}/epics/${epicId}/assign`, {
+      assigneeId,
+      startSprintNumber,
+    });
+  }
+
+  addParticipant(quarterId: string, userId: string) {
+    return this.api.post<QuarterDetail>(`/quarters/${quarterId}/participants`, { userId });
+  }
+
+  getAddableParticipants(quarterId: string) {
+    return this.api.get<{ id: string; name: string; email: string }[]>(
+      `/quarters/${quarterId}/addable-participants`,
+    );
   }
 }

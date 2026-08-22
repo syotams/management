@@ -3,8 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { QuarterService } from '../../services/quarter.service';
 import { TeamService } from '../../services/team.service';
-import { QuarterSummary, Team } from '../../models';
-import { formatDateOnly, localDateInput } from '../../utils/date';
+import { AssignableMember, QuarterSummary, Team } from '../../models';
+import { formatDateOnly, localDateInput, quarterEndDateFromStart } from '../../utils/date';
 
 @Component({
   selector: 'app-quarters',
@@ -36,22 +36,53 @@ import { formatDateOnly, localDateInput } from '../../utils/date';
               </div>
               <div class="col-md-3">
                 <label class="form-label">Start date</label>
-                <input type="date" class="form-control" name="startDate" [(ngModel)]="startDate" required>
+                <input type="date" class="form-control" name="startDate" [(ngModel)]="startDate" (ngModelChange)="onStartDateChange()" required>
               </div>
               <div class="col-md-3">
                 <label class="form-label">End date</label>
                 <input type="date" class="form-control" name="endDate" [(ngModel)]="endDate" required>
               </div>
-              <div class="col-md-2">
-                <label class="form-label">Team <span class="text-muted fw-normal">(optional)</span></label>
-                <select class="form-select" name="teamId" [(ngModel)]="teamId">
-                  <option value="">No team</option>
+            </div>
+
+            <div class="row g-3 mt-1">
+              <div class="col-md-6">
+                <label class="form-label">Teams</label>
+                <div class="picker-list">
                   @for (team of teams; track team.id) {
-                    <option [value]="team.id">{{ team.name }}</option>
+                    <label class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        [checked]="isTeamSelected(team.id)"
+                        (change)="toggleTeam(team.id)"
+                      >
+                      <span class="form-check-label">{{ team.name }}</span>
+                    </label>
+                  } @empty {
+                    <div class="text-muted small">No teams available</div>
                   }
-                </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Individual users</label>
+                <div class="picker-list">
+                  @for (person of members; track person.id) {
+                    <label class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        [checked]="isUserSelected(person.id)"
+                        (change)="toggleUser(person.id)"
+                      >
+                      <span class="form-check-label">{{ person.name }} <span class="text-muted">({{ person.teamName }})</span></span>
+                    </label>
+                  } @empty {
+                    <div class="text-muted small">No teammates available</div>
+                  }
+                </div>
               </div>
             </div>
+
             <div class="mt-3">
               <button type="submit" class="btn btn-primary" [disabled]="saving || !canCreate()">
                 {{ saving ? 'Creating...' : 'Create quarter' }}
@@ -110,15 +141,28 @@ import { formatDateOnly, localDateInput } from '../../utils/date';
       text-decoration: none;
       color: inherit;
     }
+    .picker-list {
+      max-height: 10rem;
+      overflow: auto;
+      border: 1px solid var(--app-border-subtle);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      background: var(--app-input-bg);
+    }
+    .picker-list .form-check {
+      margin-bottom: 0.25rem;
+    }
   `,
 })
 export class QuartersComponent implements OnInit {
   quarters: QuarterSummary[] = [];
   teams: Team[] = [];
+  members: AssignableMember[] = [];
   name = '';
   startDate = localDateInput();
-  endDate = localDateInput(new Date(Date.now() + 91 * 24 * 60 * 60 * 1000));
-  teamId = '';
+  endDate = quarterEndDateFromStart(localDateInput());
+  selectedTeamIds: string[] = [];
+  selectedUserIds: string[] = [];
   loading = true;
   saving = false;
   error = '';
@@ -131,6 +175,7 @@ export class QuartersComponent implements OnInit {
 
   ngOnInit() {
     this.teamService.getTeams().subscribe((teams) => (this.teams = teams));
+    this.teamService.getAssignableMembers().subscribe((members) => (this.members = members));
     this.loadQuarters();
   }
 
@@ -148,6 +193,36 @@ export class QuartersComponent implements OnInit {
     });
   }
 
+  isTeamSelected(id: string) {
+    return this.selectedTeamIds.includes(id);
+  }
+
+  toggleTeam(id: string) {
+    if (this.selectedTeamIds.includes(id)) {
+      this.selectedTeamIds = this.selectedTeamIds.filter((value) => value !== id);
+    } else {
+      this.selectedTeamIds = [...this.selectedTeamIds, id];
+    }
+  }
+
+  isUserSelected(id: string) {
+    return this.selectedUserIds.includes(id);
+  }
+
+  toggleUser(id: string) {
+    if (this.selectedUserIds.includes(id)) {
+      this.selectedUserIds = this.selectedUserIds.filter((value) => value !== id);
+    } else {
+      this.selectedUserIds = [...this.selectedUserIds, id];
+    }
+  }
+
+  onStartDateChange() {
+    if (this.startDate) {
+      this.endDate = quarterEndDateFromStart(this.startDate);
+    }
+  }
+
   canCreate() {
     return !!this.name.trim() && !!this.startDate && !!this.endDate && this.endDate >= this.startDate;
   }
@@ -161,7 +236,8 @@ export class QuartersComponent implements OnInit {
         name: this.name.trim(),
         startDate: this.startDate,
         endDate: this.endDate,
-        teamId: this.teamId || undefined,
+        teamIds: this.selectedTeamIds.length ? this.selectedTeamIds : undefined,
+        userIds: this.selectedUserIds.length ? this.selectedUserIds : undefined,
       })
       .subscribe({
         next: (quarter) => {
