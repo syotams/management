@@ -168,6 +168,7 @@ export interface ParticipantCapacity {
   ptoDays: number;
   holidayDays: number;
   totalCapacity: number;
+  sprintCapacity: number;
   epicDaysAssigned: number;
 }
 

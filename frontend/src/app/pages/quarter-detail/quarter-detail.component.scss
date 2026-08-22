@@ -115,6 +115,16 @@
   }
 }
 
+.action-link {
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .epic-stack {
   display: flex;
   flex-direction: column;
@@ -257,6 +267,10 @@
 
   tr.capacity-over td {
     background: rgba(var(--bs-danger-rgb), 0.08);
+  }
+
+  .capacity-committed {
+    cursor: help;
   }
 }
 

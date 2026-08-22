@@ -13,6 +13,7 @@ import { TeamService } from '../../services/team.service';
 import {
   AssignableMember,
   GridChip,
+  ParticipantCapacity,
   QuarterDetail,
   QuarterEpic,
   QuarterPlanView,
@@ -50,6 +51,8 @@ export class QuarterDetailComponent implements OnInit {
   epicColor = EPIC_COLORS[0];
   epicAssigneeIds: string[] = [];
   addingEpic = false;
+  showAddEpic = false;
+  addEpicError = '';
   colors = EPIC_COLORS;
   private colorIndex = 0;
 
@@ -333,6 +336,17 @@ export class QuarterDetailComponent implements OnInit {
     return '';
   }
 
+  committedTooltip(row: ParticipantCapacity): string {
+    const sprintCapacity = row.sprintCapacity ?? row.totalCapacity;
+    return [
+      `${row.epicDaysAssigned}/${row.totalCapacity}/${sprintCapacity}`,
+      '',
+      `Committed (${row.epicDaysAssigned}): epic days assigned to the user`,
+      `Capacity (${row.totalCapacity}): available working days after PTO and holidays`,
+      `Sprint capacity (${sprintCapacity}): total working days across all sprints`,
+    ].join('\n');
+  }
+
   openAddPto() {
     this.ptoError = '';
     this.ptoName = 'PTO';
@@ -544,9 +558,21 @@ export class QuarterDetailComponent implements OnInit {
     this.epicColor = nextEpicColor(this.colorIndex);
   }
 
+  openAddEpic() {
+    if (!this.canEditEpics) return;
+    this.addEpicError = '';
+    this.epicTitle = '';
+    this.epicWorkingDays = 5;
+    this.epicStartSprint = null;
+    this.epicAssigneeIds = [];
+    this.epicColor = nextEpicColor(this.colorIndex);
+    this.showAddEpic = true;
+  }
+
   addEpic() {
     if (!this.quarter || !this.canAddEpic()) return;
     this.addingEpic = true;
+    this.addEpicError = '';
     this.error = '';
     this.quarterService
       .addEpic(this.quarter.id, {
@@ -560,6 +586,7 @@ export class QuarterDetailComponent implements OnInit {
         next: (quarter) => {
           this.quarter = this.normalizeQuarter(quarter);
           this.addingEpic = false;
+          this.showAddEpic = false;
           this.epicTitle = '';
           this.epicWorkingDays = 5;
           this.epicStartSprint = null;
@@ -570,7 +597,7 @@ export class QuarterDetailComponent implements OnInit {
         error: (err) => {
           this.addingEpic = false;
           const msg = err.error?.message;
-          this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to add epic';
+          this.addEpicError = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to add epic';
         },
       });
   }

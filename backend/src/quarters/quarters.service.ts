@@ -1288,6 +1288,7 @@ export class QuartersService {
         ptoDays,
         holidayDays,
         totalCapacity: Math.max(0, totalSprintDays - holidayDays - ptoDays),
+        sprintCapacity: totalSprintDays,
         epicDaysAssigned,
       };
     });

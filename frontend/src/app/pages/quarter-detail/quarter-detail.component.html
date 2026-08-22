@@ -76,83 +76,20 @@
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
   } @else if (quarter) {
     <div cdkDropListGroup>
-    @if (isManager && !isCompleted) {
-      <div class="card mb-4">
-        <div class="card-header"><i class="bi bi-flag me-2"></i>Add epic</div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label">Title</label>
-              <input type="text" class="form-control" [(ngModel)]="epicTitle" name="epicTitle" placeholder="Epic title">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Working days</label>
-              <input type="number" min="1" class="form-control" [(ngModel)]="epicWorkingDays" name="epicWorkingDays">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Start sprint <span class="text-muted fw-normal">(optional)</span></label>
-              <select class="form-select" [(ngModel)]="epicStartSprint" name="epicStartSprint">
-                <option [ngValue]="null">Not scheduled</option>
-                @for (sprint of quarter.sprints; track sprint.id) {
-                  <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
-                }
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Background color</label>
-              <div class="d-flex align-items-center gap-2">
-                <input type="color" class="form-control form-control-color" [(ngModel)]="epicColor" name="epicColor">
-                <div class="color-swatches">
-                  @for (color of colors; track color) {
-                    <button
-                      type="button"
-                      class="color-swatch"
-                      [class.selected]="epicColor === color"
-                      [style.background]="color"
-                      (click)="epicColor = color"
-                      [title]="color"
-                    ></button>
-                  }
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Assignees <span class="text-muted fw-normal">(optional)</span></label>
-              <div class="assignee-list">
-                @for (person of assigneeOptions; track person.id) {
-                  <label class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      [checked]="isAssigneeSelected(person.id)"
-                      (change)="toggleAssignee(person.id)"
-                    >
-                    <span class="form-check-label">{{ person.name }}</span>
-                  </label>
-                } @empty {
-                  <div class="text-muted small">No participants available</div>
-                }
-              </div>
-              @if (epicAssigneeIds.length > 1) {
-                <div class="form-text">Each assignee gets a separate epic entry with its own sprint schedule.</div>
-              } @else if (!epicAssigneeIds.length) {
-                <div class="form-text">Leave unassigned to drag onto the plan later.</div>
-              }
-            </div>
-          </div>
-          <button class="btn btn-primary mt-3" type="button" (click)="addEpic()" [disabled]="addingEpic || !canAddEpic()">
-            {{ addingEpic ? 'Adding...' : 'Add epic' }}
-          </button>
-          @if (isInProgress) {
-            <div class="form-text mt-2">Changes create a new plan version.</div>
-          }
-        </div>
-      </div>
-    }
-
     @if (canEditEpics || backlogEpics.length) {
       <div class="card mb-4">
-        <div class="card-header"><i class="bi bi-inbox me-2"></i>Epic backlog</div>
+        <div class="card-header d-flex justify-content-between align-items-center gap-2">
+          <span><i class="bi bi-inbox me-2"></i>Epics Backlog</span>
+          @if (canEditEpics) {
+            <button
+              type="button"
+              class="btn btn-link btn-sm action-link"
+              (click)="openAddEpic()"
+            >
+              <i class="bi bi-plus-lg me-1"></i>Add epic
+            </button>
+          }
+        </div>
         <div class="card-body">
           <div
             class="epic-backlog"
@@ -201,7 +138,15 @@
                 </span>
               </div>
             } @empty {
-              <div class="text-muted small">No unscheduled epics. Create one above without assignee or sprint.</div>
+              <div class="text-muted small">
+                No unscheduled epics.
+                @if (canEditEpics) {
+                  <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="openAddEpic()">
+                    Add an epic
+                  </button>
+                  to the backlog.
+                }
+              </div>
             }
           </div>
           @if (canEditEpics) {
@@ -229,31 +174,31 @@
           }
         </span>
         @if (isManager && !isCompleted) {
-          <div class="d-flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            (click)="openAddHoliday()"
-            title="Add a quarter holiday"
-          >
-            <i class="bi bi-calendar-x me-1"></i>Add holiday
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            (click)="openAddPto()"
-            title="Add PTO for participants"
-          >
-            <i class="bi bi-calendar-minus me-1"></i>Add PTO
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-primary"
-            (click)="openAddParticipant()"
-            title="Add a teammate to assign epics"
-          >
-            <i class="bi bi-person-plus me-1"></i>Add user
-          </button>
+          <div class="d-flex flex-wrap gap-3">
+            <button
+              type="button"
+              class="btn btn-link btn-sm action-link"
+              (click)="openAddHoliday()"
+              title="Add a quarter holiday"
+            >
+              <i class="bi bi-plus-lg me-1"></i>Add holiday
+            </button>
+            <button
+              type="button"
+              class="btn btn-link btn-sm action-link"
+              (click)="openAddPto()"
+              title="Add PTO for participants"
+            >
+              <i class="bi bi-plus-lg me-1"></i>Add PTO
+            </button>
+            <button
+              type="button"
+              class="btn btn-link btn-sm action-link"
+              (click)="openAddParticipant()"
+              title="Add a teammate to assign epics"
+            >
+              <i class="bi bi-plus-lg me-1"></i>Add user
+            </button>
           </div>
         }
       </div>
@@ -398,8 +343,8 @@
               @if (isManager && !isCompleted && quarter.participants.length && addableParticipants.length) {
                 <tr class="add-participant-row">
                   <th class="participant-col" [attr.colspan]="quarter.sprints.length + 1">
-                    <button type="button" class="btn btn-link btn-sm add-participant-btn" (click)="openAddParticipant()">
-                      <i class="bi bi-person-plus me-1"></i>Add another user
+                    <button type="button" class="btn btn-link btn-sm action-link add-participant-btn" (click)="openAddParticipant()">
+                      <i class="bi bi-plus-lg me-1"></i>Add another user
                     </button>
                   </th>
                 </tr>
@@ -421,8 +366,12 @@
                   <th>User</th>
                   <th class="text-end">PTO</th>
                   <th class="text-end">Holidays</th>
-                  <th class="text-end">Total capacity</th>
-                  <th class="text-end">Committed</th>
+                  <th
+                    class="text-end"
+                    title="Committed / Capacity / Sprint capacity&#10;Committed: epic days assigned to the user&#10;Capacity: available working days after PTO and holidays&#10;Sprint capacity: total working days across all sprints"
+                  >
+                    Committed
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -431,8 +380,12 @@
                     <td>{{ row.name }}</td>
                     <td class="text-end">{{ row.ptoDays }}d</td>
                     <td class="text-end">{{ row.holidayDays }}d</td>
-                    <td class="text-end fw-semibold">{{ row.totalCapacity }}d</td>
-                    <td class="text-end">{{ row.epicDaysAssigned }}d</td>
+                    <td
+                      class="text-end fw-semibold capacity-committed"
+                      [attr.title]="committedTooltip(row)"
+                    >
+                      {{ row.epicDaysAssigned }}/{{ row.totalCapacity }}/{{ row.sprintCapacity ?? row.totalCapacity }}
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -686,6 +639,93 @@
           <button type="button" class="btn btn-outline-secondary" (click)="showAddHoliday = false">Cancel</button>
           <button type="button" class="btn btn-primary" (click)="addHoliday()" [disabled]="addingHoliday || !canAddHoliday()">
             {{ addingHoliday ? 'Adding...' : 'Add holiday' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showAddEpic && quarter) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add epic</h5>
+          <button type="button" class="btn-close" (click)="showAddEpic = false"></button>
+        </div>
+        <div class="modal-body">
+          @if (addEpicError) {
+            <div class="alert alert-danger py-2">{{ addEpicError }}</div>
+          }
+          @if (isInProgress) {
+            <div class="alert alert-info py-2">Saving will create a new plan version.</div>
+          }
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Title</label>
+              <input type="text" class="form-control" [(ngModel)]="epicTitle" name="epicTitle" placeholder="Epic title">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Working days</label>
+              <input type="number" min="1" class="form-control" [(ngModel)]="epicWorkingDays" name="epicWorkingDays">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Start sprint <span class="text-muted fw-normal">(optional)</span></label>
+              <select class="form-select" [(ngModel)]="epicStartSprint" name="epicStartSprint">
+                <option [ngValue]="null">Not scheduled</option>
+                @for (sprint of quarter.sprints; track sprint.id) {
+                  <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Background color</label>
+              <div class="d-flex align-items-center gap-2">
+                <input type="color" class="form-control form-control-color" [(ngModel)]="epicColor" name="epicColor">
+                <div class="color-swatches">
+                  @for (color of colors; track color) {
+                    <button
+                      type="button"
+                      class="color-swatch"
+                      [class.selected]="epicColor === color"
+                      [style.background]="color"
+                      (click)="epicColor = color"
+                      [title]="color"
+                    ></button>
+                  }
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Assignees <span class="text-muted fw-normal">(optional)</span></label>
+              <div class="assignee-list">
+                @for (person of assigneeOptions; track person.id) {
+                  <label class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      [checked]="isAssigneeSelected(person.id)"
+                      (change)="toggleAssignee(person.id)"
+                    >
+                    <span class="form-check-label">{{ person.name }}</span>
+                  </label>
+                } @empty {
+                  <div class="text-muted small">No participants available</div>
+                }
+              </div>
+              @if (epicAssigneeIds.length > 1) {
+                <div class="form-text">Each assignee gets a separate epic entry with its own sprint schedule.</div>
+              } @else if (!epicAssigneeIds.length) {
+                <div class="form-text">Leave unassigned to keep it in the backlog for later.</div>
+              }
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" (click)="showAddEpic = false">Cancel</button>
+          <button type="button" class="btn btn-primary" (click)="addEpic()" [disabled]="addingEpic || !canAddEpic()">
+            {{ addingEpic ? 'Adding...' : 'Add epic' }}
           </button>
         </div>
       </div>
