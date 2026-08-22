@@ -107,7 +107,7 @@ export interface GroupedTasks {
   groups: DayGroup[];
 }
 
-export type QuarterStatus = 'active' | 'completed';
+export type QuarterStatus = 'draft' | 'in_progress' | 'completed';
 
 export interface QuarterSummary {
   id: string;
@@ -120,7 +120,7 @@ export interface QuarterSummary {
   createdAt: string;
   updatedAt: string;
   team: { id: string; name: string } | null;
-  _count: { sprints: number; epics: number };
+  _count: { sprints: number; epics: number; versions?: number };
 }
 
 export interface QuarterSprint {
@@ -155,6 +155,24 @@ export interface QuarterEpic {
   assignees: User[];
 }
 
+export interface QuarterPlanView {
+  name: string;
+  startDate: string;
+  endDate: string;
+  teamId: string | null;
+  team: { id: string; name: string } | null;
+  sprints: QuarterSprint[];
+  participants: QuarterParticipant[];
+  epics: QuarterEpic[];
+}
+
+export interface QuarterComparison {
+  original: QuarterPlanView;
+  latest: QuarterPlanView;
+  originalVersion: number;
+  latestVersion: number;
+}
+
 export interface QuarterDetail {
   id: string;
   name: string;
@@ -166,7 +184,10 @@ export interface QuarterDetail {
   createdAt: string;
   updatedAt: string;
   team: { id: string; name: string } | null;
+  versionCount: number;
+  currentVersion: number | null;
   sprints: QuarterSprint[];
   participants: QuarterParticipant[];
   epics: QuarterEpic[];
+  comparison: QuarterComparison | null;
 }

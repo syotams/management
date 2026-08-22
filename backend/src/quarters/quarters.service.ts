@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateEpicDto, CreateQuarterDto, UpdateQuarterDto } from './dto/quarter.dto';
+import { CreateEpicDto, CreateQuarterDto, UpdateEpicDto, UpdateQuarterDto } from './dto/quarter.dto';
 import { countWeekdays, generateSprints, parseDateOnly } from './sprint.util';
 
 const userSelect = { id: true, name: true, email: true };
@@ -16,8 +16,31 @@ type EpicWithAssignees = {
   workingDays: number;
   startSprintNumber: number;
   backgroundColor: string;
-  createdAt: Date;
-  assignees: { userId: string; user: { id: string; name: string; email: string } }[];
+  createdAt: Date | string;
+  assignees: { userId?: string; user: { id: string; name: string; email: string } }[];
+};
+
+type PlanSnapshot = {
+  name: string;
+  startDate: string;
+  endDate: string;
+  teamId: string | null;
+  team: { id: string; name: string } | null;
+  sprints: {
+    id: string;
+    number: number;
+    startDate: string;
+    endDate: string;
+  }[];
+  epics: {
+    id: string;
+    title: string;
+    workingDays: number;
+    startSprintNumber: number;
+    backgroundColor: string;
+    createdAt: string;
+    assignees: { id: string; name: string; email: string }[];
+  }[];
 };
 
 @Injectable()
@@ -34,6 +57,7 @@ export class QuartersService {
         startDate,
         endDate,
         teamId,
+        status: 'draft',
         createdBy: userId,
         sprints: { create: generateSprints(startDate, endDate) },
       },
@@ -55,23 +79,48 @@ export class QuartersService {
       },
       include: {
         team: { select: { id: true, name: true } },
-        _count: { select: { sprints: true, epics: true } },
+        _count: { select: { sprints: true, epics: true, versions: true } },
       },
       orderBy: { startDate: 'desc' },
     });
 
-    return quarters;
+    return quarters.map((q) => ({
+      ...q,
+      status: this.normalizeStatus(q.status),
+    }));
   }
 
   async findOne(id: string, userId: string) {
     const quarter = await this.loadQuarter(id);
     await this.ensureCanView(quarter, userId);
-    return this.toDetail(quarter);
+    const detail = await this.toDetail(quarter);
+
+    if (detail.status === 'completed') {
+      const comparison = await this.buildComparison(id);
+      return { ...detail, comparison };
+    }
+
+    return { ...detail, comparison: null };
+  }
+
+  async compare(id: string, userId: string) {
+    const quarter = await this.loadQuarter(id);
+    await this.ensureCanView(quarter, userId);
+    const status = this.normalizeStatus(quarter.status);
+    if (status === 'draft') {
+      throw new BadRequestException('Start the quarter before comparing plan versions');
+    }
+    const comparison = await this.buildComparison(id);
+    if (!comparison) {
+      throw new BadRequestException('No plan versions available to compare');
+    }
+    return comparison;
   }
 
   async update(id: string, userId: string, dto: UpdateQuarterDto) {
     const quarter = await this.loadQuarter(id);
     this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
 
     const startDate = dto.startDate ? parseDateOnly(dto.startDate) : quarter.startDate;
     const endDate = dto.endDate ? parseDateOnly(dto.endDate) : quarter.endDate;
@@ -103,16 +152,42 @@ export class QuartersService {
       }
     });
 
+    await this.maybeVersionAfterChange(id, userId);
+    return this.findOne(id, userId);
+  }
+
+  async start(id: string, userId: string) {
+    const quarter = await this.loadQuarter(id);
+    this.ensureCreator(quarter, userId);
+    const status = this.normalizeStatus(quarter.status);
+    if (status !== 'draft') {
+      throw new BadRequestException('Only draft quarters can be started');
+    }
+    if (!quarter.epics.length) {
+      throw new BadRequestException('Add at least one epic before starting the quarter');
+    }
+
+    await this.createVersionSnapshot(id, userId);
+    await this.prisma.quarter.update({
+      where: { id },
+      data: { status: 'in_progress' },
+    });
+
     return this.findOne(id, userId);
   }
 
   async complete(id: string, userId: string) {
     const quarter = await this.loadQuarter(id);
     this.ensureCreator(quarter, userId);
-    if (quarter.status === 'completed') {
+    const status = this.normalizeStatus(quarter.status);
+    if (status === 'completed') {
       throw new BadRequestException('Quarter is already completed');
     }
+    if (status !== 'in_progress') {
+      throw new BadRequestException('Start the quarter before completing it');
+    }
 
+    await this.createVersionSnapshot(id, userId);
     await this.prisma.quarter.update({
       where: { id },
       data: { status: 'completed' },
@@ -124,18 +199,9 @@ export class QuartersService {
   async addEpic(quarterId: string, userId: string, dto: CreateEpicDto) {
     const quarter = await this.loadQuarter(quarterId);
     this.ensureCreator(quarter, userId);
-    if (quarter.status === 'completed') {
-      throw new BadRequestException('Cannot add epics to a completed quarter');
-    }
+    this.ensureEditable(quarter);
 
-    const maxSprint = quarter.sprints[quarter.sprints.length - 1]?.number ?? 0;
-    if (!maxSprint || dto.startSprintNumber > maxSprint) {
-      throw new BadRequestException(
-        maxSprint
-          ? `startSprintNumber must be between 1 and ${maxSprint}`
-          : 'Quarter has no sprints to place an epic in',
-      );
-    }
+    this.assertStartSprint(quarter, dto.startSprintNumber);
 
     const assigneeIds = [...new Set(dto.assigneeIds)];
     await this.ensureAssignable(quarter, userId, assigneeIds);
@@ -152,7 +218,210 @@ export class QuartersService {
       },
     });
 
+    await this.maybeVersionAfterChange(quarterId, userId);
     return this.findOne(quarterId, userId);
+  }
+
+  async updateEpic(quarterId: string, epicId: string, userId: string, dto: UpdateEpicDto) {
+    const quarter = await this.loadQuarter(quarterId);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const epic = quarter.epics.find((e) => e.id === epicId);
+    if (!epic) throw new NotFoundException('Epic not found');
+
+    if (dto.startSprintNumber !== undefined) {
+      this.assertStartSprint(quarter, dto.startSprintNumber);
+    }
+
+    const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : undefined;
+    if (assigneeIds) {
+      await this.ensureAssignable(quarter, userId, assigneeIds);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.epic.update({
+        where: { id: epicId },
+        data: {
+          ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+          ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
+          ...(dto.startSprintNumber !== undefined
+            ? { startSprintNumber: dto.startSprintNumber }
+            : {}),
+          ...(dto.backgroundColor !== undefined
+            ? { backgroundColor: dto.backgroundColor.toLowerCase() }
+            : {}),
+        },
+      });
+
+      if (assigneeIds) {
+        await tx.epicAssignee.deleteMany({ where: { epicId } });
+        await tx.epicAssignee.createMany({
+          data: assigneeIds.map((id) => ({ epicId, userId: id })),
+        });
+      }
+    });
+
+    await this.maybeVersionAfterChange(quarterId, userId);
+    return this.findOne(quarterId, userId);
+  }
+
+  async deleteEpic(quarterId: string, epicId: string, userId: string) {
+    const quarter = await this.loadQuarter(quarterId);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const epic = quarter.epics.find((e) => e.id === epicId);
+    if (!epic) throw new NotFoundException('Epic not found');
+
+    await this.prisma.epic.delete({ where: { id: epicId } });
+    await this.maybeVersionAfterChange(quarterId, userId);
+    return this.findOne(quarterId, userId);
+  }
+
+  private async maybeVersionAfterChange(quarterId: string, userId: string) {
+    const quarter = await this.prisma.quarter.findUnique({
+      where: { id: quarterId },
+      select: { status: true },
+    });
+    if (!quarter) return;
+    if (this.normalizeStatus(quarter.status) === 'in_progress') {
+      await this.createVersionSnapshot(quarterId, userId);
+    }
+  }
+
+  private async createVersionSnapshot(quarterId: string, userId: string) {
+    const quarter = await this.loadQuarter(quarterId);
+    const latest = await this.prisma.quarterVersion.findFirst({
+      where: { quarterId },
+      orderBy: { versionNumber: 'desc' },
+      select: { versionNumber: true },
+    });
+    const versionNumber = (latest?.versionNumber ?? 0) + 1;
+    const snapshot = this.buildSnapshot(quarter);
+
+    await this.prisma.quarterVersion.create({
+      data: {
+        quarterId,
+        versionNumber,
+        snapshot: JSON.stringify(snapshot),
+        createdBy: userId,
+      },
+    });
+  }
+
+  private buildSnapshot(
+    quarter: Awaited<ReturnType<QuartersService['loadQuarter']>>,
+  ): PlanSnapshot {
+    return {
+      name: quarter.name,
+      startDate: quarter.startDate.toISOString(),
+      endDate: quarter.endDate.toISOString(),
+      teamId: quarter.teamId,
+      team: quarter.team,
+      sprints: quarter.sprints.map((s) => ({
+        id: s.id,
+        number: s.number,
+        startDate: s.startDate.toISOString(),
+        endDate: s.endDate.toISOString(),
+      })),
+      epics: quarter.epics.map((epic) => ({
+        id: epic.id,
+        title: epic.title,
+        workingDays: epic.workingDays,
+        startSprintNumber: epic.startSprintNumber,
+        backgroundColor: epic.backgroundColor,
+        createdAt: epic.createdAt.toISOString(),
+        assignees: epic.assignees.map((a) => a.user),
+      })),
+    };
+  }
+
+  private async buildComparison(quarterId: string) {
+    const versions = await this.prisma.quarterVersion.findMany({
+      where: { quarterId },
+      orderBy: { versionNumber: 'asc' },
+    });
+    if (!versions.length) return null;
+
+    const original = await this.planFromSnapshot(JSON.parse(versions[0].snapshot) as PlanSnapshot);
+    const latest = await this.planFromSnapshot(
+      JSON.parse(versions[versions.length - 1].snapshot) as PlanSnapshot,
+    );
+
+    return {
+      original,
+      latest,
+      originalVersion: versions[0].versionNumber,
+      latestVersion: versions[versions.length - 1].versionNumber,
+    };
+  }
+
+  private async planFromSnapshot(snapshot: PlanSnapshot) {
+    const sprints = snapshot.sprints.map((s) => ({
+      id: s.id,
+      number: s.number,
+      startDate: new Date(s.startDate),
+      endDate: new Date(s.endDate),
+    }));
+    const epics: EpicWithAssignees[] = snapshot.epics.map((epic) => ({
+      id: epic.id,
+      title: epic.title,
+      workingDays: epic.workingDays,
+      startSprintNumber: epic.startSprintNumber,
+      backgroundColor: epic.backgroundColor,
+      createdAt: epic.createdAt,
+      assignees: epic.assignees.map((user) => ({ userId: user.id, user })),
+    }));
+
+    const participants = await this.resolveParticipantsFromSnapshot(snapshot);
+    const participantIds = participants.map((p) => p.id);
+    const grid = this.buildGrid(sprints, epics, participantIds);
+
+    return {
+      name: snapshot.name,
+      startDate: snapshot.startDate,
+      endDate: snapshot.endDate,
+      teamId: snapshot.teamId,
+      team: snapshot.team,
+      sprints: sprints.map((s) => ({
+        id: s.id,
+        number: s.number,
+        startDate: s.startDate,
+        endDate: s.endDate,
+        workingDays: countWeekdays(s.startDate, s.endDate),
+      })),
+      participants: participants.map((p) => ({
+        ...p,
+        cells: grid[p.id] || {},
+      })),
+      epics: snapshot.epics,
+    };
+  }
+
+  private async resolveParticipantsFromSnapshot(snapshot: PlanSnapshot) {
+    const byId = new Map<string, { id: string; name: string; email: string }>();
+
+    if (snapshot.teamId) {
+      const members = await this.prisma.teamMember.findMany({
+        where: { teamId: snapshot.teamId },
+        include: { user: { select: userSelect } },
+        orderBy: { joinedAt: 'asc' },
+      });
+      for (const m of members) byId.set(m.user.id, m.user);
+    }
+
+    for (const epic of snapshot.epics) {
+      for (const user of epic.assignees) {
+        if (!byId.has(user.id)) byId.set(user.id, user);
+      }
+    }
+
+    if (!byId.size && snapshot.team) {
+      // no members found; keep empty
+    }
+
+    return Array.from(byId.values());
   }
 
   private async loadQuarter(id: string) {
@@ -168,6 +437,12 @@ export class QuartersService {
           },
         },
         creator: { select: userSelect },
+        versions: {
+          select: { versionNumber: true },
+          orderBy: { versionNumber: 'desc' },
+          take: 1,
+        },
+        _count: { select: { versions: true } },
       },
     });
     if (!quarter) throw new NotFoundException('Quarter not found');
@@ -180,6 +455,7 @@ export class QuartersService {
     const participants = await this.resolveParticipants(quarter);
     const participantIds = participants.map((p) => p.id);
     const grid = this.buildGrid(quarter.sprints, quarter.epics, participantIds);
+    const status = this.normalizeStatus(quarter.status);
 
     return {
       id: quarter.id,
@@ -187,11 +463,13 @@ export class QuartersService {
       startDate: quarter.startDate,
       endDate: quarter.endDate,
       teamId: quarter.teamId,
-      status: quarter.status,
+      status,
       createdBy: quarter.createdBy,
       createdAt: quarter.createdAt,
       updatedAt: quarter.updatedAt,
       team: quarter.team,
+      versionCount: quarter._count.versions,
+      currentVersion: quarter.versions[0]?.versionNumber ?? null,
       sprints: quarter.sprints.map((s) => ({
         id: s.id,
         number: s.number,
@@ -266,7 +544,7 @@ export class QuartersService {
       const startFrom = epic.startSprintNumber ?? 1;
       const eligible = sprints.filter((s) => s.number >= startFrom);
       for (const assignee of epic.assignees) {
-        const userId = assignee.userId;
+        const userId = assignee.userId ?? assignee.user.id;
         if (!grid[userId]) continue;
         let daysLeft = epic.workingDays;
 
@@ -303,6 +581,11 @@ export class QuartersService {
     }
 
     return grid;
+  }
+
+  private normalizeStatus(status: string) {
+    if (status === 'active') return 'draft';
+    return status;
   }
 
   private parseRange(start: string, end: string) {
@@ -342,6 +625,27 @@ export class QuartersService {
   private ensureCreator(quarter: { createdBy: string }, userId: string) {
     if (quarter.createdBy !== userId) {
       throw new ForbiddenException('Only the project manager who created this quarter can change it');
+    }
+  }
+
+  private ensureEditable(quarter: { status: string }) {
+    const status = this.normalizeStatus(quarter.status);
+    if (status === 'completed') {
+      throw new BadRequestException('Cannot change a completed quarter');
+    }
+  }
+
+  private assertStartSprint(
+    quarter: { sprints: { number: number }[] },
+    startSprintNumber: number,
+  ) {
+    const maxSprint = quarter.sprints[quarter.sprints.length - 1]?.number ?? 0;
+    if (!maxSprint || startSprintNumber > maxSprint) {
+      throw new BadRequestException(
+        maxSprint
+          ? `startSprintNumber must be between 1 and ${maxSprint}`
+          : 'Quarter has no sprints to place an epic in',
+      );
     }
   }
 

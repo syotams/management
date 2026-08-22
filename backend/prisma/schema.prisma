@@ -23,9 +23,10 @@ model User {
   createdTasks   Task[]       @relation("TaskCreator")
   comments       Comment[]
   auditLogs      TaskAuditLog[]
-  createdQuarters Quarter[]      @relation("QuarterCreator")
-  createdEpics    Epic[]         @relation("EpicCreator")
-  epicAssignments EpicAssignee[]
+  createdQuarters  Quarter[]        @relation("QuarterCreator")
+  createdEpics     Epic[]           @relation("EpicCreator")
+  epicAssignments  EpicAssignee[]
+  quarterVersions  QuarterVersion[] @relation("QuarterVersionCreator")
 }
 
 model Team {
@@ -125,15 +126,31 @@ model Quarter {
   startDate DateTime
   endDate   DateTime
   teamId    String?
-  status    String   @default("active")
+  status    String   @default("draft")
   createdBy String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  team    Team?    @relation(fields: [teamId], references: [id])
-  creator User     @relation("QuarterCreator", fields: [createdBy], references: [id])
-  sprints Sprint[]
-  epics   Epic[]
+  team     Team?            @relation(fields: [teamId], references: [id])
+  creator  User             @relation("QuarterCreator", fields: [createdBy], references: [id])
+  sprints  Sprint[]
+  epics    Epic[]
+  versions QuarterVersion[]
+}
+
+model QuarterVersion {
+  id            String   @id @default(uuid())
+  quarterId     String
+  versionNumber Int
+  snapshot      String
+  createdBy     String
+  createdAt     DateTime @default(now())
+
+  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  creator User    @relation("QuarterVersionCreator", fields: [createdBy], references: [id])
+
+  @@unique([quarterId, versionNumber])
+  @@index([quarterId])
 }
 
 model Sprint {

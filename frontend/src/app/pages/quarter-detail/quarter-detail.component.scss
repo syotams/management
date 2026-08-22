@@ -125,18 +125,86 @@
   padding: 0.35rem 0.55rem;
   font-size: 0.8rem;
   font-weight: 600;
+  position: relative;
+
+  &.epic-chip-editable {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  &:hover .epic-chip-actions,
+  &:focus-within .epic-chip-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .epic-chip-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+.epic-chip-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .epic-chip-days {
-  flex-shrink: 0;
   opacity: 0.85;
   font-size: 0.72rem;
+}
+
+.epic-chip-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.epic-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.32);
+  }
+
+  i {
+    font-size: 0.7rem;
+  }
+}
+
+.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.35;
+}
+
+.cdk-drop-list-dragging .epic-chip:not(.cdk-drag-placeholder) {
+  transition: transform 150ms cubic-bezier(0, 0, 0.2, 1);
 }
 
 .modal-backdrop-custom {

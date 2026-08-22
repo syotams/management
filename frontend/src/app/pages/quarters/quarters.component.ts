@@ -78,10 +78,17 @@ import { formatDateOnly, localDateInput } from '../../utils/date';
               </div>
               <span
                 class="badge status-badge"
-                [class.status-in_progress]="quarter.status === 'active'"
+                [class.status-todo]="quarter.status === 'draft'"
+                [class.status-in_progress]="quarter.status === 'in_progress'"
                 [class.status-completed]="quarter.status === 'completed'"
               >
-                {{ quarter.status === 'completed' ? 'Completed' : 'Active' }}
+                {{
+                  quarter.status === 'draft'
+                    ? 'Draft'
+                    : quarter.status === 'in_progress'
+                      ? 'In progress'
+                      : 'Completed'
+                }}
               </span>
             </div>
           </a>

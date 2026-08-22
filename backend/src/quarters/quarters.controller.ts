@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../common/current-user.decorator';
-import { CreateEpicDto, CreateQuarterDto, UpdateQuarterDto } from './dto/quarter.dto';
+import { CreateEpicDto, CreateQuarterDto, UpdateEpicDto, UpdateQuarterDto } from './dto/quarter.dto';
 import { QuartersService } from './quarters.service';
 
 @Controller('quarters')
@@ -19,6 +19,11 @@ export class QuartersController {
     return this.quartersService.findAll(user.id);
   }
 
+  @Get(':id/compare')
+  compare(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return this.quartersService.compare(id, user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.quartersService.findOne(id, user.id);
@@ -33,6 +38,11 @@ export class QuartersController {
     return this.quartersService.update(id, user.id, dto);
   }
 
+  @Patch(':id/start')
+  start(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return this.quartersService.start(id, user.id);
+  }
+
   @Patch(':id/complete')
   complete(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.quartersService.complete(id, user.id);
@@ -45,5 +55,24 @@ export class QuartersController {
     @Body() dto: CreateEpicDto,
   ) {
     return this.quartersService.addEpic(id, user.id, dto);
+  }
+
+  @Patch(':id/epics/:epicId')
+  updateEpic(
+    @Param('id') id: string,
+    @Param('epicId') epicId: string,
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateEpicDto,
+  ) {
+    return this.quartersService.updateEpic(id, epicId, user.id, dto);
+  }
+
+  @Delete(':id/epics/:epicId')
+  deleteEpic(
+    @Param('id') id: string,
+    @Param('epicId') epicId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.quartersService.deleteEpic(id, epicId, user.id);
   }
 }
