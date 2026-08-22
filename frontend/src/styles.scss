@@ -363,14 +363,29 @@
 }
 
 // ── Base ─────────────────────────────────────────────────
+html,
+body {
+  height: 100%;
+}
+
 body {
   background-color: var(--app-bg);
   color: var(--app-text);
   transition: background-color 0.2s ease, color 0.2s ease;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+app-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  min-height: 100%;
 }
 
 .main-content {
-  min-height: calc(100vh - 57px);
+  flex: 1 0 auto;
   display: flex;
   justify-content: center;
   padding: 1.5rem 1rem;
@@ -419,9 +434,41 @@ body {
     }
   }
 
-  .btn-logout {
+  .btn-user-menu {
+    background: transparent;
+    border: 1px solid var(--app-border);
+    color: var(--app-text);
     border-radius: 8px;
     font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.35rem 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    &:hover,
+    &[aria-expanded='true'] {
+      background: var(--app-surface-hover);
+      border-color: var(--app-border);
+      color: var(--app-text);
+    }
+  }
+
+  .user-menu {
+    position: relative;
+
+    .dropdown-menu.show {
+      display: block;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      left: auto;
+      margin-top: 0.25rem;
+      min-width: 10.5rem;
+      z-index: 1050;
+    }
+
+    .dropdown-item {
+      cursor: pointer;
+    }
   }
 }
 
@@ -794,8 +841,15 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
   }
 }
 
-.table-sm > :not(caption) > * > * {
-  padding: 0.25rem 1rem;
+// Flush card tables: match cell horizontal padding to card-header
+.card > .card-body.p-0 .table > :not(caption) > * > * {
+  padding-left: var(--bs-card-cap-padding-x, 1rem);
+  padding-right: var(--bs-card-cap-padding-x, 1rem);
+}
+
+.card > .card-body.p-0 .table-sm > :not(caption) > * > * {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 
 // ── Modals ───────────────────────────────────────────────
