@@ -144,3 +144,40 @@ export class UpdateEpicDto {
   @Matches(/^#([0-9a-fA-F]{6})$/, { message: 'backgroundColor must be a hex color like #4f46e5' })
   backgroundColor?: string;
 }
+
+export class CreateHolidayDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @IsDateString()
+  startDate: string;
+
+  @IsDateString()
+  endDate: string;
+}
+
+export class CreatePtoDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @IsDateString()
+  startDate: string;
+
+  @IsDateString()
+  endDate: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  teamId?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  userIds?: string[];
+}

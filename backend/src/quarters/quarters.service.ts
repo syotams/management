@@ -10,11 +10,21 @@ import {
   AddQuarterParticipantDto,
   AssignEpicDto,
   CreateEpicDto,
+  CreateHolidayDto,
+  CreatePtoDto,
   CreateQuarterDto,
   UpdateEpicDto,
   UpdateQuarterDto,
 } from './dto/quarter.dto';
-import { countWeekdays, generateSprints, parseDateOnly } from './sprint.util';
+import {
+  countWeekdays,
+  countWeekdaysOverlap,
+  generateSprints,
+  parseDateOnly,
+} from './sprint.util';
+
+const PTO_CHIP_COLOR = '#94a3b8';
+const HOLIDAY_CHIP_COLOR = '#64748b';
 
 const userSelect = { id: true, name: true, email: true };
 
@@ -411,6 +421,107 @@ export class QuartersService {
     return this.findOne(quarterId, userId);
   }
 
+  async addHoliday(quarterId: string, userId: string, dto: CreateHolidayDto) {
+    const quarter = await this.loadQuarter(quarterId);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const { startDate, endDate } = this.parseRange(dto.startDate, dto.endDate);
+    this.assertWithinQuarter(quarter, startDate, endDate);
+
+    const participants = await this.resolveParticipants(quarter);
+    if (!participants.length) {
+      throw new BadRequestException('Add participants before creating a holiday');
+    }
+
+    const name = (dto.name?.trim() || 'Holiday').slice(0, 200);
+    const groupKey = randomUUID();
+    await this.prisma.quarterHoliday.createMany({
+      data: participants.map((p) => ({
+        quarterId,
+        userId: p.id,
+        groupKey,
+        name,
+        startDate,
+        endDate,
+        createdBy: userId,
+      })),
+    });
+
+    await this.maybeVersionAfterChange(quarterId, userId);
+    return this.findOne(quarterId, userId);
+  }
+
+  async deleteHoliday(quarterId: string, holidayId: string, userId: string) {
+    const quarter = await this.loadQuarter(quarterId);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const holiday = quarter.holidays.find((h) => h.id === holidayId);
+    if (!holiday) throw new NotFoundException('Holiday not found');
+
+    await this.prisma.quarterHoliday.delete({ where: { id: holidayId } });
+    await this.maybeVersionAfterChange(quarterId, userId);
+    return this.findOne(quarterId, userId);
+  }
+
+  async deleteHolidayGroup(quarterId: string, groupKey: string, userId: string) {
+    const quarter = await this.loadQuarter(quarterId);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const matching = quarter.holidays.filter((h) => h.groupKey === groupKey);
+    if (!matching.length) throw new NotFoundException('Holiday not found');
+
+    await this.prisma.quarterHoliday.deleteMany({
+      where: { quarterId, groupKey },
+    });
+    await this.maybeVersionAfterChange(quarterId, userId);
+    return this.findOne(quarterId, userId);
+  }
+
+  async addPto(quarterId: string, userId: string, dto: CreatePtoDto) {
+    const quarter = await this.loadQuarter(quarterId);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const { startDate, endDate } = this.parseRange(dto.startDate, dto.endDate);
+    this.assertWithinQuarter(quarter, startDate, endDate);
+
+    const targetUserIds = await this.resolvePtoTargetUserIds(quarter, userId, dto);
+    if (!targetUserIds.length) {
+      throw new BadRequestException('Select a team or at least one user for PTO');
+    }
+
+    const name = (dto.name?.trim() || 'PTO').slice(0, 200);
+    await this.prisma.quarterPto.createMany({
+      data: targetUserIds.map((uid) => ({
+        quarterId,
+        userId: uid,
+        name,
+        startDate,
+        endDate,
+        createdBy: userId,
+      })),
+    });
+
+    await this.maybeVersionAfterChange(quarterId, userId);
+    return this.findOne(quarterId, userId);
+  }
+
+  async deletePto(quarterId: string, ptoId: string, userId: string) {
+    const quarter = await this.loadQuarter(quarterId);
+    this.ensureCreator(quarter, userId);
+    this.ensureEditable(quarter);
+
+    const pto = quarter.ptos.find((p) => p.id === ptoId);
+    if (!pto) throw new NotFoundException('PTO entry not found');
+
+    await this.prisma.quarterPto.delete({ where: { id: ptoId } });
+    await this.maybeVersionAfterChange(quarterId, userId);
+    return this.findOne(quarterId, userId);
+  }
+
   private async maybeVersionAfterChange(quarterId: string, userId: string) {
     const quarter = await this.prisma.quarter.findUnique({
       where: { id: quarterId },
@@ -709,7 +820,7 @@ export class QuartersService {
 
     const participants = await this.resolveParticipantsFromSnapshot(snapshot);
     const participantIds = participants.map((p) => p.id);
-    const grid = this.buildGrid(sprints, epics, participantIds);
+    const grid = this.buildGrid(sprints, epics, participantIds, [], []);
 
     return {
       name: snapshot.name,
@@ -781,6 +892,14 @@ export class QuartersService {
             assignees: { include: { user: { select: userSelect } } },
           },
         },
+        holidays: {
+          orderBy: { startDate: 'asc' },
+          include: { user: { select: userSelect } },
+        },
+        ptos: {
+          orderBy: { startDate: 'asc' },
+          include: { user: { select: userSelect } },
+        },
         creator: { select: userSelect },
         versions: {
           select: { versionNumber: true },
@@ -799,7 +918,23 @@ export class QuartersService {
   ) {
     const participants = await this.resolveParticipants(quarter);
     const participantIds = participants.map((p) => p.id);
-    const grid = this.buildGrid(quarter.sprints, quarter.epics, participantIds);
+    const holidays = quarter.holidays;
+    const ptos = quarter.ptos;
+    const grid = this.buildGrid(
+      quarter.sprints,
+      quarter.epics,
+      participantIds,
+      ptos,
+      holidays,
+    );
+    const capacity = this.computeCapacity(
+      quarter.sprints,
+      participants,
+      ptos,
+      holidays,
+      quarter.epics,
+    );
+    const capacityByUser = new Map(capacity.map((c) => [c.userId, c]));
     const status = this.normalizeStatus(quarter.status);
     const teams = quarter.quarterTeams.map((qt) => qt.team);
 
@@ -825,9 +960,25 @@ export class QuartersService {
         endDate: s.endDate,
         workingDays: countWeekdays(s.startDate, s.endDate),
       })),
-      participants: participants.map((p) => ({
-        ...p,
-        cells: grid[p.id] || {},
+      participants: participants.map((p) => {
+        const cap = capacityByUser.get(p.id);
+        return {
+          ...p,
+          cells: grid[p.id] || {},
+          epicDaysAssigned: cap?.epicDaysAssigned ?? 0,
+          totalWorkingDays: cap?.totalCapacity ?? 0,
+        };
+      }),
+      capacity,
+      holidays: this.groupHolidays(holidays, quarter.sprints),
+      ptos: ptos.map((p) => ({
+        id: p.id,
+        name: p.name,
+        startDate: p.startDate,
+        endDate: p.endDate,
+        userId: p.userId,
+        user: p.user,
+        workingDays: this.ptoWorkingDays(p, quarter.sprints),
       })),
       epics: quarter.epics.map((epic) => ({
         id: epic.id,
@@ -841,6 +992,54 @@ export class QuartersService {
         assignees: epic.assignees.map((a) => a.user),
       })),
     };
+  }
+
+  private groupHolidays(
+    holidays: {
+      id: string;
+      groupKey: string;
+      name: string;
+      startDate: Date;
+      endDate: Date;
+      userId: string;
+    }[],
+    sprints: { startDate: Date; endDate: Date }[],
+  ) {
+    const byGroup = new Map<
+      string,
+      {
+        groupKey: string;
+        name: string;
+        startDate: Date;
+        endDate: Date;
+        userIds: string[];
+      }
+    >();
+
+    for (const holiday of holidays) {
+      const existing = byGroup.get(holiday.groupKey);
+      if (existing) {
+        existing.userIds.push(holiday.userId);
+      } else {
+        byGroup.set(holiday.groupKey, {
+          groupKey: holiday.groupKey,
+          name: holiday.name,
+          startDate: holiday.startDate,
+          endDate: holiday.endDate,
+          userIds: [holiday.userId],
+        });
+      }
+    }
+
+    return Array.from(byGroup.values()).map((group) => ({
+      id: group.groupKey,
+      groupKey: group.groupKey,
+      name: group.name,
+      startDate: group.startDate,
+      endDate: group.endDate,
+      workingDays: this.holidayWorkingDays(group, sprints),
+      userCount: group.userIds.length,
+    }));
   }
 
   private isBacklogTemplate(epic: {
@@ -907,22 +1106,73 @@ export class QuartersService {
     sprints: { id: string; number: number; startDate: Date; endDate: Date }[],
     epics: EpicWithAssignees[],
     participantIds: string[],
+    ptos: { id: string; userId: string; name: string; startDate: Date; endDate: Date }[],
+    holidays: { id: string; userId: string; name: string; startDate: Date; endDate: Date }[],
   ) {
-    const capacity = new Map(
-      sprints.map((s) => [s.id, Math.max(1, countWeekdays(s.startDate, s.endDate))]),
-    );
-    const remaining = new Map<string, Map<string, number>>();
     const grid: Record<string, Record<string, {
-      epicId: string;
+      type: 'epic' | 'pto' | 'holiday';
+      id: string;
       title: string;
       backgroundColor: string;
       daysInSprint: number;
     }[]>> = {};
 
+    const remaining = new Map<string, Map<string, number>>();
+
     for (const userId of participantIds) {
-      remaining.set(userId, new Map(capacity));
+      remaining.set(userId, new Map());
       grid[userId] = {};
-      for (const sprint of sprints) grid[userId][sprint.id] = [];
+      for (const sprint of sprints) {
+        grid[userId][sprint.id] = [];
+        remaining.get(userId)!.set(
+          sprint.id,
+          Math.max(0, countWeekdays(sprint.startDate, sprint.endDate)),
+        );
+      }
+    }
+
+    for (const holiday of holidays) {
+      if (!grid[holiday.userId]) continue;
+      for (const sprint of sprints) {
+        const days = countWeekdaysOverlap(
+          holiday.startDate,
+          holiday.endDate,
+          sprint.startDate,
+          sprint.endDate,
+        );
+        if (days <= 0) continue;
+        grid[holiday.userId][sprint.id].push({
+          type: 'holiday',
+          id: holiday.id,
+          title: holiday.name,
+          backgroundColor: HOLIDAY_CHIP_COLOR,
+          daysInSprint: days,
+        });
+        const rem = remaining.get(holiday.userId)!.get(sprint.id) ?? 0;
+        remaining.get(holiday.userId)!.set(sprint.id, Math.max(0, rem - days));
+      }
+    }
+
+    for (const pto of ptos) {
+      if (!grid[pto.userId]) continue;
+      for (const sprint of sprints) {
+        const days = countWeekdaysOverlap(
+          pto.startDate,
+          pto.endDate,
+          sprint.startDate,
+          sprint.endDate,
+        );
+        if (days <= 0) continue;
+        grid[pto.userId][sprint.id].push({
+          type: 'pto',
+          id: pto.id,
+          title: pto.name,
+          backgroundColor: PTO_CHIP_COLOR,
+          daysInSprint: days,
+        });
+        const rem = remaining.get(pto.userId)!.get(sprint.id) ?? 0;
+        remaining.get(pto.userId)!.set(sprint.id, Math.max(0, rem - days));
+      }
     }
 
     for (const epic of epics) {
@@ -940,7 +1190,8 @@ export class QuartersService {
           if (rem <= 0) continue;
           const used = Math.min(daysLeft, rem);
           grid[userId][sprint.id].push({
-            epicId: epic.id,
+            type: 'epic',
+            id: epic.id,
             title: epic.title,
             backgroundColor: epic.backgroundColor,
             daysInSprint: used,
@@ -952,11 +1203,12 @@ export class QuartersService {
         if (daysLeft > 0 && eligible.length) {
           const last = eligible[eligible.length - 1];
           const chips = grid[userId][last.id];
-          const existing = chips.find((c) => c.epicId === epic.id);
+          const existing = chips.find((c) => c.type === 'epic' && c.id === epic.id);
           if (existing) existing.daysInSprint += daysLeft;
           else {
             chips.push({
-              epicId: epic.id,
+              type: 'epic',
+              id: epic.id,
               title: epic.title,
               backgroundColor: epic.backgroundColor,
               daysInSprint: daysLeft,
@@ -967,6 +1219,122 @@ export class QuartersService {
     }
 
     return grid;
+  }
+
+  private quarterSpan(sprints: { startDate: Date; endDate: Date }[]) {
+    if (!sprints.length) return null;
+    return { start: sprints[0].startDate, end: sprints[sprints.length - 1].endDate };
+  }
+
+  private holidayWorkingDays(
+    holiday: { startDate: Date; endDate: Date },
+    sprints: { startDate: Date; endDate: Date }[],
+  ) {
+    const span = this.quarterSpan(sprints);
+    if (!span) return 0;
+    return countWeekdaysOverlap(holiday.startDate, holiday.endDate, span.start, span.end);
+  }
+
+  private ptoWorkingDays(
+    pto: { startDate: Date; endDate: Date },
+    sprints: { startDate: Date; endDate: Date }[],
+  ) {
+    const span = this.quarterSpan(sprints);
+    if (!span) return 0;
+    return countWeekdaysOverlap(pto.startDate, pto.endDate, span.start, span.end);
+  }
+
+  private computeCapacity(
+    sprints: { startDate: Date; endDate: Date }[],
+    participants: { id: string; name: string }[],
+    ptos: { userId: string; startDate: Date; endDate: Date }[],
+    holidays: { userId: string; startDate: Date; endDate: Date }[],
+    epics: EpicWithAssignees[],
+  ) {
+    const span = this.quarterSpan(sprints);
+    const totalSprintDays = sprints.reduce(
+      (sum, s) => sum + countWeekdays(s.startDate, s.endDate),
+      0,
+    );
+
+    return participants.map((person) => {
+      const userPtos = ptos.filter((p) => p.userId === person.id);
+      const userHolidays = holidays.filter((h) => h.userId === person.id);
+      const ptoDays = span
+        ? userPtos.reduce(
+            (sum, p) =>
+              sum + countWeekdaysOverlap(p.startDate, p.endDate, span.start, span.end),
+            0,
+          )
+        : 0;
+      const holidayDays = span
+        ? userHolidays.reduce(
+            (sum, h) =>
+              sum + countWeekdaysOverlap(h.startDate, h.endDate, span.start, span.end),
+            0,
+          )
+        : 0;
+      const epicDaysAssigned = epics
+        .filter(
+          (e) =>
+            e.startSprintNumber != null &&
+            e.assignees.some((a) => (a.userId ?? a.user.id) === person.id),
+        )
+        .reduce((sum, e) => sum + e.workingDays, 0);
+
+      return {
+        userId: person.id,
+        name: person.name,
+        ptoDays,
+        holidayDays,
+        totalCapacity: Math.max(0, totalSprintDays - holidayDays - ptoDays),
+        epicDaysAssigned,
+      };
+    });
+  }
+
+  private assertWithinQuarter(
+    quarter: { startDate: Date; endDate: Date },
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const qStart = parseDateOnly(quarter.startDate);
+    const qEnd = parseDateOnly(quarter.endDate);
+    if (startDate < qStart || endDate > qEnd) {
+      throw new BadRequestException('Dates must fall within the quarter range');
+    }
+  }
+
+  private async resolvePtoTargetUserIds(
+    quarter: Awaited<ReturnType<QuartersService['loadQuarter']>>,
+    creatorId: string,
+    dto: CreatePtoDto,
+  ) {
+    if (dto.teamId && dto.userIds?.length) {
+      throw new BadRequestException('Assign PTO to either a team or individual users, not both');
+    }
+
+    if (dto.teamId) {
+      const linkedTeamIds = quarter.quarterTeams.map((qt) => qt.teamId);
+      if (quarter.teamId) linkedTeamIds.push(quarter.teamId);
+      if (!linkedTeamIds.includes(dto.teamId)) {
+        throw new BadRequestException('Team is not linked to this quarter');
+      }
+      await this.resolveTeamId(creatorId, dto.teamId);
+      const members = await this.prisma.teamMember.findMany({
+        where: { teamId: dto.teamId },
+        select: { userId: true },
+      });
+      return [...new Set(members.map((m) => m.userId))];
+    }
+
+    if (dto.userIds?.length) {
+      const unique = [...new Set(dto.userIds)];
+      await this.ensureAssignable(quarter, creatorId, unique);
+      return unique;
+    }
+
+    return [];
   }
 
   private normalizeStatus(status: string) {

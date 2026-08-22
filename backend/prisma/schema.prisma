@@ -28,6 +28,10 @@ model User {
   epicAssignments       EpicAssignee[]
   quarterVersions       QuarterVersion[]     @relation("QuarterVersionCreator")
   quarterParticipations QuarterParticipant[]
+  quarterPtos           QuarterPto[]
+  quarterHolidays       QuarterHoliday[]
+  createdHolidays       QuarterHoliday[]     @relation("HolidayCreator")
+  createdPtos           QuarterPto[]         @relation("PtoCreator")
 }
 
 model Team {
@@ -140,6 +144,46 @@ model Quarter {
   versions        QuarterVersion[]
   quarterTeams    QuarterTeam[]
   participants    QuarterParticipant[]
+  holidays        QuarterHoliday[]
+  ptos            QuarterPto[]
+}
+
+model QuarterHoliday {
+  id        String   @id @default(uuid())
+  quarterId String
+  userId    String
+  groupKey  String
+  name      String   @default("Holiday")
+  startDate DateTime
+  endDate   DateTime
+  createdBy String
+  createdAt DateTime @default(now())
+
+  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creator User    @relation("HolidayCreator", fields: [createdBy], references: [id])
+
+  @@index([quarterId])
+  @@index([quarterId, userId])
+  @@index([quarterId, groupKey])
+}
+
+model QuarterPto {
+  id        String   @id @default(uuid())
+  quarterId String
+  userId    String
+  name      String   @default("PTO")
+  startDate DateTime
+  endDate   DateTime
+  createdBy String
+  createdAt DateTime @default(now())
+
+  quarter Quarter @relation(fields: [quarterId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creator User    @relation("PtoCreator", fields: [createdBy], references: [id])
+
+  @@index([quarterId])
+  @@index([quarterId, userId])
 }
 
 model QuarterTeam {

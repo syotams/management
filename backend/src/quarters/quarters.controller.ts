@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../common/current-user.decorator';
-import { CreateEpicDto, CreateQuarterDto, AddQuarterParticipantDto, AssignEpicDto, UpdateEpicDto, UpdateQuarterDto } from './dto/quarter.dto';
+import { CreateEpicDto, CreateQuarterDto, AddQuarterParticipantDto, AssignEpicDto, CreateHolidayDto, CreatePtoDto, UpdateEpicDto, UpdateQuarterDto } from './dto/quarter.dto';
 import { QuartersService } from './quarters.service';
 
 @Controller('quarters')
@@ -101,5 +101,50 @@ export class QuartersController {
     @CurrentUser() user: { id: string },
   ) {
     return this.quartersService.deleteEpic(id, epicId, user.id);
+  }
+
+  @Post(':id/holidays')
+  addHoliday(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+    @Body() dto: CreateHolidayDto,
+  ) {
+    return this.quartersService.addHoliday(id, user.id, dto);
+  }
+
+  @Delete(':id/holidays/:holidayId')
+  deleteHoliday(
+    @Param('id') id: string,
+    @Param('holidayId') holidayId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.quartersService.deleteHoliday(id, holidayId, user.id);
+  }
+
+  @Delete(':id/holiday-groups/:groupKey')
+  deleteHolidayGroup(
+    @Param('id') id: string,
+    @Param('groupKey') groupKey: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.quartersService.deleteHolidayGroup(id, groupKey, user.id);
+  }
+
+  @Post(':id/pto')
+  addPto(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+    @Body() dto: CreatePtoDto,
+  ) {
+    return this.quartersService.addPto(id, user.id, dto);
+  }
+
+  @Delete(':id/pto/:ptoId')
+  deletePto(
+    @Param('id') id: string,
+    @Param('ptoId') ptoId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.quartersService.deletePto(id, ptoId, user.id);
   }
 }

@@ -54,3 +54,19 @@ export function countWeekdays(startDate: Date, endDate: Date): number {
   }
   return count;
 }
+
+export function countWeekdaysOverlap(
+  rangeStart: Date,
+  rangeEnd: Date,
+  clipStart: Date,
+  clipEnd: Date,
+): number {
+  const start = startOfUtcDay(rangeStart);
+  const end = startOfUtcDay(rangeEnd);
+  const clipS = startOfUtcDay(clipStart);
+  const clipE = startOfUtcDay(clipEnd);
+  const from = start > clipS ? start : clipS;
+  const to = end < clipE ? end : clipE;
+  if (from > to) return 0;
+  return countWeekdays(from, to);
+}
