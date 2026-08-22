@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { Team, TeamInvite, TeamMember, AssignableMember } from '../models';
+import { Team, TeamInvite, TeamMember, AssignableMember, PendingInvite } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class TeamService {
@@ -38,11 +38,19 @@ export class TeamService {
     return this.api.get<AssignableMember[]>('/teams/assignable-members');
   }
 
+  getMyPendingInvites() {
+    return this.api.get<PendingInvite[]>('/invites/mine');
+  }
+
   getInviteInfo(token: string) {
     return this.api.getPublic<{ email: string; teamName: string; status: string; expiresAt: string }>(`/invites/${token}`);
   }
 
   acceptInvite(token: string) {
     return this.api.post<{ teamId: string; teamName: string }>(`/invites/${token}/accept`, {});
+  }
+
+  denyInvite(token: string) {
+    return this.api.post<{ success: boolean }>(`/invites/${token}/deny`, {});
   }
 }

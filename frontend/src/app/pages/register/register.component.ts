@@ -1,6 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -34,7 +34,7 @@ import { AuthService } from '../../services/auth.service';
             </button>
           </form>
           <p class="mt-3 mb-0 text-center">
-            Already have an account? <a routerLink="/login">Login</a>
+            Already have an account? <a [routerLink]="['/login']" [queryParams]="loginQueryParams">Login</a>
           </p>
         </div>
       </div>
@@ -42,20 +42,39 @@ import { AuthService } from '../../services/auth.service';
   `,
   styles: [`:host { display: block; }`],
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   name = '';
   email = '';
   password = '';
   error = '';
   loading = false;
+  private returnUrl = '/tasks';
 
-  constructor(private auth: AuthService, private router: Router) {}
+  get loginQueryParams() {
+    const params: Record<string, string> = {};
+    if (this.returnUrl && this.returnUrl !== '/tasks') params['returnUrl'] = this.returnUrl;
+    if (this.email) params['email'] = this.email;
+    return params;
+  }
+
+  constructor(
+    private auth: AuthService,
+    private router: Router,
+    private route: ActivatedRoute,
+  ) {}
+
+  ngOnInit() {
+    const q = this.route.snapshot.queryParamMap;
+    const raw = q.get('returnUrl') || '/tasks';
+    this.returnUrl = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/tasks';
+    this.email = q.get('email') || '';
+  }
 
   onSubmit() {
     this.loading = true;
     this.error = '';
     this.auth.register(this.email, this.password, this.name).subscribe({
-      next: () => this.router.navigate(['/tasks']),
+      next: () => this.router.navigateByUrl(this.returnUrl),
       error: (err) => {
         this.error = err.error?.message || 'Registration failed';
         this.loading = false;

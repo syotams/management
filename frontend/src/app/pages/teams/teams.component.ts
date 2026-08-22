@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TeamService } from '../../services/team.service';
 import { AuthService } from '../../services/auth.service';
-import { Team, TeamMember, TeamInvite } from '../../models';
+import { Team, TeamMember, TeamInvite, PendingInvite } from '../../models';
 
 @Component({
   selector: 'app-teams',
@@ -11,6 +11,54 @@ import { Team, TeamMember, TeamInvite } from '../../models';
   template: `
     <div class="py-2">
       <h2 class="page-title mb-4">Teams</h2>
+
+      @if (pendingInvites.length) {
+        <div class="card mb-4 border-warning">
+          <div class="card-header bg-warning-subtle">
+            <h5 class="mb-0">Pending Invitations</h5>
+          </div>
+          <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th>Invited by</th>
+                  <th>Expires</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (inv of pendingInvites; track inv.id) {
+                  <tr>
+                    <td>{{ inv.team.name }}</td>
+                    <td>{{ inv.invitedBy.name }}</td>
+                    <td>{{ inv.daysUntilExpiry }} days left</td>
+                    <td>
+                      <button
+                        class="btn btn-sm btn-success me-1"
+                        (click)="acceptPending(inv)"
+                        [disabled]="respondingToken === inv.token"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        class="btn btn-sm btn-outline-danger"
+                        (click)="denyPending(inv)"
+                        [disabled]="respondingToken === inv.token"
+                      >
+                        Deny
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @if (inviteActionError) {
+            <div class="alert alert-danger m-3 mb-3">{{ inviteActionError }}</div>
+          }
+        </div>
+      }
 
       <div class="card mb-4">
         <div class="card-body">
@@ -129,16 +177,20 @@ import { Team, TeamMember, TeamInvite } from '../../models';
 })
 export class TeamsComponent implements OnInit {
   teams: Team[] = [];
+  pendingInvites: PendingInvite[] = [];
   newTeamName = '';
   selectedTeamId = '';
   members: { members: TeamMember[]; invites: TeamInvite[] } | null = null;
   inviteEmail = '';
   inviteMessage = '';
+  inviteActionError = '';
+  respondingToken = '';
 
   constructor(public teamService: TeamService, public auth: AuthService) {}
 
   ngOnInit() {
     this.loadTeams();
+    this.loadPendingInvites();
   }
 
   loadTeams() {
@@ -147,6 +199,52 @@ export class TeamsComponent implements OnInit {
       if (t.length > 0 && !this.selectedTeamId) {
         this.loadMembers(t[0].id);
       }
+    });
+  }
+
+  loadPendingInvites() {
+    this.teamService.getMyPendingInvites().subscribe({
+      next: (invites) => {
+        this.pendingInvites = invites;
+        this.inviteActionError = '';
+      },
+      error: () => {
+        this.pendingInvites = [];
+      },
+    });
+  }
+
+  acceptPending(inv: PendingInvite) {
+    this.respondingToken = inv.token;
+    this.inviteActionError = '';
+    this.teamService.acceptInvite(inv.token).subscribe({
+      next: () => {
+        this.respondingToken = '';
+        this.loadPendingInvites();
+        this.loadTeams();
+      },
+      error: (err) => {
+        this.respondingToken = '';
+        this.inviteActionError = err.error?.message || 'Failed to accept invitation';
+        this.loadPendingInvites();
+      },
+    });
+  }
+
+  denyPending(inv: PendingInvite) {
+    if (!confirm(`Decline the invitation to join ${inv.team.name}?`)) return;
+    this.respondingToken = inv.token;
+    this.inviteActionError = '';
+    this.teamService.denyInvite(inv.token).subscribe({
+      next: () => {
+        this.respondingToken = '';
+        this.loadPendingInvites();
+      },
+      error: (err) => {
+        this.respondingToken = '';
+        this.inviteActionError = err.error?.message || 'Failed to decline invitation';
+        this.loadPendingInvites();
+      },
     });
   }
 

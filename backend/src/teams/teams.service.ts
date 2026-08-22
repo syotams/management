@@ -139,23 +139,46 @@ export class TeamsService {
     return { success: true };
   }
 
-  async acceptInvite(token: string, userId: string) {
-    const invite = await this.prisma.teamInvite.findUnique({
-      where: { token },
-      include: { team: true },
-    });
-    if (!invite) throw new NotFoundException('Invite not found');
-    if (invite.status === 'accepted') throw new ConflictException('Invite already accepted');
-    if (invite.status === 'expired' || invite.expiresAt < new Date()) {
-      await this.prisma.teamInvite.update({ where: { id: invite.id }, data: { status: 'expired' } });
-      throw new GoneException('Invite has expired');
-    }
-
+  async getMyPendingInvites(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
-    if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
-      throw new ForbiddenException('Invite email does not match your account');
-    }
+
+    const now = new Date();
+    const invites = await this.prisma.teamInvite.findMany({
+      where: {
+        status: 'pending',
+        expiresAt: { gt: now },
+      },
+      include: {
+        team: { select: { id: true, name: true } },
+        inviter: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const email = user.email.toLowerCase();
+    const memberships = await this.prisma.teamMember.findMany({
+      where: { userId },
+      select: { teamId: true },
+    });
+    const memberTeamIds = new Set(memberships.map((m) => m.teamId));
+
+    return invites
+      .filter((inv) => inv.email.toLowerCase() === email && !memberTeamIds.has(inv.teamId))
+      .map((inv) => ({
+        id: inv.id,
+        token: inv.token,
+        email: inv.email,
+        status: inv.status,
+        expiresAt: inv.expiresAt,
+        daysUntilExpiry: Math.max(0, Math.ceil((inv.expiresAt.getTime() - Date.now()) / 86400000)),
+        team: inv.team,
+        invitedBy: inv.inviter,
+      }));
+  }
+
+  async acceptInvite(token: string, userId: string) {
+    const invite = await this.loadPendingInviteForUser(token, userId);
 
     await this.prisma.$transaction([
       this.prisma.teamMember.create({
@@ -168,6 +191,15 @@ export class TeamsService {
     ]);
 
     return { teamId: invite.teamId, teamName: invite.team.name };
+  }
+
+  async denyInvite(token: string, userId: string) {
+    const invite = await this.loadPendingInviteForUser(token, userId);
+    await this.prisma.teamInvite.update({
+      where: { id: invite.id },
+      data: { status: 'declined' },
+    });
+    return { success: true };
   }
 
   async getInviteInfo(token: string) {
@@ -183,6 +215,28 @@ export class TeamsService {
       status: expired ? 'expired' : invite.status,
       expiresAt: invite.expiresAt,
     };
+  }
+
+  private async loadPendingInviteForUser(token: string, userId: string) {
+    const invite = await this.prisma.teamInvite.findUnique({
+      where: { token },
+      include: { team: true },
+    });
+    if (!invite) throw new NotFoundException('Invite not found');
+    if (invite.status === 'accepted') throw new ConflictException('Invite already accepted');
+    if (invite.status === 'declined') throw new ConflictException('Invite already declined');
+    if (invite.status === 'expired' || invite.expiresAt < new Date()) {
+      await this.prisma.teamInvite.update({ where: { id: invite.id }, data: { status: 'expired' } });
+      throw new GoneException('Invite has expired');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
+      throw new ForbiddenException('Invite email does not match your account');
+    }
+
+    return invite;
   }
 
   async getTeamMembersForAssignment(userId: string) {

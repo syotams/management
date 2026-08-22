@@ -78,6 +78,12 @@ export class TeamsController {
 export class InvitesController {
   constructor(private teamsService: TeamsService) {}
 
+  @Get('mine')
+  @UseGuards(AuthGuard('jwt'))
+  myInvites(@CurrentUser() user: { id: string }) {
+    return this.teamsService.getMyPendingInvites(user.id);
+  }
+
   @Get(':token')
   getInfo(@Param('token') token: string) {
     return this.teamsService.getInviteInfo(token);
@@ -87,5 +93,11 @@ export class InvitesController {
   @UseGuards(AuthGuard('jwt'))
   accept(@Param('token') token: string, @CurrentUser() user: { id: string }) {
     return this.teamsService.acceptInvite(token, user.id);
+  }
+
+  @Post(':token/deny')
+  @UseGuards(AuthGuard('jwt'))
+  deny(@Param('token') token: string, @CurrentUser() user: { id: string }) {
+    return this.teamsService.denyInvite(token, user.id);
   }
 }

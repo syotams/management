@@ -38,6 +38,17 @@ export interface TeamInvite {
   daysUntilExpiry: number;
 }
 
+export interface PendingInvite {
+  id: string;
+  token: string;
+  email: string;
+  status: string;
+  expiresAt: string;
+  daysUntilExpiry: number;
+  team: { id: string; name: string };
+  invitedBy: { id: string; name: string; email: string };
+}
+
 export interface AssignableMember {
   id: string;
   name: string;
