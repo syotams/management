@@ -26,6 +26,25 @@
   border-bottom-color: var(--app-priority-urgent-border) !important;
 }
 
+.completed-group .card-header {
+  color: var(--app-status-completed-text) !important;
+  background: var(--app-status-completed-bg) !important;
+  border-bottom-color: var(--app-status-completed-border) !important;
+}
+
+.archived-group .card-header {
+  color: var(--app-status-archived-text) !important;
+  background: var(--app-status-archived-bg) !important;
+  border-bottom-color: var(--app-status-archived-border) !important;
+}
+
+.closed-tasks-filter {
+  .form-check-label {
+    color: var(--app-text-muted);
+    font-size: 0.9rem;
+  }
+}
+
 .task-table {
   table-layout: fixed;
 
@@ -150,6 +169,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.task-title-closed {
+  color: var(--app-text-muted);
+}
+
+.completed-group .task-title-closed {
+  text-decoration: line-through;
 }
 
 .drag-handle {

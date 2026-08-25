@@ -1,10 +1,24 @@
+import { Transform, Type } from 'class-transformer';
 import {
   IsString,
   IsOptional,
   IsIn,
   IsDateString,
+  IsBoolean,
   MinLength,
 } from 'class-validator';
+
+export class FindTasksQueryDto {
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  includeClosed?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsIn([7, 30])
+  closedDays?: number;
+}
 
 export class CreateTaskDto {
   @IsString()

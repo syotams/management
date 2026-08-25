@@ -6,11 +6,12 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { TasksService } from './tasks.service';
-import { CreateTaskDto, PostponeTaskDto, UpdateTaskDto, CreateCommentDto } from './dto/task.dto';
+import { CreateTaskDto, PostponeTaskDto, UpdateTaskDto, CreateCommentDto, FindTasksQueryDto } from './dto/task.dto';
 import { CurrentUser } from '../common/current-user.decorator';
 
 @Controller('tasks')
@@ -19,8 +20,11 @@ export class TasksController {
   constructor(private tasksService: TasksService) {}
 
   @Get()
-  findAll(@CurrentUser() user: { id: string }) {
-    return this.tasksService.findAll(user.id);
+  findAll(@CurrentUser() user: { id: string }, @Query() query: FindTasksQueryDto) {
+    return this.tasksService.findAll(user.id, {
+      includeClosed: query.includeClosed,
+      closedDays: query.closedDays,
+    });
   }
 
   @Get('alerts/pending')

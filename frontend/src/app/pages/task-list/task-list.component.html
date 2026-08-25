@@ -1,5 +1,42 @@
 <div class="py-2">
-  <h2 class="page-title mb-4">My Tasks</h2>
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <h2 class="page-title mb-0">My Tasks</h2>
+    <div class="closed-tasks-filter d-flex flex-wrap align-items-center gap-3">
+      <div class="form-check mb-0">
+        <input
+          type="checkbox"
+          class="form-check-input"
+          id="showClosed"
+          name="showClosed"
+          [(ngModel)]="showClosed"
+          (ngModelChange)="onShowClosedChange()"
+        >
+        <label class="form-check-label" for="showClosed">Show completed &amp; archived</label>
+      </div>
+      @if (showClosed) {
+        <div class="btn-group btn-group-sm" role="group" aria-label="Closed tasks period">
+          <button
+            type="button"
+            class="btn"
+            [class.btn-primary]="closedDays === 7"
+            [class.btn-outline-secondary]="closedDays !== 7"
+            (click)="setClosedDays(7)"
+          >
+            Last week
+          </button>
+          <button
+            type="button"
+            class="btn"
+            [class.btn-primary]="closedDays === 30"
+            [class.btn-outline-secondary]="closedDays !== 30"
+            (click)="setClosedDays(30)"
+          >
+            Last 30 days
+          </button>
+        </div>
+      }
+    </div>
+  </div>
 
   @if (error) {
     <div class="alert alert-danger">{{ error }}</div>
@@ -106,6 +143,8 @@
           class="card day-group-card mb-4"
           [class.overdue-group]="section.isOverdue"
           [class.urgent-group]="section.isUrgent"
+          [class.completed-group]="section.key === 'completed'"
+          [class.archived-group]="section.key === 'archived'"
           [class.dropdown-open]="sectionHasOpenDropdown(section)"
         >
           <div class="card-header day-header">
@@ -113,6 +152,10 @@
               <i class="bi bi-exclamation-triangle-fill me-2"></i>
             } @else if (section.isOverdue) {
               <i class="bi bi-clock-history me-2"></i>
+            } @else if (section.key === 'completed') {
+              <i class="bi bi-check2-circle me-2"></i>
+            } @else if (section.key === 'archived') {
+              <i class="bi bi-archive me-2"></i>
             } @else {
               <i class="bi bi-calendar3 me-2"></i>
             }
@@ -158,7 +201,7 @@
                               (click)="$event.stopPropagation()"
                             ></i>
                           }
-                          <span class="task-title-text" [title]="task.title">{{ task.title }}</span>
+                          <span class="task-title-text" [class.task-title-closed]="section.isClosed" [title]="task.title">{{ task.title }}</span>
                         </span>
                       </td>
                       <td [title]="formatDateTime(task.dueDate)">{{ formatDate(task.dueDate) }}</td>
@@ -169,41 +212,45 @@
                           <button class="btn btn-outline-secondary btn-sm btn-icon" title="Edit" (click)="openEditModal(task, $event)">
                             <i class="bi bi-pencil"></i>
                           </button>
-                          @if (isOwner(task)) {
+                          @if (isOwner(task) && !section.isClosed) {
                             <button class="btn btn-outline-secondary btn-sm btn-icon btn-postpone" title="Postpone" (click)="openPostpone(task, $event)">
                               <i class="bi bi-calendar-event"></i>
                             </button>
                           }
-                          <div class="dropdown">
-                            <button
-                              class="btn btn-outline-secondary btn-sm dropdown-toggle"
-                              type="button"
-                              (click)="toggleDropdown(task.id, $event)"
-                            >
-                              Status
-                            </button>
-                            @if (openDropdownId === task.id) {
-                              <ul class="dropdown-menu dropdown-menu-end show">
-                                @if (task.status === 'todo') {
+                          @if (hasStatusActions(task)) {
+                            <div class="dropdown">
+                              <button
+                                class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                type="button"
+                                (click)="toggleDropdown(task.id, $event)"
+                              >
+                                Status
+                              </button>
+                              @if (openDropdownId === task.id) {
+                                <ul class="dropdown-menu dropdown-menu-end show">
+                                  @if (task.status === 'todo') {
+                                    <li>
+                                      <button class="dropdown-item" (click)="start(task, $event)">
+                                        <i class="bi bi-play-fill me-2"></i>Start
+                                      </button>
+                                    </li>
+                                  }
+                                  @if (task.status !== 'completed') {
+                                    <li>
+                                      <button class="dropdown-item" (click)="complete(task, $event)">
+                                        <i class="bi bi-check-lg me-2"></i>Complete
+                                      </button>
+                                    </li>
+                                  }
                                   <li>
-                                    <button class="dropdown-item" (click)="start(task, $event)">
-                                      <i class="bi bi-play-fill me-2"></i>Start
+                                    <button class="dropdown-item" (click)="archive(task, $event)">
+                                      <i class="bi bi-archive me-2"></i>Archive
                                     </button>
                                   </li>
-                                }
-                                <li>
-                                  <button class="dropdown-item" (click)="complete(task, $event)">
-                                    <i class="bi bi-check-lg me-2"></i>Complete
-                                  </button>
-                                </li>
-                                <li>
-                                  <button class="dropdown-item" (click)="archive(task, $event)">
-                                    <i class="bi bi-archive me-2"></i>Archive
-                                  </button>
-                                </li>
-                              </ul>
-                            }
-                          </div>
+                                </ul>
+                              }
+                            </div>
+                          }
                         </div>
                       </td>
                       <ng-template cdkDragPreview>
@@ -230,7 +277,7 @@
                       </tr>
                     }
                   } @empty {
-                    <tr><td colspan="6" class="text-muted text-center py-4">No tasks in this group</td></tr>
+                    <tr><td colspan="6" class="text-muted text-center py-4">{{ emptySectionMessage(section) }}</td></tr>
                   }
                 </tbody>
               </table>
