@@ -35,6 +35,7 @@ interface TaskSection {
   droppable: boolean;
   isOverdue: boolean;
   isUrgent: boolean;
+  isClosed: boolean;
 }
 
 @Component({
@@ -79,10 +80,13 @@ export class TaskListComponent implements OnInit {
   };
 
   openDropdownId: string | null = null;
+  showClosed = false;
+  closedDays: 7 | 30 = 7;
 
   displayName = displayName;
   statusLabel = statusLabel;
   statusClass = statusClass;
+
   constructor(
     private taskService: TaskService,
     public auth: AuthService,
@@ -106,37 +110,92 @@ export class TaskListComponent implements OnInit {
     if (!options?.silent) {
       this.loading = true;
     }
-    this.taskService.getTasks().subscribe({
-      next: (tasks) => {
-        const grouped = groupTasks(tasks);
-        this.sections = [];
-        if (grouped.urgent.length) {
-          this.sections.push({
-            key: 'urgent',
-            label: 'Urgent',
-            tasks: grouped.urgent,
-            droppable: false,
-            isOverdue: false,
-            isUrgent: true,
-          });
-        }
-        for (const g of grouped.groups) {
-          this.sections.push({
-            key: g.key,
-            label: g.label,
-            tasks: g.tasks,
-            droppable: true,
-            isOverdue: g.isOverdue,
-            isUrgent: false,
-          });
-        }
-        this.loading = false;
-      },
-      error: () => {
-        this.error = 'Failed to load tasks';
-        this.loading = false;
-      },
-    });
+    this.taskService
+      .getTasks(this.showClosed ? { includeClosed: true, closedDays: this.closedDays } : undefined)
+      .subscribe({
+        next: (tasks) => {
+          const grouped = groupTasks(tasks);
+          this.sections = [];
+          if (grouped.urgent.length) {
+            this.sections.push({
+              key: 'urgent',
+              label: 'Urgent',
+              tasks: grouped.urgent,
+              droppable: false,
+              isOverdue: false,
+              isUrgent: true,
+              isClosed: false,
+            });
+          }
+          for (const g of grouped.groups) {
+            this.sections.push({
+              key: g.key,
+              label: g.label,
+              tasks: g.tasks,
+              droppable: true,
+              isOverdue: g.isOverdue,
+              isUrgent: false,
+              isClosed: false,
+            });
+          }
+          if (this.showClosed) {
+            const period = this.closedDays === 30 ? 'last 30 days' : 'last week';
+            this.sections.push({
+              key: 'completed',
+              label: `Completed — ${period}`,
+              tasks: grouped.completed,
+              droppable: false,
+              isOverdue: false,
+              isUrgent: false,
+              isClosed: true,
+            });
+            this.sections.push({
+              key: 'archived',
+              label: `Archived — ${period}`,
+              tasks: grouped.archived,
+              droppable: false,
+              isOverdue: false,
+              isUrgent: false,
+              isClosed: true,
+            });
+          }
+          this.loading = false;
+        },
+        error: () => {
+          this.error = 'Failed to load tasks';
+          this.loading = false;
+        },
+      });
+  }
+
+  onShowClosedChange() {
+    this.loadTasks();
+  }
+
+  setClosedDays(days: 7 | 30) {
+    if (this.closedDays === days) return;
+    this.closedDays = days;
+    if (this.showClosed) {
+      this.loadTasks();
+    }
+  }
+
+  emptySectionMessage(section: TaskSection): string {
+    if (section.key === 'completed') {
+      return `No completed tasks in the ${this.closedPeriodLabel()}`;
+    }
+    if (section.key === 'archived') {
+      return `No archived tasks in the ${this.closedPeriodLabel()}`;
+    }
+    return 'No tasks in this group';
+  }
+
+  closedPeriodLabel(): string {
+    return this.closedDays === 30 ? 'last 30 days' : 'last week';
+  }
+
+  hasStatusActions(task: Task): boolean {
+    return task.status !== 'archived';
   }
 
   onTitleKeydown(event: KeyboardEvent) {

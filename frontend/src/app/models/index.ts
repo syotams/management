@@ -116,6 +116,8 @@ export interface DayGroup {
 export interface GroupedTasks {
   urgent: Task[];
   groups: DayGroup[];
+  completed: Task[];
+  archived: Task[];
 }
 
 export type ProjectStatus = 'draft' | 'in_progress' | 'completed';

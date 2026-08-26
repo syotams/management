@@ -6,8 +6,14 @@ import { Task, TaskDetail, Comment } from '../models';
 export class TaskService {
   constructor(private api: ApiService) {}
 
-  getTasks() {
-    return this.api.get<Task[]>('/tasks');
+  getTasks(options?: { includeClosed?: boolean; closedDays?: 7 | 30 }) {
+    const params = new URLSearchParams();
+    if (options?.includeClosed) {
+      params.set('includeClosed', 'true');
+      params.set('closedDays', String(options.closedDays ?? 7));
+    }
+    const query = params.toString();
+    return this.api.get<Task[]>(`/tasks${query ? `?${query}` : ''}`);
   }
 
   getTask(id: string) {

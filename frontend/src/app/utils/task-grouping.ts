@@ -4,11 +4,19 @@ import { localDayKey, fromDatetimeLocal, userTimeZone } from './date';
 export { dayKeyToDueDate, toDatetimeLocal } from './date';
 
 const PRIORITY_ORDER: Record<string, number> = { urgent: -1, high: 0, medium: 1, low: 2 };
+const CLOSED_STATUSES = new Set(['completed', 'archived']);
+
+export function isClosedStatus(status: string): boolean {
+  return CLOSED_STATUSES.has(status);
+}
 
 export function groupTasks(tasks: Task[]): GroupedTasks {
-  const urgent = tasks.filter((t) => t.priority === 'urgent').sort(sortFn);
-  const nonUrgent = tasks.filter((t) => t.priority !== 'urgent');
-  return { urgent, groups: groupTasksByDay(nonUrgent) };
+  const active = tasks.filter((t) => !isClosedStatus(t.status));
+  const completed = tasks.filter((t) => t.status === 'completed').sort(sortClosedFn);
+  const archived = tasks.filter((t) => t.status === 'archived').sort(sortClosedFn);
+  const urgent = active.filter((t) => t.priority === 'urgent').sort(sortFn);
+  const nonUrgent = active.filter((t) => t.priority !== 'urgent');
+  return { urgent, groups: groupTasksByDay(nonUrgent), completed, archived };
 }
 
 export function groupTasksByDay(tasks: Task[]): DayGroup[] {
@@ -56,6 +64,10 @@ function sortFn(a: Task, b: Task) {
   const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
   if (p !== 0) return p;
   return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+}
+
+function sortClosedFn(a: Task, b: Task) {
+  return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
 }
 
 export function formatDayLabel(date: Date): string {

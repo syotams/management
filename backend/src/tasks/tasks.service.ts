@@ -17,11 +17,25 @@ export class TasksService {
     private audit: AuditService,
   ) {}
 
-  async findAll(userId: string) {
+  async findAll(userId: string, options?: { includeClosed?: boolean; closedDays?: number }) {
+    const closedDays = Math.min(Math.max(options?.closedDays ?? 7, 1), 30);
+    const closedCutoff = new Date(Date.now() - closedDays * 24 * 60 * 60 * 1000);
+    const accessible = { OR: [{ ownerId: userId }, { assigneeId: userId }] };
+    const statusFilter = options?.includeClosed
+      ? {
+          OR: [
+            { status: { in: ['todo', 'in_progress'] } },
+            {
+              status: { in: ['completed', 'archived'] },
+              updatedAt: { gte: closedCutoff },
+            },
+          ],
+        }
+      : { status: { in: ['todo', 'in_progress'] } };
+
     const tasks = await this.prisma.task.findMany({
       where: {
-        status: { in: ['todo', 'in_progress'] },
-        OR: [{ ownerId: userId }, { assigneeId: userId }],
+        AND: [accessible, statusFilter],
       },
       include: {
         owner: { select: userSelect },
