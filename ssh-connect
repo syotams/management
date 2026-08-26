@@ -1,0 +1,2 @@
+#!/bin/bash
+ssh -i id_ed25519 root@188.166.161.4

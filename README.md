@@ -17,8 +17,10 @@ A full-stack task management application with teams, assignments, drag-and-drop 
 ## Tech Stack
 
 - **Frontend**: Angular 20, Bootstrap 5, Angular CDK (drag-drop)
-- **Backend**: NestJS 10, Prisma 5, SQLite
+- **Backend**: NestJS 10, Prisma 5
+- **Database**: SQLite (local development), MySQL 8 (Docker production)
 - **Auth**: JWT
+- **Production**: Docker Compose (MySQL + NestJS + Nginx)
 
 ## Getting Started
 
@@ -42,6 +44,51 @@ npm start
 ```
 
 Frontend runs at http://localhost:4200
+
+## Production deploy (DigitalOcean droplet)
+
+Designed for a small droplet (e.g. **1 vCPU / 512 MB RAM**). MySQL is memory-capped; add swap before the first build.
+
+### 1. Create swap (required on 512 MB)
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+### 2. Install Docker
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2
+sudo usermod -aG docker $USER
+# log out and back in so the docker group applies
+```
+
+### 3. Configure and start
+
+```bash
+git clone <your-repo-url> management
+cd management
+cp .env.example .env
+# Edit .env: set strong passwords, JWT_SECRET, and APP_URL / CORS_ORIGIN
+# to http://YOUR_DROPLET_IP (or your domain)
+
+docker compose up -d --build
+```
+
+Open `http://YOUR_DROPLET_IP`. Local development still uses SQLite; only the Compose stack uses MySQL.
+
+Useful commands:
+
+```bash
+docker compose logs -f
+docker compose ps
+docker compose down
+```
 
 ## API Endpoints
 

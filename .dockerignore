@@ -1,0 +1,12 @@
+.env
+.git
+**/.git
+**/node_modules
+**/dist
+**/.angular
+*.db
+*.db-journal
+backend
+plan.md
+README.md
+frontend/README.md
