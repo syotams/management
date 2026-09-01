@@ -46,3 +46,13 @@
     min-width: 0;
   }
 }
+
+.task-detail-nav {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.task-nav-position {
+  min-width: 4rem;
+  text-align: center;
+}

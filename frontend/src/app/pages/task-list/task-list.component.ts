@@ -16,9 +16,11 @@ import { TaskService } from '../../services/task.service';
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
 import { NotificationService } from '../../services/notification.service';
+import { TaskNavigationService } from '../../services/task-navigation.service';
 import { Task, AssignableMember, Priority } from '../../models';
 import {
   groupTasks,
+  flattenGroupedTasks,
   toDatetimeLocal,
   dayKeyToDueDate,
   displayName,
@@ -92,6 +94,7 @@ export class TaskListComponent implements OnInit {
     public auth: AuthService,
     private teamService: TeamService,
     private notificationService: NotificationService,
+    private taskNav: TaskNavigationService,
     private router: Router,
   ) {}
 
@@ -159,6 +162,11 @@ export class TaskListComponent implements OnInit {
               isClosed: true,
             });
           }
+          const flatTasks = flattenGroupedTasks(grouped, this.showClosed);
+          this.taskNav.setTaskList(flatTasks, {
+            showClosed: this.showClosed,
+            closedDays: this.closedDays,
+          });
           this.loading = false;
         },
         error: () => {
