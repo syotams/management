@@ -1,12 +1,22 @@
 import { NgClass } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { TaskService } from '../../services/task.service';
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
-import { AssignableMember, Priority, TaskDetail } from '../../models';
-import { toDatetimeLocal, displayName, PRIORITIES, statusLabel, statusClass } from '../../utils/task-grouping';
+import { TaskNavigation, TaskNavigationService } from '../../services/task-navigation.service';
+import { AssignableMember, Priority, Task, TaskDetail } from '../../models';
+import {
+  toDatetimeLocal,
+  displayName,
+  PRIORITIES,
+  statusLabel,
+  statusClass,
+  groupTasks,
+  flattenGroupedTasks,
+} from '../../utils/task-grouping';
 import { datetimeLocalToUtcIso, formatUserDateTime } from '../../utils/date';
 
 @Component({
@@ -19,6 +29,9 @@ import { datetimeLocalToUtcIso, formatUserDateTime } from '../../utils/date';
 export class TaskDetailComponent implements OnInit {
   task: TaskDetail | null = null;
   loading = true;
+  loadingDetails = false;
+  navigation: TaskNavigation | null = null;
+  openStatusDropdown = false;
   newComment = '';
   displayName = displayName;
   statusLabel = statusLabel;
@@ -37,20 +50,140 @@ export class TaskDetailComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private taskService: TaskService,
     private teamService: TeamService,
+    private taskNav: TaskNavigationService,
     public auth: AuthService,
   ) {}
 
+  @HostListener('document:click')
+  onDocumentClick() {
+    this.openStatusDropdown = false;
+  }
+
   ngOnInit() {
-    const id = this.route.snapshot.paramMap.get('id')!;
-    this.taskService.getTask(id).subscribe({
-      next: (task) => {
-        this.task = task;
-        this.loading = false;
-      },
+    this.route.paramMap.subscribe((params) => {
+      const id = params.get('id')!;
+      this.loadTask(id);
     });
     this.teamService.getAssignableMembers().subscribe((m) => (this.members = m));
+  }
+
+  loadTask(id: string) {
+    this.openStatusDropdown = false;
+    this.newComment = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const cached = this.taskNav.getCachedTask(id);
+    if (cached) {
+      this.task = { ...cached, comments: [], history: [] };
+      this.loading = false;
+      this.loadingDetails = true;
+      this.loadCommentsAndHistory(id);
+    } else {
+      this.loading = true;
+      this.task = null;
+      this.taskService.getTask(id).subscribe({
+        next: (task) => {
+          this.task = task;
+          this.loading = false;
+          this.loadingDetails = false;
+        },
+      });
+    }
+
+    this.updateNavigation(id);
+    if (!this.taskNav.getNavigation(id)) {
+      this.ensureTaskListForNavigation(id);
+    }
+  }
+
+  private loadCommentsAndHistory(id: string) {
+    forkJoin({
+      comments: this.taskService.getComments(id),
+      history: this.taskService.getHistory(id),
+    }).subscribe({
+      next: ({ comments, history }) => {
+        if (this.task?.id === id) {
+          this.task = { ...this.task, comments, history };
+          this.loadingDetails = false;
+        }
+      },
+      error: () => {
+        if (this.task?.id === id) {
+          this.loadingDetails = false;
+        }
+      },
+    });
+  }
+
+  private updateNavigation(id: string) {
+    this.navigation = this.taskNav.getNavigation(id);
+  }
+
+  private ensureTaskListForNavigation(currentId: string) {
+    const opts = this.taskNav.getListOptions();
+    this.taskService
+      .getTasks(opts.showClosed ? { includeClosed: true, closedDays: opts.closedDays } : undefined)
+      .subscribe((tasks) => {
+        const grouped = groupTasks(tasks);
+        const flat = flattenGroupedTasks(grouped, opts.showClosed);
+        this.taskNav.setTaskList(flat, opts);
+        this.updateNavigation(currentId);
+      });
+  }
+
+  navigateTo(id: string | null) {
+    if (!id) return;
+    this.router.navigate(['/tasks', id]);
+  }
+
+  hasStatusActions(task: Task): boolean {
+    return task.status !== 'archived';
+  }
+
+  toggleStatusDropdown(event: Event) {
+    event.stopPropagation();
+    this.openStatusDropdown = !this.openStatusDropdown;
+  }
+
+  start(event: Event) {
+    event.stopPropagation();
+    this.openStatusDropdown = false;
+    if (!this.task) return;
+    this.taskService.start(this.task.id).subscribe((updated) => this.onStatusChanged(updated));
+  }
+
+  complete(event: Event) {
+    event.stopPropagation();
+    this.openStatusDropdown = false;
+    if (!this.task) return;
+    this.taskService.complete(this.task.id).subscribe((updated) => this.onStatusChanged(updated));
+  }
+
+  archive(event: Event) {
+    event.stopPropagation();
+    this.openStatusDropdown = false;
+    if (!this.task) return;
+    this.taskService.archive(this.task.id).subscribe((updated) => this.onStatusChanged(updated));
+  }
+
+  private onStatusChanged(updated: Task) {
+    this.taskNav.updateCachedTask(updated);
+    if (this.task) {
+      this.task = { ...this.task, ...updated };
+    }
+    this.reloadHistory();
+  }
+
+  private reloadHistory() {
+    if (!this.task) return;
+    this.taskService.getHistory(this.task.id).subscribe((history) => {
+      if (this.task) {
+        this.task = { ...this.task, history };
+      }
+    });
   }
 
   isOwner(): boolean {
@@ -109,9 +242,17 @@ export class TaskDetailComponent implements OnInit {
 
   reload() {
     if (!this.task) return;
-    this.taskService.getTask(this.task.id).subscribe((t) => {
-      this.task = t;
-    });
+    const id = this.task.id;
+    const cached = this.taskNav.getCachedTask(id);
+    if (cached) {
+      this.task = { ...cached, comments: this.task.comments, history: this.task.history };
+      this.loadingDetails = true;
+      this.loadCommentsAndHistory(id);
+    } else {
+      this.taskService.getTask(id).subscribe((t) => {
+        this.task = t;
+      });
+    }
   }
 
   formatDate(d: string): string {

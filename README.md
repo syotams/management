@@ -90,6 +90,45 @@ docker compose ps
 docker compose down
 ```
 
+### 4. Manual update (after pushing to GitHub)
+
+On the droplet, as your deploy user:
+
+```bash
+cd ~/management
+git pull origin main
+docker compose up -d --build
+```
+
+Your `.env` is not overwritten by `git pull` (it stays local).
+
+### 5. Automatic hourly updates
+
+The repo includes a script that checks `origin/main` every hour and redeploys only when there are new commits.
+
+One-time setup on the droplet (as root):
+
+```bash
+cd /home/deploy/management
+sudo ./deploy/install-auto-update.sh
+```
+
+If your repo path or user differs:
+
+```bash
+sudo DEPLOY_USER=deploy REPO_DIR=/home/deploy/management ./deploy/install-auto-update.sh
+```
+
+Useful commands:
+
+```bash
+sudo systemctl status management-update.timer   # next run time
+sudo systemctl start management-update.service  # run now
+tail -f deploy/update.log                       # deploy log
+```
+
+The droplet must already be able to `git pull` from GitHub (SSH key or HTTPS token configured for the deploy user).
+
 ## API Endpoints
 
 | Method | Endpoint | Description |

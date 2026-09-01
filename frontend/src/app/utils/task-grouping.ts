@@ -10,6 +10,17 @@ export function isClosedStatus(status: string): boolean {
   return CLOSED_STATUSES.has(status);
 }
 
+export function flattenGroupedTasks(grouped: GroupedTasks, includeClosed = false): Task[] {
+  const result: Task[] = [...grouped.urgent];
+  for (const g of grouped.groups) {
+    result.push(...g.tasks);
+  }
+  if (includeClosed) {
+    result.push(...grouped.completed, ...grouped.archived);
+  }
+  return result;
+}
+
 export function groupTasks(tasks: Task[]): GroupedTasks {
   const active = tasks.filter((t) => !isClosedStatus(t.status));
   const completed = tasks.filter((t) => t.status === 'completed').sort(sortClosedFn);

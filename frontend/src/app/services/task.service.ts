@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { Task, TaskDetail, Comment } from '../models';
+import { Task, TaskDetail, Comment, AuditLog } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class TaskService {
@@ -18,6 +18,14 @@ export class TaskService {
 
   getTask(id: string) {
     return this.api.get<TaskDetail>(`/tasks/${id}`);
+  }
+
+  getComments(taskId: string) {
+    return this.api.get<Comment[]>(`/tasks/${taskId}/comments`);
+  }
+
+  getHistory(taskId: string) {
+    return this.api.get<AuditLog[]>(`/tasks/${taskId}/history`);
   }
 
   createTask(data: {

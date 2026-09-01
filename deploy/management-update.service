@@ -1,0 +1,12 @@
+[Unit]
+Description=Management app auto-deploy from git
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/home/deploy/management
+ExecStart=/home/deploy/management/deploy/update.sh
+Environment=DEPLOY_BRANCH=main
