@@ -51,6 +51,11 @@ export class TaskNavigationService {
     }
   }
 
+  removeTask(taskId: string) {
+    this.taskIds = this.taskIds.filter((id) => id !== taskId);
+    this.taskCache.delete(taskId);
+  }
+
   get hasList(): boolean {
     return this.taskIds.length > 0;
   }

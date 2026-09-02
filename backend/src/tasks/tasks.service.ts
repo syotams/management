@@ -177,6 +177,7 @@ export class TasksService {
 
     const newDueDate = new Date(dto.dueDate);
     const data: Record<string, unknown> = { dueDate: newDueDate };
+    const previousAlertAt = task.alertAt;
 
     if (dto.updateAlert !== false && dto.alertAt) {
       data.alertAt = new Date(dto.alertAt);
@@ -201,6 +202,17 @@ export class TasksService {
       task.dueDate.toISOString(),
       newDueDate.toISOString(),
     );
+
+    if (data.alertAt instanceof Date) {
+      await this.audit.log(
+        taskId,
+        userId,
+        'ALERT_CHANGED',
+        'alertAt',
+        previousAlertAt.toISOString(),
+        data.alertAt.toISOString(),
+      );
+    }
 
     return updated;
   }
