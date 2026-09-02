@@ -18,7 +18,7 @@ import { Theme, ThemeService, THEME_OPTIONS } from '../../services/theme.service
         <div class="card-header">Appearance</div>
         <div class="card-body">
           <p class="text-muted mb-4">
-            Choose how Task Manager looks on this device. Material Purple follows the
+            Choose how SprintPulse looks on this device. Material Purple follows the
             <a href="https://m2.material.io/design/color/the-color-system.html" target="_blank" rel="noopener">
               MD2 color system
             </a>
