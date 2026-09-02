@@ -307,13 +307,13 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">New due date & time</label>
-            <input type="datetime-local" class="form-control" [(ngModel)]="postponeDate">
+            <input type="datetime-local" class="form-control" [(ngModel)]="postponeDate" (ngModelChange)="onPostponeDateChange()">
           </div>
           <div class="form-check mb-3">
-            <input type="checkbox" class="form-check-input" id="updateAlert" [(ngModel)]="updateAlertOnPostpone">
-            <label class="form-check-label" for="updateAlert">Also update alert time</label>
+            <input type="checkbox" class="form-check-input" id="updateAlert" [(ngModel)]="updateAlertOnPostpone" (ngModelChange)="onUpdateAlertChange()">
+            <label class="form-check-label" for="updateAlert">Also set alert to the same time</label>
           </div>
-          @if (updateAlertOnPostpone) {
+          @if (!updateAlertOnPostpone) {
             <div class="mb-3">
               <label class="form-label">Alert at</label>
               <input type="datetime-local" class="form-control" [(ngModel)]="postponeAlertAt">

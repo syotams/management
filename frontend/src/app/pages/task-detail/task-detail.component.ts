@@ -159,7 +159,16 @@ export class TaskDetailComponent implements OnInit {
     event.stopPropagation();
     this.openStatusDropdown = false;
     if (!this.task) return;
-    this.taskService.complete(this.task.id).subscribe((updated) => this.onStatusChanged(updated));
+    const nextId = this.navigation?.nextId ?? this.navigation?.prevId ?? null;
+    const completedId = this.task.id;
+    this.taskService.complete(completedId).subscribe(() => {
+      this.taskNav.removeTask(completedId);
+      if (nextId) {
+        this.navigateTo(nextId);
+      } else {
+        this.router.navigate(['/tasks']);
+      }
+    });
   }
 
   archive(event: Event) {
@@ -234,25 +243,24 @@ export class TaskDetailComponent implements OnInit {
       data['dueDate'] = datetimeLocalToUtcIso(this.editForm.dueDate);
       data['alertAt'] = datetimeLocalToUtcIso(this.editForm.alertAt);
     }
-    this.taskService.updateTask(this.editTask.id, data).subscribe(() => {
+    this.taskService.updateTask(this.editTask.id, data).subscribe((updated) => {
       this.editTask = null;
-      this.reload();
+      this.taskNav.updateCachedTask(updated);
+      if (this.task) {
+        this.task = { ...this.task, ...updated };
+      }
+      this.reloadHistory();
     });
   }
 
   reload() {
     if (!this.task) return;
     const id = this.task.id;
-    const cached = this.taskNav.getCachedTask(id);
-    if (cached) {
-      this.task = { ...cached, comments: this.task.comments, history: this.task.history };
-      this.loadingDetails = true;
-      this.loadCommentsAndHistory(id);
-    } else {
-      this.taskService.getTask(id).subscribe((t) => {
-        this.task = t;
-      });
-    }
+    this.taskService.getTask(id).subscribe((t) => {
+      this.task = t;
+      this.taskNav.updateCachedTask(t);
+      this.loadingDetails = false;
+    });
   }
 
   formatDate(d: string): string {

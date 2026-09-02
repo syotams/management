@@ -1,4 +1,4 @@
-# Task Manager
+# SprintPulse
 
 A full-stack task management application with teams, assignments, drag-and-drop scheduling, comments, audit history, and alerts.
 

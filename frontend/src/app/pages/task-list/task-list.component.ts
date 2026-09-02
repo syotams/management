@@ -323,15 +323,31 @@ export class TaskListComponent implements OnInit {
     event.stopPropagation();
     this.postponeTask = task;
     this.postponeDate = toDatetimeLocal(new Date(task.dueDate));
-    this.postponeAlertAt = toDatetimeLocal(new Date(task.alertAt));
     this.updateAlertOnPostpone = true;
+    this.postponeAlertAt = this.postponeDate;
+  }
+
+  onPostponeDateChange() {
+    if (this.updateAlertOnPostpone) {
+      this.postponeAlertAt = this.postponeDate;
+    }
+  }
+
+  onUpdateAlertChange() {
+    if (this.updateAlertOnPostpone) {
+      this.postponeAlertAt = this.postponeDate;
+    } else if (this.postponeTask) {
+      this.postponeAlertAt = toDatetimeLocal(new Date(this.postponeTask.alertAt));
+    }
   }
 
   confirmPostpone() {
     if (!this.postponeTask) return;
-    const alertAt = this.updateAlertOnPostpone ? datetimeLocalToUtcIso(this.postponeAlertAt) : undefined;
+    const alertAt = this.updateAlertOnPostpone
+      ? datetimeLocalToUtcIso(this.postponeDate)
+      : datetimeLocalToUtcIso(this.postponeAlertAt);
     this.taskService
-      .postpone(this.postponeTask.id, datetimeLocalToUtcIso(this.postponeDate), alertAt, this.updateAlertOnPostpone)
+      .postpone(this.postponeTask.id, datetimeLocalToUtcIso(this.postponeDate), alertAt, true)
       .subscribe(() => {
         this.postponeTask = null;
         this.loadTasks();

@@ -11,7 +11,7 @@ import { ThemeService } from '../../services/theme.service';
     <nav class="navbar navbar-expand-lg app-navbar">
       <div class="container-fluid">
         <a class="navbar-brand" routerLink="/tasks">
-          <i class="bi bi-check2-square me-2"></i>Task Manager
+          <i class="bi bi-check2-square me-2"></i>SprintPulse
         </a>
         <div class="navbar-nav ms-auto flex-row gap-2 align-items-center">
           @if (auth.currentUser()) {
