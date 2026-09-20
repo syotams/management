@@ -174,7 +174,7 @@
                       [style.color]="contrastText(chip.backgroundColor)"
                       [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
                     >
-                      <span class="epic-chip-title">{{ chip.title }}</span>
+                      <span class="epic-chip-title">{{ chip.type === 'epic' ? truncateEpicTitle(chip.title) : chip.title }}</span>
                       <span class="epic-chip-meta">
                         <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
                       </span>

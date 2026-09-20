@@ -22,6 +22,7 @@ import {
 import { contrastText, formatDateOnly, projectEndDateFromStart, toDateInput } from '../../utils/date';
 import { formatApiError } from '../../utils/api-error';
 import { EPIC_COLORS, nextEpicColor } from '../../utils/epic-colors';
+import { truncateEpicTitle } from '../../utils/text';
 
 type CellDropData = { participantId: string; sprintId: string };
 type BacklogDropData = { backlog: true };
@@ -98,6 +99,7 @@ export class ProjectDetailComponent implements OnInit {
   rejectBacklogDrop = () => false;
 
   contrastText = contrastText;
+  truncateEpicTitle = truncateEpicTitle;
 
   constructor(
     private route: ActivatedRoute,

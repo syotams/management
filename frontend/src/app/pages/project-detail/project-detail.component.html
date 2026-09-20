@@ -110,7 +110,7 @@
                 [cdkDragData]="epic"
                 [cdkDragDisabled]="!canEditEpics || movingEpic"
               >
-                <span class="epic-chip-title">{{ epic.title }}</span>
+                <span class="epic-chip-title">{{ truncateEpicTitle(epic.title) }}</span>
                 <span class="epic-chip-meta">
                   <span class="epic-chip-days">{{ epic.workingDays }}d</span>
                   @if (canEditEpics) {
@@ -271,7 +271,7 @@
                             [cdkDragData]="chip"
                             [cdkDragDisabled]="!canEditEpics || movingEpic || chip.type !== 'epic'"
                           >
-                            <span class="epic-chip-title">{{ chip.title }}</span>
+                            <span class="epic-chip-title">{{ chip.type === 'epic' ? truncateEpicTitle(chip.title) : chip.title }}</span>
                             <span class="epic-chip-meta">
                               <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
                               @if (canEditEpics) {
