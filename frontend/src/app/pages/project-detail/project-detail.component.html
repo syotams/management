@@ -671,14 +671,19 @@
               <input type="number" min="1" class="form-control" [(ngModel)]="epicWorkingDays" name="epicWorkingDays">
             </div>
             <div class="col-md-3">
-              <label class="form-label">Start sprint <span class="text-muted fw-normal">(optional)</span></label>
+              <label class="form-label">
+                Start sprint
+                @if (!epicAssigneeIds.length) {
+                  <span class="text-muted fw-normal">(optional)</span>
+                }
+              </label>
               <select
                 class="form-select"
                 [(ngModel)]="epicStartSprint"
                 name="epicStartSprint"
                 [disabled]="!epicAssigneeIds.length"
               >
-                <option [ngValue]="null">Not scheduled</option>
+                <option [ngValue]="null">{{ epicAssigneeIds.length ? 'Select sprint' : 'Not scheduled' }}</option>
                 @for (sprint of project.sprints; track sprint.id) {
                   <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
                 }
@@ -723,9 +728,11 @@
                 }
               </div>
               @if (epicAssigneeIds.length > 1) {
-                <div class="form-text">Each assignee gets a separate epic entry with its own sprint schedule.</div>
+                <div class="form-text">Each assignee gets a scheduled copy; the epic also stays in the backlog.</div>
               } @else if (!epicAssigneeIds.length) {
                 <div class="form-text">Leave unassigned to keep it in the backlog for later.</div>
+              } @else {
+                <div class="form-text">Creates a backlog epic and schedules a copy for this assignee.</div>
               }
             </div>
           </div>

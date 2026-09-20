@@ -539,11 +539,13 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   canAddEpic() {
+    const hasAssignees = this.epicAssigneeIds.length > 0;
     return (
       !!this.epicTitle.trim() &&
       !!this.epicWorkingDays &&
       this.epicWorkingDays > 0 &&
-      !!this.epicColor
+      !!this.epicColor &&
+      (!hasAssignees || this.epicStartSprint != null)
     );
   }
 
