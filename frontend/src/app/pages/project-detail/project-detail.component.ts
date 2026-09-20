@@ -533,6 +533,9 @@ export class ProjectDetailComponent implements OnInit {
     } else {
       this.epicAssigneeIds = [...this.epicAssigneeIds, id];
     }
+    if (!this.epicAssigneeIds.length) {
+      this.epicStartSprint = null;
+    }
   }
 
   canAddEpic() {
@@ -751,7 +754,7 @@ export class ProjectDetailComponent implements OnInit {
     const ids = this.assigneeOptions.map((o) => o.id);
     this.epicAssigneeIds = this.epicAssigneeIds.filter((id) => ids.includes(id));
     const maxSprint = this.project?.sprints[this.project.sprints.length - 1]?.number ?? 1;
-    if (this.epicStartSprint != null && this.epicStartSprint > maxSprint) {
+    if (this.epicStartSprint != null && (!this.epicAssigneeIds.length || this.epicStartSprint > maxSprint)) {
       this.epicStartSprint = null;
     }
     if (this.editEpicAssigneeId && !ids.includes(this.editEpicAssigneeId)) {

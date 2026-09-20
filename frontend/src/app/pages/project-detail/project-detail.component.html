@@ -672,12 +672,20 @@
             </div>
             <div class="col-md-3">
               <label class="form-label">Start sprint <span class="text-muted fw-normal">(optional)</span></label>
-              <select class="form-select" [(ngModel)]="epicStartSprint" name="epicStartSprint">
+              <select
+                class="form-select"
+                [(ngModel)]="epicStartSprint"
+                name="epicStartSprint"
+                [disabled]="!epicAssigneeIds.length"
+              >
                 <option [ngValue]="null">Not scheduled</option>
                 @for (sprint of project.sprints; track sprint.id) {
                   <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
                 }
               </select>
+              @if (!epicAssigneeIds.length) {
+                <div class="form-text">Pick an assignee to schedule a start sprint.</div>
+              }
             </div>
             <div class="col-md-6">
               <label class="form-label">Background color</label>
