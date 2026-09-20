@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProjectService } from '../../services/project.service';
 import { ProjectComparison, ProjectDetail, ProjectPlanView } from '../../models';
 import { contrastText, formatDateOnly } from '../../utils/date';
+import { truncateEpicTitle } from '../../utils/text';
 
 @Component({
   selector: 'app-project-compare',
@@ -18,6 +19,7 @@ export class ProjectCompareComponent implements OnInit {
   loading = true;
   error = '';
   contrastText = contrastText;
+  truncateEpicTitle = truncateEpicTitle;
 
   constructor(
     private route: ActivatedRoute,

@@ -255,44 +255,54 @@ export class ProjectsService {
     const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : [];
     const startSprintNumber = dto.startSprintNumber ?? null;
 
+    if (assigneeIds.length && startSprintNumber === null) {
+      throw new BadRequestException('startSprintNumber is required when assigning an epic');
+    }
+    if (startSprintNumber !== null && !assigneeIds.length) {
+      throw new BadRequestException('assigneeIds are required when scheduling an epic');
+    }
     if (startSprintNumber !== null) {
       this.assertStartSprint(project, startSprintNumber);
     }
-
     if (assigneeIds.length) {
       await this.ensureAssignable(project, userId, assigneeIds);
     }
 
-    if (!assigneeIds.length) {
-      await this.prisma.epic.create({
+    const title = dto.title.trim();
+    const backgroundColor = dto.backgroundColor.toLowerCase();
+
+    await this.prisma.$transaction(async (tx) => {
+      const template = await tx.epic.create({
         data: {
           projectId,
-          title: dto.title.trim(),
+          title,
           workingDays: dto.workingDays,
-          startSprintNumber,
-          backgroundColor: dto.backgroundColor.toLowerCase(),
+          startSprintNumber: null,
+          backgroundColor,
           createdBy: userId,
         },
       });
-    } else {
-      const groupKey = randomUUID();
-      await this.prisma.$transaction(
+
+      if (!assigneeIds.length || startSprintNumber === null) return;
+
+      await Promise.all(
         assigneeIds.map((assigneeId) =>
-          this.prisma.epic.create({
+          tx.epic.create({
             data: {
               projectId,
-              groupKey,
-              title: dto.title.trim(),
+              sourceEpicId: template.id,
+              groupKey: template.id,
+              title,
               workingDays: dto.workingDays,
               startSprintNumber,
-              backgroundColor: dto.backgroundColor.toLowerCase(),
+              backgroundColor,
               createdBy: userId,
               assignees: { create: { userId: assigneeId } },
             },
           }),
         ),
       );
-    }
+    });
 
     await this.maybeVersionAfterChange(projectId, userId);
     return this.findOne(projectId, userId);
