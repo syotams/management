@@ -44,15 +44,41 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-sp.matheager.com}
+      NGINX_ENVSUBST_FILTER: "^DOMAIN$"
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
     depends_on:
       - backend
     networks:
       - app
 
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-sp.matheager.com}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:-}
+      CERTBOT_STAGING: ${CERTBOT_STAGING:-0}
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+      - ./deploy/certbot/entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    depends_on:
+      - nginx
+    networks:
+      - app
+
 volumes:
   mysql_data:
+  certbot_certs:
+  certbot_www:
 
 networks:
   app:

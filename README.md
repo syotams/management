@@ -74,13 +74,41 @@ sudo usermod -aG docker $USER
 git clone <your-repo-url> management
 cd management
 cp .env.example .env
-# Edit .env: set strong passwords, JWT_SECRET, and APP_URL / CORS_ORIGIN
-# to http://YOUR_DROPLET_IP (or your domain)
+# Edit .env: set strong passwords, JWT_SECRET, CERTBOT_EMAIL,
+# and APP_URL / CORS_ORIGIN to https://sp.matheager.com
 
 docker compose up -d --build
 ```
 
-Open `http://YOUR_DROPLET_IP`. Local development still uses SQLite; only the Compose stack uses MySQL.
+Point a DNS **A record** for `sp.matheager.com` at the droplet IP, and open **ports 80 and 443**. Let's Encrypt then issues a free certificate and renews it automatically (effectively free forever). Until the cert exists, the app stays available on HTTP.
+
+Open `https://sp.matheager.com`. Local development still uses SQLite; only the Compose stack uses MySQL.
+
+### Test SSL before production
+
+Let's Encrypt will not issue a trusted cert for `localhost`. To verify nginx, HTTPS, the ACME path, and HTTP→HTTPS redirect locally:
+
+```bash
+./deploy/test-ssl.sh
+```
+
+On the droplet, you can issue an untrusted staging cert first (same flow as production, no rate-limit risk):
+
+```bash
+# in .env
+CERTBOT_STAGING=1
+docker compose up -d --build
+docker compose logs -f certbot
+```
+
+When that works, set `CERTBOT_STAGING=0` and recreate the stack so a trusted cert is issued:
+
+```bash
+# in .env: CERTBOT_STAGING=0
+docker compose up -d
+```
+
+If a staging cert is already on disk, certbot will replace it with a production cert automatically.
 
 Useful commands:
 
