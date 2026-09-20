@@ -21,7 +21,7 @@ import {
 } from '../../models';
 import { contrastText, formatDateOnly, projectEndDateFromStart, toDateInput } from '../../utils/date';
 import { formatApiError } from '../../utils/api-error';
-import { EPIC_COLORS, nextEpicColor } from '../../utils/epic-colors';
+import { EPIC_COLORS, nextUnusedEpicColor } from '../../utils/epic-colors';
 import { truncateEpicTitle } from '../../utils/text';
 
 type CellDropData = { participantId: string; sprintId: string };
@@ -55,7 +55,6 @@ export class ProjectDetailComponent implements OnInit {
   showAddEpic = false;
   addEpicError = '';
   colors = EPIC_COLORS;
-  private colorIndex = 0;
 
   showEditEpic = false;
   editingEpic: ProjectEpic | null = null;
@@ -216,8 +215,7 @@ export class ProjectDetailComponent implements OnInit {
       next: (project) => {
         this.project = this.normalizeProject(project);
         this.loading = false;
-        this.colorIndex = project.epics.length;
-        this.epicColor = nextEpicColor(this.colorIndex);
+        this.epicColor = this.pickNextEpicColor(project);
         this.syncEpicAssignees();
         this.loadAddableParticipants();
       },
@@ -560,9 +558,17 @@ export class ProjectDetailComponent implements OnInit {
     );
   }
 
+  private pickNextEpicColor(project: ProjectDetail = this.project!) {
+    // Only backlog templates own a unique color; assignment copies share theirs.
+    const used = project.epics
+      .filter((epic) => !epic.sourceEpicId)
+      .map((epic) => epic.backgroundColor);
+    return nextUnusedEpicColor(used);
+  }
+
   private advanceEpicColor() {
-    this.colorIndex += 1;
-    this.epicColor = nextEpicColor(this.colorIndex);
+    if (!this.project) return;
+    this.epicColor = this.pickNextEpicColor();
   }
 
   openAddEpic() {
@@ -572,7 +578,7 @@ export class ProjectDetailComponent implements OnInit {
     this.epicWorkingDays = 5;
     this.epicStartSprint = null;
     this.epicAssigneeIds = [];
-    this.epicColor = nextEpicColor(this.colorIndex);
+    this.epicColor = this.project ? this.pickNextEpicColor() : EPIC_COLORS[0];
     this.showAddEpic = true;
   }
 
