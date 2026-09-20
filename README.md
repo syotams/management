@@ -84,6 +84,32 @@ Point a DNS **A record** for `sp.matheager.com` at the droplet IP, and open **po
 
 Open `https://sp.matheager.com`. Local development still uses SQLite; only the Compose stack uses MySQL.
 
+### Test SSL before production
+
+Let's Encrypt will not issue a trusted cert for `localhost`. To verify nginx, HTTPS, the ACME path, and HTTP→HTTPS redirect locally:
+
+```bash
+./deploy/test-ssl.sh
+```
+
+On the droplet, you can issue an untrusted staging cert first (same flow as production, no rate-limit risk):
+
+```bash
+# in .env
+CERTBOT_STAGING=1
+docker compose up -d --build
+docker compose logs -f certbot
+```
+
+When that works, set `CERTBOT_STAGING=0` and recreate the stack so a trusted cert is issued:
+
+```bash
+# in .env: CERTBOT_STAGING=0
+docker compose up -d
+```
+
+If a staging cert is already on disk, certbot will replace it with a production cert automatically.
+
 Useful commands:
 
 ```bash

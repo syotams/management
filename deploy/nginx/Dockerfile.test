@@ -1,0 +1,20 @@
+# Lightweight nginx image for local SSL tests (no frontend build).
+FROM nginx:alpine
+
+RUN apk add --no-cache openssl \
+  && echo '<h1>ssl-test</h1>' > /usr/share/nginx/html/index.html
+
+COPY deploy/nginx/nginx.conf /etc/nginx/templates/default.conf.template
+COPY deploy/nginx/app-locations.conf /etc/nginx/app-locations.conf
+COPY deploy/nginx/http-mode.conf /etc/nginx/http-mode.conf
+COPY deploy/nginx/ssl-headers.conf /etc/nginx/ssl-headers.conf
+COPY deploy/nginx/prepare-ssl.sh /usr/local/bin/prepare-ssl.sh
+COPY deploy/nginx/reload-ssl.sh /docker-entrypoint.d/19-reload-ssl.sh
+
+RUN chmod +x /usr/local/bin/prepare-ssl.sh /docker-entrypoint.d/19-reload-ssl.sh \
+  && ln -s /usr/local/bin/prepare-ssl.sh /docker-entrypoint.d/18-prepare-ssl.sh \
+  && mkdir -p /var/www/certbot /etc/nginx/ssl
+
+EXPOSE 80 443
+
+CMD ["nginx", "-g", "daemon off;"]
