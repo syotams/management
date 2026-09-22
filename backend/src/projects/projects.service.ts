@@ -31,6 +31,7 @@ const userSelect = { id: true, name: true, email: true };
 type EpicWithAssignees = {
   id: string;
   groupKey: string | null;
+  sourceEpicId?: string | null;
   title: string;
   workingDays: number;
   startSprintNumber: number | null;
@@ -272,12 +273,11 @@ export class ProjectsService {
     const backgroundColor = dto.backgroundColor.toLowerCase();
 
     await this.prisma.$transaction(async (tx) => {
-      const template = await tx.epic.create({
+      const epic = await tx.epic.create({
         data: {
           projectId,
           title,
           workingDays: dto.workingDays,
-          startSprintNumber: null,
           backgroundColor,
           createdBy: userId,
         },
@@ -285,23 +285,14 @@ export class ProjectsService {
 
       if (!assigneeIds.length || startSprintNumber === null) return;
 
-      await Promise.all(
-        assigneeIds.map((assigneeId) =>
-          tx.epic.create({
-            data: {
-              projectId,
-              sourceEpicId: template.id,
-              groupKey: template.id,
-              title,
-              workingDays: dto.workingDays,
-              startSprintNumber,
-              backgroundColor,
-              createdBy: userId,
-              assignees: { create: { userId: assigneeId } },
-            },
-          }),
-        ),
-      );
+      await tx.epicAssignment.createMany({
+        data: assigneeIds.map((assigneeId) => ({
+          epicId: epic.id,
+          userId: assigneeId,
+          workingDays: dto.workingDays,
+          startSprintNumber,
+        })),
+      });
     });
 
     await this.maybeVersionAfterChange(projectId, userId);
@@ -320,34 +311,27 @@ export class ProjectsService {
 
     const template = project.epics.find((e) => e.id === templateEpicId);
     if (!template) throw new NotFoundException('Epic not found');
-    if (!this.isBacklogTemplate(template)) {
-      throw new BadRequestException('Only backlog epics can be assigned from the list');
-    }
 
     this.assertStartSprint(project, dto.startSprintNumber);
     await this.ensureAssignable(project, userId, [dto.assigneeId]);
 
-    const duplicate = await this.prisma.epic.findFirst({
+    const duplicate = await this.prisma.epicAssignment.findFirst({
       where: {
-        sourceEpicId: templateEpicId,
-        assignees: { some: { userId: dto.assigneeId } },
+        epicId: templateEpicId,
+        userId: dto.assigneeId,
+        startSprintNumber: dto.startSprintNumber,
       },
     });
     if (duplicate) {
-      throw new BadRequestException('This epic is already assigned to that user');
+      throw new BadRequestException('This epic is already assigned to that user in that sprint');
     }
 
-    await this.prisma.epic.create({
+    await this.prisma.epicAssignment.create({
       data: {
-        projectId,
-        sourceEpicId: templateEpicId,
-        groupKey: template.groupKey ?? templateEpicId,
-        title: template.title,
+        epicId: templateEpicId,
+        userId: dto.assigneeId,
         workingDays: template.workingDays,
         startSprintNumber: dto.startSprintNumber,
-        backgroundColor: template.backgroundColor,
-        createdBy: userId,
-        assignees: { create: { userId: dto.assigneeId } },
       },
     });
 
@@ -360,59 +344,66 @@ export class ProjectsService {
     this.ensureCreator(project, userId);
     this.ensureEditable(project);
 
-    const epic = project.epics.find((e) => e.id === epicId);
-    if (!epic) throw new NotFoundException('Epic not found');
+    const backlogEpic = project.epics.find((e) => e.id === epicId);
+    const assignment = backlogEpic
+      ? null
+      : project.epics
+          .flatMap((e) => e.assignments.map((a) => ({ assignment: a, epic: e })))
+          .find((row) => row.assignment.id === epicId);
 
-    const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : undefined;
-    if (assigneeIds) {
-      if (assigneeIds.length > 1) {
-        throw new BadRequestException('Each epic entry has at most one assignee');
-      }
-      if (assigneeIds.length === 1) {
-        await this.ensureAssignable(project, userId, assigneeIds);
-        if (epic.sourceEpicId) {
-          const duplicate = await this.prisma.epic.findFirst({
-            where: {
-              sourceEpicId: epic.sourceEpicId,
-              id: { not: epicId },
-              assignees: { some: { userId: assigneeIds[0] } },
-            },
-          });
-          if (duplicate) {
-            throw new BadRequestException('This epic is already assigned to that user');
-          }
-        }
-      }
-    }
+    if (!backlogEpic && !assignment) throw new NotFoundException('Epic not found');
 
-    if (dto.startSprintNumber !== undefined && dto.startSprintNumber !== null) {
-      this.assertStartSprint(project, dto.startSprintNumber);
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.epic.update({
+    if (backlogEpic) {
+      await this.prisma.epic.update({
         where: { id: epicId },
         data: {
           ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
           ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
-          ...(dto.startSprintNumber !== undefined
-            ? { startSprintNumber: dto.startSprintNumber }
-            : {}),
           ...(dto.backgroundColor !== undefined
             ? { backgroundColor: dto.backgroundColor.toLowerCase() }
             : {}),
         },
       });
-
-      if (assigneeIds !== undefined) {
-        await tx.epicAssignee.deleteMany({ where: { epicId } });
-        if (assigneeIds.length) {
-          await tx.epicAssignee.createMany({
-            data: assigneeIds.map((id) => ({ epicId, userId: id })),
-          });
-        }
+    } else if (assignment) {
+      const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : undefined;
+      if (assigneeIds && assigneeIds.length > 1) {
+        throw new BadRequestException('Each epic entry has at most one assignee');
       }
-    });
+
+      const nextUserId = assigneeIds !== undefined ? assigneeIds[0] : assignment.assignment.userId;
+      const nextSprint =
+        dto.startSprintNumber !== undefined
+          ? dto.startSprintNumber
+          : assignment.assignment.startSprintNumber;
+
+      if (!nextUserId || nextSprint == null) {
+        throw new BadRequestException('Assignments require an assignee and start sprint');
+      }
+
+      await this.ensureAssignable(project, userId, [nextUserId]);
+      this.assertStartSprint(project, nextSprint);
+
+      const duplicate = await this.prisma.epicAssignment.findFirst({
+        where: {
+          epicId: assignment.epic.id,
+          userId: nextUserId,
+          startSprintNumber: nextSprint,
+          id: { not: epicId },
+        },
+      });
+      if (duplicate) {
+        throw new BadRequestException('This epic is already assigned to that user in that sprint');
+      }
+
+      await this.prisma.epicAssignment.update({
+        where: { id: epicId },
+        data: {
+          userId: nextUserId,
+          startSprintNumber: nextSprint,
+          ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
+        },
+      });
+    }
 
     await this.maybeVersionAfterChange(projectId, userId);
     return this.findOne(projectId, userId);
@@ -423,10 +414,17 @@ export class ProjectsService {
     this.ensureCreator(project, userId);
     this.ensureEditable(project);
 
-    const epic = project.epics.find((e) => e.id === epicId);
-    if (!epic) throw new NotFoundException('Epic not found');
+    const backlogEpic = project.epics.find((e) => e.id === epicId);
+    if (backlogEpic) {
+      await this.prisma.epic.delete({ where: { id: epicId } });
+    } else {
+      const assignment = await this.prisma.epicAssignment.findFirst({
+        where: { id: epicId, epic: { projectId } },
+      });
+      if (!assignment) throw new NotFoundException('Epic not found');
+      await this.prisma.epicAssignment.delete({ where: { id: epicId } });
+    }
 
-    await this.prisma.epic.delete({ where: { id: epicId } });
     await this.maybeVersionAfterChange(projectId, userId);
     return this.findOne(projectId, userId);
   }
@@ -582,15 +580,16 @@ export class ProjectsService {
         startDate: s.startDate.toISOString(),
         endDate: s.endDate.toISOString(),
       })),
-      epics: project.epics.map((epic) => ({
+      epics: this.flattenEpicsForPlan(project.epics).map((epic) => ({
         id: epic.id,
         groupKey: epic.groupKey,
-        sourceEpicId: epic.sourceEpicId,
+        sourceEpicId: epic.sourceEpicId ?? null,
         title: epic.title,
         workingDays: epic.workingDays,
         startSprintNumber: epic.startSprintNumber,
         backgroundColor: epic.backgroundColor,
-        createdAt: epic.createdAt.toISOString(),
+        createdAt:
+          typeof epic.createdAt === 'string' ? epic.createdAt : epic.createdAt.toISOString(),
         assignees: epic.assignees.map((a) => a.user),
       })),
     };
@@ -794,8 +793,8 @@ export class ProjectsService {
 
   private epicMatchKey(epic: SnapshotEpic) {
     const assigneeId = epic.assignees[0]?.id ?? '';
-    if (epic.groupKey) return `${epic.groupKey}:${assigneeId}`;
-    return `${epic.id}:${assigneeId}`;
+    const source = epic.sourceEpicId ?? epic.groupKey ?? epic.id;
+    return `${source}:${assigneeId}:${epic.startSprintNumber ?? ''}`;
   }
 
   private epicsEqual(a: SnapshotEpic, b: SnapshotEpic) {
@@ -899,7 +898,7 @@ export class ProjectsService {
         epics: {
           orderBy: { createdAt: 'asc' },
           include: {
-            assignees: { include: { user: { select: userSelect } } },
+            assignments: { include: { user: { select: userSelect } } },
           },
         },
         holidays: {
@@ -930,9 +929,10 @@ export class ProjectsService {
     const participantIds = participants.map((p) => p.id);
     const holidays = project.holidays;
     const ptos = project.ptos;
+    const planEpics = this.flattenEpicsForPlan(project.epics);
     const grid = this.buildGrid(
       project.sprints,
-      project.epics,
+      planEpics,
       participantIds,
       ptos,
       holidays,
@@ -942,7 +942,7 @@ export class ProjectsService {
       participants,
       ptos,
       holidays,
-      project.epics,
+      planEpics,
     );
     const capacityByUser = new Map(capacity.map((c) => [c.userId, c]));
     const status = this.normalizeStatus(project.status);
@@ -990,10 +990,10 @@ export class ProjectsService {
         user: p.user,
         workingDays: this.ptoWorkingDays(p, project.sprints),
       })),
-      epics: project.epics.map((epic) => ({
+      epics: planEpics.map((epic) => ({
         id: epic.id,
         groupKey: epic.groupKey,
-        sourceEpicId: epic.sourceEpicId,
+        sourceEpicId: epic.sourceEpicId ?? null,
         title: epic.title,
         workingDays: epic.workingDays,
         startSprintNumber: epic.startSprintNumber,
@@ -1002,6 +1002,51 @@ export class ProjectsService {
         assignees: epic.assignees.map((a) => a.user),
       })),
     };
+  }
+
+  private flattenEpicsForPlan(
+    epics: {
+      id: string;
+      title: string;
+      workingDays: number;
+      backgroundColor: string;
+      createdAt: Date;
+      assignments: {
+        id: string;
+        workingDays: number;
+        startSprintNumber: number;
+        createdAt: Date;
+        user: { id: string; name: string; email: string };
+      }[];
+    }[],
+  ): EpicWithAssignees[] {
+    const backlog = epics.map((epic) => ({
+      id: epic.id,
+      groupKey: null as string | null,
+      sourceEpicId: null as string | null,
+      title: epic.title,
+      workingDays: epic.workingDays,
+      startSprintNumber: null as number | null,
+      backgroundColor: epic.backgroundColor,
+      createdAt: epic.createdAt,
+      assignees: [] as EpicWithAssignees['assignees'],
+    }));
+
+    const assignments = epics.flatMap((epic) =>
+      epic.assignments.map((assignment) => ({
+        id: assignment.id,
+        groupKey: epic.id,
+        sourceEpicId: epic.id,
+        title: epic.title,
+        workingDays: assignment.workingDays,
+        startSprintNumber: assignment.startSprintNumber,
+        backgroundColor: epic.backgroundColor,
+        createdAt: assignment.createdAt,
+        assignees: [{ userId: assignment.user.id, user: assignment.user }],
+      })),
+    );
+
+    return [...backlog, ...assignments];
   }
 
   private groupHolidays(
@@ -1052,14 +1097,6 @@ export class ProjectsService {
     }));
   }
 
-  private isBacklogTemplate(epic: {
-    sourceEpicId: string | null;
-    assignees: unknown[];
-    startSprintNumber: number | null;
-  }) {
-    return !epic.sourceEpicId && !epic.assignees.length && epic.startSprintNumber == null;
-  }
-
   async listAddableParticipants(id: string, userId: string) {
     const project = await this.loadProject(id);
     this.ensureCreator(project, userId);
@@ -1104,8 +1141,8 @@ export class ProjectsService {
     }
 
     for (const epic of project.epics) {
-      for (const assignee of epic.assignees) {
-        if (!byId.has(assignee.user.id)) byId.set(assignee.user.id, assignee.user);
+      for (const assignment of epic.assignments) {
+        if (!byId.has(assignment.user.id)) byId.set(assignment.user.id, assignment.user);
       }
     }
 

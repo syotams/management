@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
-COPY scripts/prepare-mysql-schema.sh ./scripts/
+COPY scripts ./scripts/
 
 RUN chmod +x scripts/prepare-mysql-schema.sh \
   && ./scripts/prepare-mysql-schema.sh prisma/schema.prisma \
@@ -29,7 +29,7 @@ ENV PORT=3000
 
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
-COPY scripts/prepare-mysql-schema.sh ./scripts/
+COPY scripts ./scripts/
 
 RUN chmod +x scripts/prepare-mysql-schema.sh \
   && ./scripts/prepare-mysql-schema.sh prisma/schema.prisma \
