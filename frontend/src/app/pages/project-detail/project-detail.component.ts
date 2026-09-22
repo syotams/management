@@ -187,12 +187,13 @@ export class ProjectDetailComponent implements OnInit {
     );
   }
 
-  isAssignedToUser(templateEpicId: string, userId: string): boolean {
+  isAssignedToUser(templateEpicId: string, userId: string, startSprintNumber?: number): boolean {
     if (!this.project) return false;
     return this.project.epics.some(
       (epic) =>
         epic.sourceEpicId === templateEpicId &&
-        epic.assignees.some((assignee) => assignee.id === userId),
+        epic.assignees.some((assignee) => assignee.id === userId) &&
+        (startSprintNumber == null || epic.startSprintNumber === startSprintNumber),
     );
   }
 
@@ -633,28 +634,61 @@ export class ProjectDetailComponent implements OnInit {
     if (!this.project || !this.editingEpic || !this.canSaveEpic()) return;
     this.savingEpic = true;
     this.error = '';
-    this.projectService
-      .updateEpic(this.project.id, this.editingEpic.id, {
-        title: this.editEpicTitle.trim(),
-        workingDays: Number(this.editEpicWorkingDays),
-        startSprintNumber: this.editEpicStartSprint,
-        assigneeIds: this.editEpicAssigneeId ? [this.editEpicAssigneeId] : [],
-        backgroundColor: this.editEpicColor,
-      })
-      .subscribe({
-        next: (project) => {
-          this.project = this.normalizeProject(project);
-          this.savingEpic = false;
-          this.showEditEpic = false;
-          this.editingEpic = null;
-          this.syncEpicAssignees();
-        },
-        error: (err) => {
-          this.savingEpic = false;
-          const msg = err.error?.message;
-          this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to update epic';
-        },
-      });
+
+    const isAssignment = !!this.editingEpic.sourceEpicId;
+    const payload = isAssignment
+      ? {
+          workingDays: Number(this.editEpicWorkingDays),
+          startSprintNumber: this.editEpicStartSprint,
+          assigneeIds: this.editEpicAssigneeId ? [this.editEpicAssigneeId] : [],
+        }
+      : {
+          title: this.editEpicTitle.trim(),
+          workingDays: Number(this.editEpicWorkingDays),
+          backgroundColor: this.editEpicColor,
+        };
+
+    const sharedChanged =
+      isAssignment &&
+      (this.editEpicTitle.trim() !== this.editingEpic.title ||
+        this.editEpicColor !== this.editingEpic.backgroundColor);
+
+    if (sharedChanged) {
+      this.projectService
+        .updateEpic(this.project.id, this.editingEpic.sourceEpicId!, {
+          title: this.editEpicTitle.trim(),
+          backgroundColor: this.editEpicColor,
+        })
+        .subscribe({
+          next: () => {
+            this.projectService.updateEpic(this.project!.id, this.editingEpic!.id, payload).subscribe({
+              next: (project) => this.finishEpicSave(project),
+              error: (err) => this.failEpicSave(err),
+            });
+          },
+          error: (err) => this.failEpicSave(err),
+        });
+      return;
+    }
+
+    this.projectService.updateEpic(this.project.id, this.editingEpic.id, payload).subscribe({
+      next: (project) => this.finishEpicSave(project),
+      error: (err) => this.failEpicSave(err),
+    });
+  }
+
+  private finishEpicSave(project: ProjectDetail) {
+    this.project = this.normalizeProject(project);
+    this.savingEpic = false;
+    this.showEditEpic = false;
+    this.editingEpic = null;
+    this.syncEpicAssignees();
+  }
+
+  private failEpicSave(err: { error?: { message?: string | string[] } }) {
+    this.savingEpic = false;
+    const msg = err.error?.message;
+    this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to update epic';
   }
 
   deleteEpic(epicId: string, event?: Event) {
@@ -708,8 +742,8 @@ export class ProjectDetailComponent implements OnInit {
 
     if ('backlog' in from) {
       const template = epic;
-      if (this.isAssignedToUser(template.id, to.participantId)) {
-        this.error = 'This epic is already assigned to that user';
+      if (this.isAssignedToUser(template.id, to.participantId, startSprintNumber)) {
+        this.error = 'This epic is already assigned to that user in that sprint';
         return;
       }
       this.movingEpic = true;
