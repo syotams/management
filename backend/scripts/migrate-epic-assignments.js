@@ -66,6 +66,7 @@ async function migrate() {
     `);
 
     if (await tableExists(prisma, 'EpicAssignee')) {
+      // Copy rows (sourceEpicId set) → assignment on the backlog epic
       await prisma.$executeRawUnsafe(`
         INSERT IGNORE INTO \`EpicAssignment\`
           (\`id\`, \`epicId\`, \`userId\`, \`workingDays\`, \`startSprintNumber\`, \`createdAt\`, \`updatedAt\`)
@@ -83,11 +84,26 @@ async function migrate() {
           AND e.\`startSprintNumber\` IS NOT NULL
       `);
 
+      // Edge case: scheduled rows without sourceEpicId (assignee on the epic itself)
       await prisma.$executeRawUnsafe(`
-        DELETE a FROM \`EpicAssignee\` a
-        INNER JOIN \`Epic\` e ON e.\`id\` = a.\`epicId\`
-        WHERE e.\`sourceEpicId\` IS NOT NULL
+        INSERT IGNORE INTO \`EpicAssignment\`
+          (\`id\`, \`epicId\`, \`userId\`, \`workingDays\`, \`startSprintNumber\`, \`createdAt\`, \`updatedAt\`)
+        SELECT
+          CONCAT(e.\`id\`, '-', a.\`userId\`),
+          e.\`id\`,
+          a.\`userId\`,
+          e.\`workingDays\`,
+          e.\`startSprintNumber\`,
+          e.\`createdAt\`,
+          e.\`updatedAt\`
+        FROM \`Epic\` e
+        INNER JOIN \`EpicAssignee\` a ON a.\`epicId\` = e.\`id\`
+        WHERE e.\`sourceEpicId\` IS NULL
+          AND e.\`startSprintNumber\` IS NOT NULL
       `);
+
+      // Assignee join is fully replaced by EpicAssignment
+      await prisma.$executeRawUnsafe(`DELETE FROM \`EpicAssignee\``);
     }
 
     await prisma.$executeRawUnsafe(`
