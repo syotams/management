@@ -10,6 +10,15 @@ log() {
   echo "$(date -Is) $*" | tee -a "$LOG_FILE"
 }
 
+free_disk() {
+  log "Disk before prune: $(df -h / | awk 'NR==2 {print $4 " free (" $5 " used)"}')"
+  log "Pruning Docker build cache and unused images..."
+  docker builder prune -af >/dev/null
+  # Unused images only — never prune volumes (would risk MySQL data)
+  docker image prune -af >/dev/null
+  log "Disk after prune: $(df -h / | awk 'NR==2 {print $4 " free (" $5 " used)"}')"
+}
+
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   log "Another update is already running, skipping"
@@ -34,10 +43,12 @@ fi
 log "Updating $LOCAL -> $REMOTE"
 git pull --ff-only origin "$BRANCH"
 
+free_disk
+
 log "Rebuilding and restarting containers..."
 docker compose up -d --build
 
-log "Pruning unused images..."
-docker image prune -f >/dev/null
+log "Pruning images left unused after rebuild..."
+docker image prune -af >/dev/null
 
 log "Deploy finished successfully"
