@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -285,6 +286,7 @@ export class ProjectsService {
     }
 
     const title = dto.title.trim();
+    this.assertUniqueEpicTitle(project.epics, title);
     const backgroundColor = dto.backgroundColor.toLowerCase();
 
     await this.prisma.$transaction(async (tx) => {
@@ -373,10 +375,15 @@ export class ProjectsService {
     if (!backlogEpic && !assignment) throw new NotFoundException('Epic not found');
 
     if (backlogEpic) {
+      const title = dto.title !== undefined ? dto.title.trim() : undefined;
+      if (title !== undefined) {
+        this.assertUniqueEpicTitle(project.epics, title, epicId);
+      }
+
       await this.prisma.epic.update({
         where: { id: epicId },
         data: {
-          ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+          ...(title !== undefined ? { title } : {}),
           ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
           ...(dto.backgroundColor !== undefined
             ? { backgroundColor: dto.backgroundColor.toLowerCase() }
@@ -1544,6 +1551,17 @@ export class ProjectsService {
   private assertStartSprintWeek(startSprintWeek: number) {
     if (startSprintWeek !== 1 && startSprintWeek !== 2) {
       throw new BadRequestException('startSprintWeek must be 1 or 2');
+    }
+  }
+
+  private assertUniqueEpicTitle(
+    epics: { id: string; title: string }[],
+    title: string,
+    excludeEpicId?: string,
+  ) {
+    const duplicate = epics.some((epic) => epic.title === title && epic.id !== excludeEpicId);
+    if (duplicate) {
+      throw new ConflictException('An epic with this name already exists in this project');
     }
   }
 

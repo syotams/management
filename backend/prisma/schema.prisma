@@ -252,6 +252,7 @@ model Epic {
   creator     User             @relation("EpicCreator", fields: [createdBy], references: [id])
   assignments EpicAssignment[]
 
+  @@unique([projectId, title])
   @@index([projectId])
 }
 

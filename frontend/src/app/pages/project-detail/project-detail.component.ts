@@ -66,6 +66,7 @@ export class ProjectDetailComponent implements OnInit {
   editEpicColor = EPIC_COLORS[0];
   editEpicAssigneeId = '';
   savingEpic = false;
+  editEpicError = '';
   movingEpic = false;
 
   showAddParticipant = false;
@@ -613,6 +614,17 @@ export class ProjectDetailComponent implements OnInit {
     );
   }
 
+  private isEpicTitleTaken(title: string, excludeEpicId?: string | null) {
+    if (!this.project) return false;
+    const normalized = title.trim();
+    return this.project.epics.some(
+      (epic) =>
+        !epic.sourceEpicId &&
+        epic.title === normalized &&
+        epic.id !== excludeEpicId,
+    );
+  }
+
   private pickNextEpicColor(project: ProjectDetail = this.project!) {
     // Only backlog templates own a unique color; assignment copies share theirs.
     const used = project.epics
@@ -643,6 +655,11 @@ export class ProjectDetailComponent implements OnInit {
     this.addingEpic = true;
     this.addEpicError = '';
     this.error = '';
+    if (this.isEpicTitleTaken(this.epicTitle)) {
+      this.addingEpic = false;
+      this.addEpicError = 'An epic with this name already exists in this project';
+      return;
+    }
     this.projectService
       .addEpic(this.project.id, {
         title: this.epicTitle.trim(),
@@ -679,6 +696,7 @@ export class ProjectDetailComponent implements OnInit {
     const epic = this.project.epics.find((e) => e.id === epicId);
     if (!epic) return;
     this.editingEpic = epic;
+    this.editEpicError = '';
     this.editEpicTitle = epic.title;
     this.editEpicWorkingDays = epic.workingDays;
     this.editEpicStartSprint = epic.startSprintNumber;
@@ -692,9 +710,17 @@ export class ProjectDetailComponent implements OnInit {
   saveEditEpic() {
     if (!this.project || !this.editingEpic || !this.canSaveEpic()) return;
     this.savingEpic = true;
+    this.editEpicError = '';
     this.error = '';
 
     const isAssignment = !!this.editingEpic.sourceEpicId;
+    const titleOwnerId = isAssignment ? this.editingEpic.sourceEpicId : this.editingEpic.id;
+    if (this.isEpicTitleTaken(this.editEpicTitle, titleOwnerId)) {
+      this.savingEpic = false;
+      this.editEpicError = 'An epic with this name already exists in this project';
+      return;
+    }
+
     const payload = isAssignment
       ? {
           workingDays: Number(this.editEpicWorkingDays),
@@ -742,13 +768,14 @@ export class ProjectDetailComponent implements OnInit {
     this.savingEpic = false;
     this.showEditEpic = false;
     this.editingEpic = null;
+    this.editEpicError = '';
     this.syncEpicAssignees();
   }
 
   private failEpicSave(err: { error?: { message?: string | string[] } }) {
     this.savingEpic = false;
     const msg = err.error?.message;
-    this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to update epic';
+    this.editEpicError = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to update epic';
   }
 
   deleteEpic(epicId: string, event?: Event) {

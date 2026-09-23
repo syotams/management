@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from './projects.service';
@@ -151,6 +151,62 @@ describe('ProjectsService epic derivation', () => {
         startSprintWeek: 1,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects duplicate epic titles within the same project', async () => {
+    await createBacklogEpic({ title: 'Auth' });
+
+    await expect(createBacklogEpic({ title: 'Auth' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(createBacklogEpic({ title: '  Auth  ' })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('allows renaming an epic to its own title and rejects collisions', async () => {
+    await createBacklogEpic({ title: 'Auth' });
+    await createBacklogEpic({ title: 'Billing' });
+    const detail = await service.findOne(projectId, creatorId);
+    const auth = detail.epics.find((e) => !e.sourceEpicId && e.title === 'Auth')!;
+    const billing = detail.epics.find((e) => !e.sourceEpicId && e.title === 'Billing')!;
+
+    await service.updateEpic(projectId, auth.id, creatorId, { title: 'Auth' });
+
+    await expect(
+      service.updateEpic(projectId, billing.id, creatorId, { title: 'Auth' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('allows the same epic title in different projects', async () => {
+    await createBacklogEpic({ title: 'Auth' });
+
+    const other = await prisma.project.create({
+      data: {
+        name: 'Other',
+        startDate: new Date('2026-01-05'),
+        endDate: new Date('2026-03-27'),
+        status: 'draft',
+        createdBy: creatorId,
+        sprints: {
+          create: [
+            {
+              number: 1,
+              startDate: new Date('2026-01-05'),
+              endDate: new Date('2026-01-16'),
+            },
+          ],
+        },
+      },
+    });
+
+    await expect(
+      service.addEpic(other.id, creatorId, {
+        title: 'Auth',
+        workingDays: 3,
+        backgroundColor: '#4f46e5',
+      }),
+    ).resolves.toMatchObject({
+      epics: expect.arrayContaining([expect.objectContaining({ title: 'Auth' })]),
+    });
   });
 
   it('deletes only one assignment when deleting assignment id', async () => {

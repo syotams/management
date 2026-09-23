@@ -788,6 +788,9 @@
           <button type="button" class="btn-close" (click)="showEditEpic = false"></button>
         </div>
         <div class="modal-body">
+          @if (editEpicError) {
+            <div class="alert alert-danger py-2">{{ editEpicError }}</div>
+          }
           @if (isInProgress) {
             <div class="alert alert-info py-2">Saving will create a new plan version.</div>
           }
