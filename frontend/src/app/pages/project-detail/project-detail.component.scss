@@ -142,6 +142,9 @@
 .plan-cell {
   position: relative;
   vertical-align: top;
+  // Lets % heights on children resolve to the final row height so empty
+  // placeholders (and their +) stretch when sibling cells have multiple chips.
+  height: 1px;
 }
 
 .cell-add-trigger {
@@ -260,11 +263,13 @@
   flex-direction: column;
   gap: 0.35rem;
   min-height: 2.75rem;
+  height: 100%;
   border-radius: 6px;
 }
 
 .plan-cell-empty .epic-stack.epic-stack-droptarget {
   min-height: 3rem;
+  height: 100%;
   outline: 1px dashed var(--app-border-subtle);
   outline-offset: -1px;
   transition: outline-color 0.12s ease, background-color 0.12s ease;
