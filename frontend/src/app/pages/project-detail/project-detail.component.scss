@@ -95,6 +95,10 @@
   }
 
   .sprint-group-header {
+    text-align: start;
+  }
+
+  &.show-week-headers .sprint-group-header {
     text-align: center;
     border-bottom: none;
   }

@@ -173,8 +173,18 @@
             }
           }
         </span>
-        @if (isManager && !isCompleted) {
-          <div class="d-flex flex-wrap gap-3">
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+          <button
+            type="button"
+            class="btn btn-link btn-sm action-link"
+            (click)="toggleWeekHeaders()"
+            [attr.aria-pressed]="showWeekHeaders"
+            [title]="showWeekHeaders ? 'Hide week labels' : 'Show week labels'"
+          >
+            <i class="bi me-1" [class.bi-arrows-collapse-vertical]="showWeekHeaders" [class.bi-arrows-expand-vertical]="!showWeekHeaders"></i>
+            {{ showWeekHeaders ? 'Hide weeks' : 'Show weeks' }}
+          </button>
+          @if (isManager && !isCompleted) {
             <button
               type="button"
               class="btn btn-link btn-sm action-link"
@@ -199,8 +209,8 @@
             >
               <i class="bi bi-plus-lg me-1"></i>Add user
             </button>
-          </div>
-        }
+          }
+        </div>
       </div>
       <div class="card-body p-0">
         @if (project.holidays?.length) {
@@ -224,10 +234,10 @@
           </div>
         }
         <div class="table-responsive">
-          <table class="table align-middle mb-0 project-grid">
+          <table class="table align-middle mb-0 project-grid" [class.show-week-headers]="showWeekHeaders">
             <thead>
               <tr>
-                <th class="participant-col" rowspan="2">Participant</th>
+                <th class="participant-col" [attr.rowspan]="showWeekHeaders ? 2 : null">Participant</th>
                 @for (sprint of project.sprints; track sprint.id) {
                   <th [attr.colspan]="sprint.weeks.length" class="sprint-group-header">
                     <div class="sprint-number">Sprint {{ sprint.number }}</div>
@@ -235,16 +245,18 @@
                   </th>
                 }
               </tr>
-              <tr>
-                @for (sprint of project.sprints; track sprint.id) {
-                  @for (week of sprint.weeks; track week.cellKey) {
-                    <th class="week-header">
-                      <div class="week-number">Week {{ week.week }}</div>
-                      <div class="sprint-dates">{{ sprintDates(week.startDate, week.endDate) }}</div>
-                    </th>
+              @if (showWeekHeaders) {
+                <tr>
+                  @for (sprint of project.sprints; track sprint.id) {
+                    @for (week of sprint.weeks; track week.cellKey) {
+                      <th class="week-header">
+                        <div class="week-number">Week {{ week.week }}</div>
+                        <div class="sprint-dates">{{ sprintDates(week.startDate, week.endDate) }}</div>
+                      </th>
+                    }
                   }
-                }
-              </tr>
+                </tr>
+              }
             </thead>
             <tbody>
               @for (person of project.participants; track person.id) {

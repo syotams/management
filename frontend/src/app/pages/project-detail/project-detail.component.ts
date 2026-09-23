@@ -29,6 +29,7 @@ type BacklogDropData = { backlog: true };
 type DropData = CellDropData | BacklogDropData;
 
 const BACKLOG_DROP_DATA: BacklogDropData = { backlog: true };
+const SHOW_WEEK_HEADERS_KEY = 'project-plan-show-week-headers';
 
 @Component({
   selector: 'app-project-detail',
@@ -99,6 +100,7 @@ export class ProjectDetailComponent implements OnInit {
 
   backlogDropData = BACKLOG_DROP_DATA;
   rejectBacklogDrop = () => false;
+  showWeekHeaders = localStorage.getItem(SHOW_WEEK_HEADERS_KEY) === 'true';
 
   contrastText = contrastText;
   truncateEpicTitle = truncateEpicTitle;
@@ -117,6 +119,11 @@ export class ProjectDetailComponent implements OnInit {
       const id = params.get('id');
       if (id) this.load(id);
     });
+  }
+
+  toggleWeekHeaders() {
+    this.showWeekHeaders = !this.showWeekHeaders;
+    localStorage.setItem(SHOW_WEEK_HEADERS_KEY, String(this.showWeekHeaders));
   }
 
   get isManager(): boolean {
