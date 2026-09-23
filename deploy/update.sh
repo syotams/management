@@ -12,10 +12,11 @@ log() {
 
 free_disk() {
   log "Disk before prune: $(df -h / | awk 'NR==2 {print $4 " free (" $5 " used)"}')"
-  log "Pruning Docker build cache and unused images..."
-  docker builder prune -af >/dev/null
-  # Unused images only — never prune volumes (would risk MySQL data)
+  # Keep BuildKit layer/npm caches so rebuilds stay fast. Only drop unused images
+  # and build cache older than a week — never prune volumes (would risk MySQL data).
+  log "Pruning unused images and old build cache..."
   docker image prune -af >/dev/null
+  docker builder prune -af --filter until=168h >/dev/null || true
   log "Disk after prune: $(df -h / | awk 'NR==2 {print $4 " free (" $5 " used)"}')"
 }
 
