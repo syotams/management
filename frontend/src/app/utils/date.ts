@@ -92,6 +92,16 @@ export function toDateInput(value: string | Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Add calendar days to a `YYYY-MM-DD` (or date-only UTC instant) using UTC. */
+export function addUtcDaysToDateInput(value: string | Date, days: number): string {
+  const base = toDateInput(value);
+  if (!base) return '';
+  const [year, month, day] = base.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
 /** Today's local calendar date as `YYYY-MM-DD`. */
 export function localDateInput(date = new Date()): string {
   const pad = (n: number) => n.toString().padStart(2, '0');

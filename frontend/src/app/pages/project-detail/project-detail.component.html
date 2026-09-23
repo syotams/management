@@ -272,7 +272,11 @@
                   </th>
                   @for (sprint of project.sprints; track sprint.id) {
                     @for (week of sprint.weeks; track week.cellKey) {
-                      <td>
+                      <td
+                        class="plan-cell"
+                        [class.plan-cell-empty]="canEditEpics && isCellEmpty(person.id, week.cellKey)"
+                        [class.plan-cell-menu-open]="isCellAssignMenuOpen(person.id, week.cellKey)"
+                      >
                         <div
                           class="epic-stack"
                           [class.epic-stack-droptarget]="canEditEpics"
@@ -345,6 +349,17 @@
                             </div>
                           }
                         </div>
+                        @if (canEditEpics && isCellEmpty(person.id, week.cellKey)) {
+                          <button
+                            type="button"
+                            class="cell-add-trigger"
+                            title="Add to this week"
+                            [attr.aria-expanded]="isCellAssignMenuOpen(person.id, week.cellKey)"
+                            (click)="openCellAssignMenu($event, person.id, sprint.id, sprint.number, week.week, week.cellKey, week.startDate)"
+                          >
+                            <i class="bi bi-plus-lg"></i>
+                          </button>
+                        }
                       </td>
                     }
                   }
@@ -879,5 +894,42 @@
         </div>
       </div>
     </div>
+  </div>
+}
+
+@if (cellAssignMenu; as menu) {
+  <div
+    class="dropdown-menu cell-assign-menu show"
+    animate.enter="cell-assign-bounce-in"
+    animate.leave="cell-assign-bounce-out"
+    [style.top.px]="menu.top"
+    [style.left.px]="menu.left"
+    (mousedown)="$event.stopPropagation()"
+    (click)="$event.stopPropagation()"
+    (wheel)="$event.stopPropagation()"
+  >
+    @if (backlogEpics.length) {
+      @for (epic of backlogEpics; track epic.id) {
+        <button
+          type="button"
+          class="dropdown-item cell-assign-item"
+          [disabled]="movingEpic || isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week)"
+          [title]="isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week) ? 'Already assigned in this week' : 'Assign ' + epic.title"
+          (click)="assignBacklogEpicToCell(epic.id, menu.cell)"
+        >
+          <span class="cell-assign-swatch" [style.background]="epic.backgroundColor"></span>
+          <span class="cell-assign-title">{{ epic.title }}</span>
+        </button>
+      }
+      <div class="dropdown-divider"></div>
+    }
+    <button
+      type="button"
+      class="dropdown-item cell-assign-item"
+      (click)="openAddPtoFromCell(menu.cell.participantId, menu.weekStartDate)"
+    >
+      <i class="bi bi-calendar-plus cell-assign-pto-icon"></i>
+      <span class="cell-assign-title">Add PTO</span>
+    </button>
   </div>
 }
