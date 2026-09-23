@@ -262,7 +262,7 @@ model EpicAssignment {
   userId            String
   workingDays       Int
   startSprintNumber Int
-  startSprintWeek   Int
+  startSprintWeek   Int      @default(1)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
