@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  Max,
   Min,
   MinLength,
   ValidateIf,
@@ -92,6 +93,15 @@ export class CreateEpicDto {
   @Min(1)
   startSprintNumber?: number | null;
 
+  @Transform(emptyToNull)
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  startSprintWeek?: number | null;
+
   @Transform(emptyToUndefined)
   @IsOptional()
   @IsArray()
@@ -111,6 +121,12 @@ export class AssignEpicDto {
   @IsInt()
   @Min(1)
   startSprintNumber: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  startSprintWeek: number;
 }
 
 export class UpdateEpicDto {
@@ -132,6 +148,15 @@ export class UpdateEpicDto {
   @IsInt()
   @Min(1)
   startSprintNumber?: number | null;
+
+  @Transform(emptyToNull)
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  startSprintWeek?: number | null;
 
   @IsOptional()
   @IsArray()

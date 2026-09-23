@@ -75,11 +75,7 @@
                 <div class="text-muted small">
                   {{ epic.assignee || 'Unassigned' }}
                   · {{ epic.workingDays }}d
-                  @if (epic.startSprintNumber) {
-                    · Sprint {{ epic.startSprintNumber }}
-                  } @else {
-                    · Unscheduled
-                  }
+                  · {{ sprintLabel(epic) }}
                 </div>
               </li>
             } @empty {
@@ -101,11 +97,7 @@
                 <div class="text-muted small">
                   {{ epic.assignee || 'Unassigned' }}
                   · {{ epic.workingDays }}d
-                  @if (epic.startSprintNumber) {
-                    · Sprint {{ epic.startSprintNumber }}
-                  } @else {
-                    · Unscheduled
-                  }
+                  · {{ sprintLabel(epic) }}
                 </div>
                 @if (epic.changes.length) {
                   <ul class="small mb-0 mt-1 ps-3">
@@ -149,12 +141,22 @@
     <table class="table align-middle mb-0 project-grid">
       <thead>
         <tr>
-          <th class="participant-col">Participant</th>
+          <th class="participant-col" rowspan="2">Participant</th>
           @for (sprint of plan.sprints; track sprint.id) {
-            <th>
+            <th [attr.colspan]="sprint.weeks.length" class="sprint-group-header">
               <div class="sprint-number">Sprint {{ sprint.number }}</div>
               <div class="sprint-dates">{{ sprintDates(sprint.startDate, sprint.endDate) }}</div>
             </th>
+          }
+        </tr>
+        <tr>
+          @for (sprint of plan.sprints; track sprint.id) {
+            @for (week of sprint.weeks; track week.cellKey) {
+              <th class="week-header">
+                <div class="week-number">Week {{ week.week }}</div>
+                <div class="sprint-dates">{{ sprintDates(week.startDate, week.endDate) }}</div>
+              </th>
+            }
           }
         </tr>
       </thead>
@@ -163,30 +165,32 @@
           <tr>
             <th class="participant-col">{{ person.name }}</th>
             @for (sprint of plan.sprints; track sprint.id) {
-              <td>
-                <div class="epic-stack">
-                  @for (chip of planCells(plan, person.id, sprint.id); track chip.type + chip.id + chip.daysInSprint) {
-                    <div
-                      class="epic-chip"
-                      [class.epic-chip-pto]="chip.type === 'pto'"
-                      [class.epic-chip-holiday]="chip.type === 'holiday'"
-                      [style.background]="chip.backgroundColor"
-                      [style.color]="contrastText(chip.backgroundColor)"
-                      [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
-                    >
-                      <span class="epic-chip-title">{{ chip.type === 'epic' ? truncateEpicTitle(chip.title) : chip.title }}</span>
-                      <span class="epic-chip-meta">
-                        <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
-                      </span>
-                    </div>
-                  }
-                </div>
-              </td>
+              @for (week of sprint.weeks; track week.cellKey) {
+                <td>
+                  <div class="epic-stack">
+                    @for (chip of planCells(plan, person.id, week.cellKey); track chip.type + chip.id + chip.daysInSprint) {
+                      <div
+                        class="epic-chip"
+                        [class.epic-chip-pto]="chip.type === 'pto'"
+                        [class.epic-chip-holiday]="chip.type === 'holiday'"
+                        [style.background]="chip.backgroundColor"
+                        [style.color]="contrastText(chip.backgroundColor)"
+                        [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
+                      >
+                        <span class="epic-chip-title">{{ chip.type === 'epic' ? truncateEpicTitle(chip.title) : chip.title }}</span>
+                        <span class="epic-chip-meta">
+                          <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
+                        </span>
+                      </div>
+                    }
+                  </div>
+                </td>
+              }
             }
           </tr>
         } @empty {
           <tr>
-            <td [attr.colspan]="plan.sprints.length + 1" class="text-muted p-4">No participants</td>
+            <td [attr.colspan]="weekColumnCount(plan) + 1" class="text-muted p-4">No participants</td>
           </tr>
         }
       </tbody>

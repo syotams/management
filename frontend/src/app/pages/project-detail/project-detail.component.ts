@@ -24,7 +24,7 @@ import { formatApiError } from '../../utils/api-error';
 import { EPIC_COLORS, nextUnusedEpicColor } from '../../utils/epic-colors';
 import { truncateEpicTitle } from '../../utils/text';
 
-type CellDropData = { participantId: string; sprintId: string };
+type CellDropData = { participantId: string; sprintId: string; week: 1 | 2; cellKey: string };
 type BacklogDropData = { backlog: true };
 type DropData = CellDropData | BacklogDropData;
 
@@ -49,6 +49,7 @@ export class ProjectDetailComponent implements OnInit {
   epicTitle = '';
   epicWorkingDays: number | null = 5;
   epicStartSprint: number | null = null;
+  epicStartWeek: number | null = null;
   epicColor = EPIC_COLORS[0];
   epicAssigneeIds: string[] = [];
   addingEpic = false;
@@ -61,6 +62,7 @@ export class ProjectDetailComponent implements OnInit {
   editEpicTitle = '';
   editEpicWorkingDays: number | null = 5;
   editEpicStartSprint: number | null = null;
+  editEpicStartWeek: number | null = null;
   editEpicColor = EPIC_COLORS[0];
   editEpicAssigneeId = '';
   savingEpic = false;
@@ -183,16 +185,44 @@ export class ProjectDetailComponent implements OnInit {
   get backlogEpics(): ProjectEpic[] {
     if (!this.project) return [];
     return this.project.epics.filter(
-      (epic) => !epic.sourceEpicId && !epic.assignees.length && epic.startSprintNumber == null,
+      (epic) =>
+        !epic.sourceEpicId &&
+        !epic.assignees.length &&
+        epic.startSprintNumber == null &&
+        epic.startSprintWeek == null,
     );
   }
 
-  isAssignedToUser(templateEpicId: string, userId: string): boolean {
+  get weekColumnCount(): number {
+    if (!this.project) return 0;
+    return this.project.sprints.reduce((sum, sprint) => sum + (sprint.weeks?.length ?? 2), 0);
+  }
+
+  onEpicStartSprintChange(sprint: number | null) {
+    this.epicStartSprint = sprint;
+    if (sprint == null) this.epicStartWeek = null;
+    else if (this.epicStartWeek == null) this.epicStartWeek = 1;
+  }
+
+  onEditEpicStartSprintChange(sprint: number | null) {
+    this.editEpicStartSprint = sprint;
+    if (sprint == null) this.editEpicStartWeek = null;
+    else if (this.editEpicStartWeek == null) this.editEpicStartWeek = 1;
+  }
+
+  isAssignedToUser(
+    templateEpicId: string,
+    userId: string,
+    startSprintNumber?: number | null,
+    startSprintWeek?: number | null,
+  ): boolean {
     if (!this.project) return false;
     return this.project.epics.some(
       (epic) =>
         epic.sourceEpicId === templateEpicId &&
-        epic.assignees.some((assignee) => assignee.id === userId),
+        epic.assignees.some((assignee) => assignee.id === userId) &&
+        (startSprintNumber == null || epic.startSprintNumber === startSprintNumber) &&
+        (startSprintWeek == null || epic.startSprintWeek === startSprintWeek),
     );
   }
 
@@ -205,6 +235,28 @@ export class ProjectDetailComponent implements OnInit {
       holidays: project.holidays ?? [],
       ptos: project.ptos ?? [],
       capacity: project.capacity ?? [],
+      sprints: (project.sprints ?? []).map((sprint) => ({
+        ...sprint,
+        weeks:
+          sprint.weeks?.length === 2
+            ? sprint.weeks
+            : [
+                {
+                  week: 1 as const,
+                  startDate: sprint.startDate,
+                  endDate: sprint.endDate,
+                  workingDays: sprint.workingDays,
+                  cellKey: `${sprint.id}:w1`,
+                },
+                {
+                  week: 2 as const,
+                  startDate: sprint.startDate,
+                  endDate: sprint.endDate,
+                  workingDays: 0,
+                  cellKey: `${sprint.id}:w2`,
+                },
+              ],
+      })),
     };
   }
 
@@ -535,6 +587,7 @@ export class ProjectDetailComponent implements OnInit {
     }
     if (!this.epicAssigneeIds.length) {
       this.epicStartSprint = null;
+      this.epicStartWeek = null;
     }
   }
 
@@ -545,16 +598,18 @@ export class ProjectDetailComponent implements OnInit {
       !!this.epicWorkingDays &&
       this.epicWorkingDays > 0 &&
       !!this.epicColor &&
-      (!hasAssignees || this.epicStartSprint != null)
+      (!hasAssignees || (this.epicStartSprint != null && this.epicStartWeek != null))
     );
   }
 
   canSaveEpic() {
+    const hasSchedule = this.editEpicStartSprint != null || !!this.editEpicAssigneeId;
     return (
       !!this.editEpicTitle.trim() &&
       !!this.editEpicWorkingDays &&
       this.editEpicWorkingDays > 0 &&
-      !!this.editEpicColor
+      !!this.editEpicColor &&
+      (!hasSchedule || (this.editEpicStartSprint != null && this.editEpicStartWeek != null))
     );
   }
 
@@ -577,6 +632,7 @@ export class ProjectDetailComponent implements OnInit {
     this.epicTitle = '';
     this.epicWorkingDays = 5;
     this.epicStartSprint = null;
+    this.epicStartWeek = null;
     this.epicAssigneeIds = [];
     this.epicColor = this.project ? this.pickNextEpicColor() : EPIC_COLORS[0];
     this.showAddEpic = true;
@@ -592,6 +648,7 @@ export class ProjectDetailComponent implements OnInit {
         title: this.epicTitle.trim(),
         workingDays: Number(this.epicWorkingDays),
         startSprintNumber: this.epicStartSprint,
+        startSprintWeek: this.epicStartWeek,
         assigneeIds: this.epicAssigneeIds.length ? this.epicAssigneeIds : undefined,
         backgroundColor: this.epicColor,
       })
@@ -603,6 +660,7 @@ export class ProjectDetailComponent implements OnInit {
           this.epicTitle = '';
           this.epicWorkingDays = 5;
           this.epicStartSprint = null;
+          this.epicStartWeek = null;
           this.epicAssigneeIds = [];
           this.advanceEpicColor();
           this.syncEpicAssignees();
@@ -624,6 +682,8 @@ export class ProjectDetailComponent implements OnInit {
     this.editEpicTitle = epic.title;
     this.editEpicWorkingDays = epic.workingDays;
     this.editEpicStartSprint = epic.startSprintNumber;
+    this.editEpicStartWeek =
+      epic.startSprintWeek ?? (epic.startSprintNumber != null ? 1 : null);
     this.editEpicColor = epic.backgroundColor;
     this.editEpicAssigneeId = epic.assignees[0]?.id ?? '';
     this.showEditEpic = true;
@@ -633,28 +693,62 @@ export class ProjectDetailComponent implements OnInit {
     if (!this.project || !this.editingEpic || !this.canSaveEpic()) return;
     this.savingEpic = true;
     this.error = '';
-    this.projectService
-      .updateEpic(this.project.id, this.editingEpic.id, {
-        title: this.editEpicTitle.trim(),
-        workingDays: Number(this.editEpicWorkingDays),
-        startSprintNumber: this.editEpicStartSprint,
-        assigneeIds: this.editEpicAssigneeId ? [this.editEpicAssigneeId] : [],
-        backgroundColor: this.editEpicColor,
-      })
-      .subscribe({
-        next: (project) => {
-          this.project = this.normalizeProject(project);
-          this.savingEpic = false;
-          this.showEditEpic = false;
-          this.editingEpic = null;
-          this.syncEpicAssignees();
-        },
-        error: (err) => {
-          this.savingEpic = false;
-          const msg = err.error?.message;
-          this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to update epic';
-        },
-      });
+
+    const isAssignment = !!this.editingEpic.sourceEpicId;
+    const payload = isAssignment
+      ? {
+          workingDays: Number(this.editEpicWorkingDays),
+          startSprintNumber: this.editEpicStartSprint,
+          startSprintWeek: this.editEpicStartWeek,
+          assigneeIds: this.editEpicAssigneeId ? [this.editEpicAssigneeId] : [],
+        }
+      : {
+          title: this.editEpicTitle.trim(),
+          workingDays: Number(this.editEpicWorkingDays),
+          backgroundColor: this.editEpicColor,
+        };
+
+    const sharedChanged =
+      isAssignment &&
+      (this.editEpicTitle.trim() !== this.editingEpic.title ||
+        this.editEpicColor !== this.editingEpic.backgroundColor);
+
+    if (sharedChanged) {
+      this.projectService
+        .updateEpic(this.project.id, this.editingEpic.sourceEpicId!, {
+          title: this.editEpicTitle.trim(),
+          backgroundColor: this.editEpicColor,
+        })
+        .subscribe({
+          next: () => {
+            this.projectService.updateEpic(this.project!.id, this.editingEpic!.id, payload).subscribe({
+              next: (project) => this.finishEpicSave(project),
+              error: (err) => this.failEpicSave(err),
+            });
+          },
+          error: (err) => this.failEpicSave(err),
+        });
+      return;
+    }
+
+    this.projectService.updateEpic(this.project.id, this.editingEpic.id, payload).subscribe({
+      next: (project) => this.finishEpicSave(project),
+      error: (err) => this.failEpicSave(err),
+    });
+  }
+
+  private finishEpicSave(project: ProjectDetail) {
+    this.project = this.normalizeProject(project);
+    this.savingEpic = false;
+    this.showEditEpic = false;
+    this.editingEpic = null;
+    this.syncEpicAssignees();
+  }
+
+  private failEpicSave(err: { error?: { message?: string | string[] } }) {
+    this.savingEpic = false;
+    const msg = err.error?.message;
+    this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to update epic';
   }
 
   deleteEpic(epicId: string, event?: Event) {
@@ -678,8 +772,8 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
-  cellDropData(participantId: string, sprintId: string): CellDropData {
-    return { participantId, sprintId };
+  cellDropData(participantId: string, sprintId: string, week: 1 | 2, cellKey: string): CellDropData {
+    return { participantId, sprintId, week, cellKey };
   }
 
   onEpicDrop(event: CdkDragDrop<unknown>) {
@@ -705,17 +799,18 @@ export class ProjectDetailComponent implements OnInit {
 
     const assigneeIds = [to.participantId];
     const startSprintNumber = targetSprint.number;
+    const startSprintWeek = to.week;
 
     if ('backlog' in from) {
       const template = epic;
-      if (this.isAssignedToUser(template.id, to.participantId)) {
-        this.error = 'This epic is already assigned to that user';
+      if (this.isAssignedToUser(template.id, to.participantId, startSprintNumber, startSprintWeek)) {
+        this.error = 'This epic is already assigned to that user in that sprint week';
         return;
       }
       this.movingEpic = true;
       this.error = '';
       this.projectService
-        .assignEpic(this.project.id, template.id, to.participantId, startSprintNumber)
+        .assignEpic(this.project.id, template.id, to.participantId, startSprintNumber, startSprintWeek)
         .subscribe({
           next: (project) => {
             this.project = this.normalizeProject(project);
@@ -732,12 +827,18 @@ export class ProjectDetailComponent implements OnInit {
     }
 
     const currentAssignee = epic.assignees[0]?.id;
-    if (currentAssignee === to.participantId && startSprintNumber === epic.startSprintNumber) return;
+    if (
+      currentAssignee === to.participantId &&
+      startSprintNumber === epic.startSprintNumber &&
+      startSprintWeek === epic.startSprintWeek
+    ) {
+      return;
+    }
 
     this.movingEpic = true;
     this.error = '';
     this.projectService
-      .updateEpic(this.project.id, epic.id, { startSprintNumber, assigneeIds })
+      .updateEpic(this.project.id, epic.id, { startSprintNumber, startSprintWeek, assigneeIds })
       .subscribe({
         next: (project) => {
           this.project = this.normalizeProject(project);
@@ -752,12 +853,12 @@ export class ProjectDetailComponent implements OnInit {
       });
   }
 
-  cellsFor(participantId: string, sprintId: string) {
-    return this.project?.participants.find((p) => p.id === participantId)?.cells?.[sprintId] ?? [];
+  cellsFor(participantId: string, cellKey: string) {
+    return this.project?.participants.find((p) => p.id === participantId)?.cells?.[cellKey] ?? [];
   }
 
-  planCells(plan: ProjectPlanView, participantId: string, sprintId: string) {
-    return plan.participants.find((p) => p.id === participantId)?.cells?.[sprintId] ?? [];
+  planCells(plan: ProjectPlanView, participantId: string, cellKey: string) {
+    return plan.participants.find((p) => p.id === participantId)?.cells?.[cellKey] ?? [];
   }
 
   private syncEpicAssignees() {
@@ -766,12 +867,20 @@ export class ProjectDetailComponent implements OnInit {
     const maxSprint = this.project?.sprints[this.project.sprints.length - 1]?.number ?? 1;
     if (this.epicStartSprint != null && (!this.epicAssigneeIds.length || this.epicStartSprint > maxSprint)) {
       this.epicStartSprint = null;
+      this.epicStartWeek = null;
+    }
+    if (this.epicStartSprint == null) {
+      this.epicStartWeek = null;
     }
     if (this.editEpicAssigneeId && !ids.includes(this.editEpicAssigneeId)) {
       this.editEpicAssigneeId = '';
     }
     if (this.editEpicStartSprint != null && this.editEpicStartSprint > maxSprint) {
       this.editEpicStartSprint = null;
+      this.editEpicStartWeek = null;
+    }
+    if (this.editEpicStartSprint == null) {
+      this.editEpicStartWeek = null;
     }
   }
 }

@@ -227,12 +227,22 @@
           <table class="table align-middle mb-0 project-grid">
             <thead>
               <tr>
-                <th class="participant-col">Participant</th>
+                <th class="participant-col" rowspan="2">Participant</th>
                 @for (sprint of project.sprints; track sprint.id) {
-                  <th>
+                  <th [attr.colspan]="sprint.weeks.length" class="sprint-group-header">
                     <div class="sprint-number">Sprint {{ sprint.number }}</div>
                     <div class="sprint-dates">{{ sprintDates(sprint.startDate, sprint.endDate) }}</div>
                   </th>
+                }
+              </tr>
+              <tr>
+                @for (sprint of project.sprints; track sprint.id) {
+                  @for (week of sprint.weeks; track week.cellKey) {
+                    <th class="week-header">
+                      <div class="week-number">Week {{ week.week }}</div>
+                      <div class="sprint-dates">{{ sprintDates(week.startDate, week.endDate) }}</div>
+                    </th>
+                  }
                 }
               </tr>
             </thead>
@@ -249,85 +259,87 @@
                     </div>
                   </th>
                   @for (sprint of project.sprints; track sprint.id) {
-                    <td>
-                      <div
-                        class="epic-stack"
-                        [class.epic-stack-droptarget]="canEditEpics"
-                        cdkDropList
-                        [cdkDropListData]="cellDropData(person.id, sprint.id)"
-                        [cdkDropListDisabled]="!canEditEpics || movingEpic"
-                        (cdkDropListDropped)="onEpicDrop($any($event))"
-                      >
-                        @for (chip of cellsFor(person.id, sprint.id); track chip.type + chip.id + chip.daysInSprint) {
-                          <div
-                            class="epic-chip"
-                            [class.epic-chip-editable]="canEditEpics && chip.type === 'epic'"
-                            [class.epic-chip-pto]="chip.type === 'pto'"
-                            [class.epic-chip-holiday]="chip.type === 'holiday'"
-                            [style.background]="chip.backgroundColor"
-                            [style.color]="contrastText(chip.backgroundColor)"
-                            [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
-                            cdkDrag
-                            [cdkDragData]="chip"
-                            [cdkDragDisabled]="!canEditEpics || movingEpic || chip.type !== 'epic'"
-                          >
-                            <span class="epic-chip-title">{{ chip.type === 'epic' ? truncateEpicTitle(chip.title) : chip.title }}</span>
-                            <span class="epic-chip-meta">
-                              <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
-                              @if (canEditEpics) {
-                                <span class="epic-chip-actions">
-                                  @if (chip.type === 'epic') {
-                                    <button
-                                      type="button"
-                                      class="epic-chip-btn"
-                                      title="Edit epic"
-                                      (click)="openEditEpic(chip.id, $event)"
-                                      (mousedown)="$event.stopPropagation()"
-                                    >
-                                      <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      class="epic-chip-btn"
-                                      title="Delete epic"
-                                      (click)="deleteEpic(chip.id, $event)"
-                                      (mousedown)="$event.stopPropagation()"
-                                    >
-                                      <i class="bi bi-trash"></i>
-                                    </button>
-                                  } @else if (chip.type === 'pto') {
-                                    <button
-                                      type="button"
-                                      class="epic-chip-btn"
-                                      title="Remove PTO"
-                                      (click)="deletePto(chip.id, $event)"
-                                      (mousedown)="$event.stopPropagation()"
-                                    >
-                                      <i class="bi bi-trash"></i>
-                                    </button>
-                                  } @else {
-                                    <button
-                                      type="button"
-                                      class="epic-chip-btn"
-                                      title="Remove holiday"
-                                      (click)="deleteHoliday(chip.id, $event)"
-                                      (mousedown)="$event.stopPropagation()"
-                                    >
-                                      <i class="bi bi-trash"></i>
-                                    </button>
-                                  }
-                                </span>
-                              }
-                            </span>
-                          </div>
-                        }
-                      </div>
-                    </td>
+                    @for (week of sprint.weeks; track week.cellKey) {
+                      <td>
+                        <div
+                          class="epic-stack"
+                          [class.epic-stack-droptarget]="canEditEpics"
+                          cdkDropList
+                          [cdkDropListData]="cellDropData(person.id, sprint.id, week.week, week.cellKey)"
+                          [cdkDropListDisabled]="!canEditEpics || movingEpic"
+                          (cdkDropListDropped)="onEpicDrop($any($event))"
+                        >
+                          @for (chip of cellsFor(person.id, week.cellKey); track chip.type + chip.id + chip.daysInSprint) {
+                            <div
+                              class="epic-chip"
+                              [class.epic-chip-editable]="canEditEpics && chip.type === 'epic'"
+                              [class.epic-chip-pto]="chip.type === 'pto'"
+                              [class.epic-chip-holiday]="chip.type === 'holiday'"
+                              [style.background]="chip.backgroundColor"
+                              [style.color]="contrastText(chip.backgroundColor)"
+                              [title]="chip.title + ' · ' + chip.daysInSprint + 'd'"
+                              cdkDrag
+                              [cdkDragData]="chip"
+                              [cdkDragDisabled]="!canEditEpics || movingEpic || chip.type !== 'epic'"
+                            >
+                              <span class="epic-chip-title">{{ chip.type === 'epic' ? truncateEpicTitle(chip.title) : chip.title }}</span>
+                              <span class="epic-chip-meta">
+                                <span class="epic-chip-days">{{ chip.daysInSprint }}d</span>
+                                @if (canEditEpics) {
+                                  <span class="epic-chip-actions">
+                                    @if (chip.type === 'epic') {
+                                      <button
+                                        type="button"
+                                        class="epic-chip-btn"
+                                        title="Edit epic"
+                                        (click)="openEditEpic(chip.id, $event)"
+                                        (mousedown)="$event.stopPropagation()"
+                                      >
+                                        <i class="bi bi-pencil"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        class="epic-chip-btn"
+                                        title="Delete epic"
+                                        (click)="deleteEpic(chip.id, $event)"
+                                        (mousedown)="$event.stopPropagation()"
+                                      >
+                                        <i class="bi bi-trash"></i>
+                                      </button>
+                                    } @else if (chip.type === 'pto') {
+                                      <button
+                                        type="button"
+                                        class="epic-chip-btn"
+                                        title="Remove PTO"
+                                        (click)="deletePto(chip.id, $event)"
+                                        (mousedown)="$event.stopPropagation()"
+                                      >
+                                        <i class="bi bi-trash"></i>
+                                      </button>
+                                    } @else {
+                                      <button
+                                        type="button"
+                                        class="epic-chip-btn"
+                                        title="Remove holiday"
+                                        (click)="deleteHoliday(chip.id, $event)"
+                                        (mousedown)="$event.stopPropagation()"
+                                      >
+                                        <i class="bi bi-trash"></i>
+                                      </button>
+                                    }
+                                  </span>
+                                }
+                              </span>
+                            </div>
+                          }
+                        </div>
+                      </td>
+                    }
                   }
                 </tr>
               } @empty {
                 <tr>
-                  <td [attr.colspan]="project.sprints.length + 1" class="text-muted p-4">
+                  <td [attr.colspan]="weekColumnCount + 1" class="text-muted p-4">
                     No participants yet.
                     @if (isManager && !isCompleted && addableParticipants.length) {
                       <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="openAddParticipant()">
@@ -342,7 +354,7 @@
               }
               @if (isManager && !isCompleted && project.participants.length && addableParticipants.length) {
                 <tr class="add-participant-row">
-                  <th class="participant-col" [attr.colspan]="project.sprints.length + 1">
+                  <th class="participant-col" [attr.colspan]="weekColumnCount + 1">
                     <button type="button" class="btn btn-link btn-sm action-link add-participant-btn" (click)="openAddParticipant()">
                       <i class="bi bi-plus-lg me-1"></i>Add another user
                     </button>
@@ -666,11 +678,11 @@
               <label class="form-label">Title</label>
               <input type="text" class="form-control" [(ngModel)]="epicTitle" name="epicTitle" placeholder="Epic title">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label class="form-label">Working days</label>
               <input type="number" min="1" class="form-control" [(ngModel)]="epicWorkingDays" name="epicWorkingDays">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label class="form-label">
                 Start sprint
                 @if (!epicAssigneeIds.length) {
@@ -682,6 +694,7 @@
                 [(ngModel)]="epicStartSprint"
                 name="epicStartSprint"
                 [disabled]="!epicAssigneeIds.length"
+                (ngModelChange)="onEpicStartSprintChange($event)"
               >
                 <option [ngValue]="null">{{ epicAssigneeIds.length ? 'Select sprint' : 'Not scheduled' }}</option>
                 @for (sprint of project.sprints; track sprint.id) {
@@ -691,6 +704,24 @@
               @if (!epicAssigneeIds.length) {
                 <div class="form-text">Pick an assignee to schedule a start sprint.</div>
               }
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">
+                Start week
+                @if (!epicAssigneeIds.length) {
+                  <span class="text-muted fw-normal">(optional)</span>
+                }
+              </label>
+              <select
+                class="form-select"
+                [(ngModel)]="epicStartWeek"
+                name="epicStartWeek"
+                [disabled]="!epicAssigneeIds.length || epicStartSprint == null"
+              >
+                <option [ngValue]="null">{{ epicAssigneeIds.length ? 'Select week' : 'Not scheduled' }}</option>
+                <option [ngValue]="1">Week 1</option>
+                <option [ngValue]="2">Week 2</option>
+              </select>
             </div>
             <div class="col-md-6">
               <label class="form-label">Background color</label>
@@ -728,7 +759,7 @@
                 }
               </div>
               @if (epicAssigneeIds.length > 1) {
-                <div class="form-text">Each assignee gets a scheduled copy; the epic also stays in the backlog.</div>
+                <div class="form-text">Each assignee gets a scheduled placement; the epic stays in the backlog as the shared source.</div>
               } @else if (!epicAssigneeIds.length) {
                 <div class="form-text">Leave unassigned to keep it in the backlog for later.</div>
               } @else {
@@ -765,17 +796,35 @@
               <label class="form-label">Title</label>
               <input type="text" class="form-control" [(ngModel)]="editEpicTitle" name="editEpicTitle">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label class="form-label">Working days</label>
               <input type="number" min="1" class="form-control" [(ngModel)]="editEpicWorkingDays" name="editEpicWorkingDays">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label class="form-label">Start sprint</label>
-              <select class="form-select" [(ngModel)]="editEpicStartSprint" name="editEpicStartSprint">
+              <select
+                class="form-select"
+                [(ngModel)]="editEpicStartSprint"
+                name="editEpicStartSprint"
+                (ngModelChange)="onEditEpicStartSprintChange($event)"
+              >
                 <option [ngValue]="null">Not scheduled</option>
                 @for (sprint of project.sprints; track sprint.id) {
                   <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
                 }
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Start week</label>
+              <select
+                class="form-select"
+                [(ngModel)]="editEpicStartWeek"
+                name="editEpicStartWeek"
+                [disabled]="editEpicStartSprint == null"
+              >
+                <option [ngValue]="null">Not scheduled</option>
+                <option [ngValue]="1">Week 1</option>
+                <option [ngValue]="2">Week 2</option>
               </select>
             </div>
             <div class="col-md-6">

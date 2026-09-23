@@ -26,7 +26,7 @@ model User {
   auditLogs      TaskAuditLog[]
   createdProjects       Project[]            @relation("ProjectCreator")
   createdEpics          Epic[]               @relation("EpicCreator")
-  epicAssignments       EpicAssignee[]
+  epicAssignments       EpicAssignment[]
   projectVersions       ProjectVersion[]     @relation("ProjectVersionCreator")
   projectParticipations ProjectParticipant[]
   projectPtos           ProjectPto[]
@@ -239,34 +239,36 @@ model Sprint {
 }
 
 model Epic {
-  id                String   @id @default(uuid())
-  projectId         String
-  sourceEpicId      String?
-  groupKey          String?
-  title             String
-  workingDays       Int
-  startSprintNumber Int?
-  backgroundColor   String
-  createdBy         String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(uuid())
+  projectId       String
+  title           String
+  workingDays     Int
+  backgroundColor String
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  creator    User           @relation("EpicCreator", fields: [createdBy], references: [id])
-  sourceEpic Epic?          @relation("EpicCopies", fields: [sourceEpicId], references: [id], onDelete: Cascade)
-  copies     Epic[]         @relation("EpicCopies")
-  assignees  EpicAssignee[]
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator     User             @relation("EpicCreator", fields: [createdBy], references: [id])
+  assignments EpicAssignment[]
 
-  @@index([sourceEpicId])
+  @@index([projectId])
 }
 
-model EpicAssignee {
-  id     String @id @default(uuid())
-  epicId String
-  userId String
+model EpicAssignment {
+  id                String   @id @default(uuid())
+  epicId            String
+  userId            String
+  workingDays       Int
+  startSprintNumber Int
+  startSprintWeek   Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   epic Epic @relation(fields: [epicId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([epicId, userId])
+  @@unique([epicId, userId, startSprintNumber, startSprintWeek])
+  @@index([epicId])
+  @@index([userId])
 }

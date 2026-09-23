@@ -22,6 +22,7 @@ export interface CreateEpicPayload {
   title: string;
   workingDays: number;
   startSprintNumber?: number | null;
+  startSprintWeek?: number | null;
   assigneeIds?: string[];
   backgroundColor: string;
 }
@@ -30,6 +31,7 @@ export interface UpdateEpicPayload {
   title?: string;
   workingDays?: number;
   startSprintNumber?: number | null;
+  startSprintWeek?: number | null;
   assigneeIds?: string[];
   backgroundColor?: string;
 }
@@ -78,10 +80,17 @@ export class ProjectService {
     return this.api.delete<ProjectDetail>(`/projects/${projectId}/epics/${epicId}`);
   }
 
-  assignEpic(projectId: string, epicId: string, assigneeId: string, startSprintNumber: number) {
+  assignEpic(
+    projectId: string,
+    epicId: string,
+    assigneeId: string,
+    startSprintNumber: number,
+    startSprintWeek: number,
+  ) {
     return this.api.post<ProjectDetail>(`/projects/${projectId}/epics/${epicId}/assign`, {
       assigneeId,
       startSprintNumber,
+      startSprintWeek,
     });
   }
 

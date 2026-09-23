@@ -142,6 +142,15 @@ export interface ProjectSprint {
   startDate: string;
   endDate: string;
   workingDays: number;
+  weeks: ProjectSprintWeek[];
+}
+
+export interface ProjectSprintWeek {
+  week: 1 | 2;
+  startDate: string;
+  endDate: string;
+  workingDays: number;
+  cellKey: string;
 }
 
 export interface GridChip {
@@ -201,6 +210,7 @@ export interface ProjectEpic {
   title: string;
   workingDays: number;
   startSprintNumber: number | null;
+  startSprintWeek: number | null;
   backgroundColor: string;
   createdAt: string;
   assignees: User[];
@@ -244,6 +254,7 @@ export interface ComparisonEpicEntry {
   assignee: string | null;
   workingDays: number;
   startSprintNumber: number | null;
+  startSprintWeek: number | null;
   status: 'unchanged' | 'changed' | 'added' | 'removed';
   changes: string[];
 }

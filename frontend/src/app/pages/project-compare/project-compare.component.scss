@@ -40,7 +40,7 @@
   min-width: 720px;
 
   th, td {
-    min-width: 140px;
+    min-width: 120px;
     vertical-align: top;
   }
 
@@ -65,11 +65,25 @@
     font-size: 0.9rem;
   }
 
-  .sprint-number {
+  .sprint-number,
+  .week-number {
     color: var(--app-text);
     text-transform: none;
     letter-spacing: 0;
     font-size: 0.85rem;
+  }
+
+  .week-number {
+    font-weight: 600;
+  }
+
+  .sprint-group-header {
+    text-align: center;
+    border-bottom: none;
+  }
+
+  .week-header {
+    min-width: 120px;
   }
 
   .sprint-dates {
