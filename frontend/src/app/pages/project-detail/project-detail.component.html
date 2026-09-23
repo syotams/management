@@ -8,7 +8,7 @@
           {{ formatRange(project.startDate, project.endDate) }}
           · {{ teamsLabel }}
           · {{ project.sprints.length }} sprints
-          · {{ project.epics.length }} epics
+          · {{ backlogEpics.length }} epics
           @if (project.currentVersion) {
             · v{{ project.currentVersion }}
           }
@@ -103,9 +103,10 @@
               <div
                 class="epic-chip epic-chip-backlog"
                 [class.epic-chip-editable]="canEditEpics"
+                [class.epic-chip-fully-assigned]="isBacklogFullyAssigned(epic)"
                 [style.background]="epic.backgroundColor"
                 [style.color]="contrastText(epic.backgroundColor)"
-                [title]="epic.title + ' · ' + epic.workingDays + 'd'"
+                [title]="backlogEpicTitle(epic)"
                 cdkDrag
                 [cdkDragData]="epic"
                 [cdkDragDisabled]="!canEditEpics || movingEpic"

@@ -383,6 +383,15 @@
 
 .epic-chip-backlog {
   max-width: 220px;
+
+  &.epic-chip-fully-assigned::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(0, 0, 0, 0.32);
+    pointer-events: none;
+  }
 }
 
 .modal-backdrop-custom {

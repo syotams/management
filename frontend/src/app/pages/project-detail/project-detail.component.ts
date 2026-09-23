@@ -287,6 +287,22 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     );
   }
 
+  assignedWorkingDays(templateEpicId: string): number {
+    if (!this.project) return 0;
+    return this.project.epics
+      .filter((epic) => epic.sourceEpicId === templateEpicId)
+      .reduce((sum, epic) => sum + epic.workingDays, 0);
+  }
+
+  isBacklogFullyAssigned(epic: ProjectEpic): boolean {
+    return this.assignedWorkingDays(epic.id) >= epic.workingDays;
+  }
+
+  backlogEpicTitle(epic: ProjectEpic): string {
+    const assigned = this.assignedWorkingDays(epic.id);
+    return `${epic.title} · ${assigned}/${epic.workingDays}d assigned`;
+  }
+
   get weekColumnCount(): number {
     if (!this.project) return 0;
     return this.project.sprints.reduce((sum, sprint) => sum + (sprint.weeks?.length ?? 2), 0);
