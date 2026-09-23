@@ -85,13 +85,13 @@ describe('Projects epics (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/epics/${backlog.id}/assign`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ assigneeId, startSprintNumber: 1 })
+      .send({ assigneeId, startSprintNumber: 1, startSprintWeek: 1 })
       .expect(201);
 
     const second = await request(app.getHttpServer())
       .post(`/projects/${projectId}/epics/${backlog.id}/assign`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ assigneeId, startSprintNumber: 3 })
+      .send({ assigneeId, startSprintNumber: 3, startSprintWeek: 1 })
       .expect(201);
 
     const placements = second.body.epics.filter(
@@ -109,7 +109,7 @@ describe('Projects epics (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/epics/${backlog.id}/assign`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ assigneeId, startSprintNumber: 1 })
+      .send({ assigneeId, startSprintNumber: 1, startSprintWeek: 1 })
       .expect(201);
 
     const updated = await request(app.getHttpServer())
@@ -132,7 +132,7 @@ describe('Projects epics (e2e)', () => {
     const assigned = await request(app.getHttpServer())
       .post(`/projects/${projectId}/epics/${backlog.id}/assign`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ assigneeId, startSprintNumber: 1 })
+      .send({ assigneeId, startSprintNumber: 1, startSprintWeek: 1 })
       .expect(201);
     const assignmentId = assigned.body.epics.find(
       (e: { sourceEpicId: string | null }) => e.sourceEpicId === backlog.id,
@@ -153,13 +153,13 @@ describe('Projects epics (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/epics/${backlog.id}/assign`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ assigneeId, startSprintNumber: 1 })
+      .send({ assigneeId, startSprintNumber: 1, startSprintWeek: 1 })
       .expect(201);
 
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/epics/${backlog.id}/assign`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ assigneeId, startSprintNumber: 1 })
+      .send({ assigneeId, startSprintNumber: 1, startSprintWeek: 1 })
       .expect(400);
   });
 
@@ -168,7 +168,7 @@ describe('Projects epics (e2e)', () => {
     const assigned = await request(app.getHttpServer())
       .post(`/projects/${projectId}/epics/${backlog.id}/assign`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ assigneeId, startSprintNumber: 1 })
+      .send({ assigneeId, startSprintNumber: 1, startSprintWeek: 1 })
       .expect(201);
     const assignmentId = assigned.body.epics.find(
       (e: { sourceEpicId: string | null }) => e.sourceEpicId === backlog.id,
@@ -177,7 +177,7 @@ describe('Projects epics (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/epics/${backlog.id}/assign`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ assigneeId, startSprintNumber: 2 })
+      .send({ assigneeId, startSprintNumber: 2, startSprintWeek: 1 })
       .expect(201);
 
     await request(app.getHttpServer())

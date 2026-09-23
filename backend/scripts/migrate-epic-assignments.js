@@ -56,10 +56,11 @@ async function migrate() {
         \`userId\` VARCHAR(191) NOT NULL,
         \`workingDays\` INTEGER NOT NULL,
         \`startSprintNumber\` INTEGER NOT NULL,
+        \`startSprintWeek\` INTEGER NOT NULL,
         \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         \`updatedAt\` DATETIME(3) NOT NULL,
         PRIMARY KEY (\`id\`),
-        UNIQUE INDEX \`EpicAssignment_epicId_userId_startSprintNumber_key\` (\`epicId\`, \`userId\`, \`startSprintNumber\`),
+        UNIQUE INDEX \`EpicAssignment_epicId_userId_startSprintNumber_startSprintWeek_key\` (\`epicId\`, \`userId\`, \`startSprintNumber\`, \`startSprintWeek\`),
         INDEX \`EpicAssignment_epicId_idx\` (\`epicId\`),
         INDEX \`EpicAssignment_userId_idx\` (\`userId\`)
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
@@ -69,13 +70,14 @@ async function migrate() {
       // Copy rows (sourceEpicId set) → assignment on the backlog epic
       await prisma.$executeRawUnsafe(`
         INSERT IGNORE INTO \`EpicAssignment\`
-          (\`id\`, \`epicId\`, \`userId\`, \`workingDays\`, \`startSprintNumber\`, \`createdAt\`, \`updatedAt\`)
+          (\`id\`, \`epicId\`, \`userId\`, \`workingDays\`, \`startSprintNumber\`, \`startSprintWeek\`, \`createdAt\`, \`updatedAt\`)
         SELECT
           e.\`id\`,
           e.\`sourceEpicId\`,
           a.\`userId\`,
           e.\`workingDays\`,
           e.\`startSprintNumber\`,
+          1,
           e.\`createdAt\`,
           e.\`updatedAt\`
         FROM \`Epic\` e
@@ -87,13 +89,14 @@ async function migrate() {
       // Edge case: scheduled rows without sourceEpicId (assignee on the epic itself)
       await prisma.$executeRawUnsafe(`
         INSERT IGNORE INTO \`EpicAssignment\`
-          (\`id\`, \`epicId\`, \`userId\`, \`workingDays\`, \`startSprintNumber\`, \`createdAt\`, \`updatedAt\`)
+          (\`id\`, \`epicId\`, \`userId\`, \`workingDays\`, \`startSprintNumber\`, \`startSprintWeek\`, \`createdAt\`, \`updatedAt\`)
         SELECT
           CONCAT(e.\`id\`, '-', a.\`userId\`),
           e.\`id\`,
           a.\`userId\`,
           e.\`workingDays\`,
           e.\`startSprintNumber\`,
+          1,
           e.\`createdAt\`,
           e.\`updatedAt\`
         FROM \`Epic\` e

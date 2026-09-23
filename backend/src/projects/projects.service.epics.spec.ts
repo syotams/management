@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from './projects.service';
@@ -58,6 +58,7 @@ describe('ProjectsService epic derivation', () => {
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
+      startSprintWeek: 1,
     });
 
     expect(await prisma.epic.count({ where: { projectId } })).toBe(1);
@@ -80,6 +81,7 @@ describe('ProjectsService epic derivation', () => {
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
+      startSprintWeek: 1,
     });
 
     await service.updateEpic(projectId, backlog.id, creatorId, {
@@ -99,6 +101,7 @@ describe('ProjectsService epic derivation', () => {
     const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
+      startSprintWeek: 1,
     });
     const assignmentId = assigned.epics.find((e) => e.sourceEpicId === backlog.id)!.id;
 
@@ -117,10 +120,12 @@ describe('ProjectsService epic derivation', () => {
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
+      startSprintWeek: 1,
     });
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 3,
+      startSprintWeek: 1,
     });
 
     expect(await prisma.epicAssignment.count()).toBe(2);
@@ -136,14 +141,72 @@ describe('ProjectsService epic derivation', () => {
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
+      startSprintWeek: 1,
     });
 
     await expect(
       service.assignEpic(projectId, backlog.id, creatorId, {
         assigneeId,
         startSprintNumber: 1,
+        startSprintWeek: 1,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects duplicate epic titles within the same project', async () => {
+    await createBacklogEpic({ title: 'Auth' });
+
+    await expect(createBacklogEpic({ title: 'Auth' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(createBacklogEpic({ title: '  Auth  ' })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('allows renaming an epic to its own title and rejects collisions', async () => {
+    await createBacklogEpic({ title: 'Auth' });
+    await createBacklogEpic({ title: 'Billing' });
+    const detail = await service.findOne(projectId, creatorId);
+    const auth = detail.epics.find((e) => !e.sourceEpicId && e.title === 'Auth')!;
+    const billing = detail.epics.find((e) => !e.sourceEpicId && e.title === 'Billing')!;
+
+    await service.updateEpic(projectId, auth.id, creatorId, { title: 'Auth' });
+
+    await expect(
+      service.updateEpic(projectId, billing.id, creatorId, { title: 'Auth' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('allows the same epic title in different projects', async () => {
+    await createBacklogEpic({ title: 'Auth' });
+
+    const other = await prisma.project.create({
+      data: {
+        name: 'Other',
+        startDate: new Date('2026-01-05'),
+        endDate: new Date('2026-03-27'),
+        status: 'draft',
+        createdBy: creatorId,
+        sprints: {
+          create: [
+            {
+              number: 1,
+              startDate: new Date('2026-01-05'),
+              endDate: new Date('2026-01-16'),
+            },
+          ],
+        },
+      },
+    });
+
+    await expect(
+      service.addEpic(other.id, creatorId, {
+        title: 'Auth',
+        workingDays: 3,
+        backgroundColor: '#4f46e5',
+      }),
+    ).resolves.toMatchObject({
+      epics: expect.arrayContaining([expect.objectContaining({ title: 'Auth' })]),
+    });
   });
 
   it('deletes only one assignment when deleting assignment id', async () => {
@@ -152,10 +215,12 @@ describe('ProjectsService epic derivation', () => {
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
+      startSprintWeek: 1,
     });
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 2,
+      startSprintWeek: 1,
     });
     const detail = await service.findOne(projectId, creatorId);
     const first = detail.epics.find(
@@ -174,6 +239,7 @@ describe('ProjectsService epic derivation', () => {
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
+      startSprintWeek: 1,
     });
 
     await service.deleteEpic(projectId, backlog.id, creatorId);
@@ -191,6 +257,7 @@ describe('ProjectsService epic derivation', () => {
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
+      startSprintWeek: 1,
     });
     await service.updateEpic(projectId, backlog.id, creatorId, {
       title: 'Billing',

@@ -74,8 +74,18 @@ export class ProjectCompareComponent implements OnInit {
     return `${formatDateOnly(start, false)} – ${formatDateOnly(end, false)}`;
   }
 
-  planCells(plan: ProjectPlanView, participantId: string, sprintId: string) {
-    return plan.participants.find((p) => p.id === participantId)?.cells?.[sprintId] ?? [];
+  planCells(plan: ProjectPlanView, participantId: string, cellKey: string) {
+    return plan.participants.find((p) => p.id === participantId)?.cells?.[cellKey] ?? [];
+  }
+
+  weekColumnCount(plan: ProjectPlanView): number {
+    return plan.sprints.reduce((sum, sprint) => sum + (sprint.weeks?.length ?? 2), 0);
+  }
+
+  sprintLabel(epic: { startSprintNumber: number | null; startSprintWeek?: number | null }) {
+    if (!epic.startSprintNumber) return 'Unscheduled';
+    const week = epic.startSprintWeek ?? 1;
+    return `Sprint ${epic.startSprintNumber} · Week ${week}`;
   }
 
   diffLabel(value: number) {

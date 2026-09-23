@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -21,6 +22,8 @@ import {
   countWeekdaysOverlap,
   generateSprints,
   parseDateOnly,
+  sprintWeekSlots,
+  type SprintWeekNumber,
 } from './sprint.util';
 
 const PTO_CHIP_COLOR = '#94a3b8';
@@ -35,6 +38,7 @@ type EpicWithAssignees = {
   title: string;
   workingDays: number;
   startSprintNumber: number | null;
+  startSprintWeek: number | null;
   backgroundColor: string;
   createdAt: Date | string;
   assignees: { userId?: string; user: { id: string; name: string; email: string } }[];
@@ -62,6 +66,7 @@ type PlanSnapshot = {
     title: string;
     workingDays: number;
     startSprintNumber: number | null;
+    startSprintWeek?: number | null;
     backgroundColor: string;
     createdAt: string;
     assignees: { id: string; name: string; email: string }[];
@@ -255,21 +260,33 @@ export class ProjectsService {
 
     const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : [];
     const startSprintNumber = dto.startSprintNumber ?? null;
+    const startSprintWeek = dto.startSprintWeek ?? null;
 
     if (assigneeIds.length && startSprintNumber === null) {
       throw new BadRequestException('startSprintNumber is required when assigning an epic');
     }
+    if (assigneeIds.length && startSprintWeek === null) {
+      throw new BadRequestException('startSprintWeek is required when assigning an epic');
+    }
     if (startSprintNumber !== null && !assigneeIds.length) {
       throw new BadRequestException('assigneeIds are required when scheduling an epic');
     }
-    if (startSprintNumber !== null) {
+    if (startSprintNumber !== null && startSprintWeek === null) {
+      throw new BadRequestException('startSprintWeek is required when scheduling an epic');
+    }
+    if (startSprintWeek !== null && startSprintNumber === null) {
+      throw new BadRequestException('startSprintNumber is required when scheduling an epic');
+    }
+    if (startSprintNumber !== null && startSprintWeek !== null) {
       this.assertStartSprint(project, startSprintNumber);
+      this.assertStartSprintWeek(startSprintWeek);
     }
     if (assigneeIds.length) {
       await this.ensureAssignable(project, userId, assigneeIds);
     }
 
     const title = dto.title.trim();
+    this.assertUniqueEpicTitle(project.epics, title);
     const backgroundColor = dto.backgroundColor.toLowerCase();
 
     await this.prisma.$transaction(async (tx) => {
@@ -283,7 +300,7 @@ export class ProjectsService {
         },
       });
 
-      if (!assigneeIds.length || startSprintNumber === null) return;
+      if (!assigneeIds.length || startSprintNumber === null || startSprintWeek === null) return;
 
       await tx.epicAssignment.createMany({
         data: assigneeIds.map((assigneeId) => ({
@@ -291,6 +308,7 @@ export class ProjectsService {
           userId: assigneeId,
           workingDays: dto.workingDays,
           startSprintNumber,
+          startSprintWeek,
         })),
       });
     });
@@ -313,6 +331,7 @@ export class ProjectsService {
     if (!template) throw new NotFoundException('Epic not found');
 
     this.assertStartSprint(project, dto.startSprintNumber);
+    this.assertStartSprintWeek(dto.startSprintWeek);
     await this.ensureAssignable(project, userId, [dto.assigneeId]);
 
     const duplicate = await this.prisma.epicAssignment.findFirst({
@@ -320,10 +339,11 @@ export class ProjectsService {
         epicId: templateEpicId,
         userId: dto.assigneeId,
         startSprintNumber: dto.startSprintNumber,
+        startSprintWeek: dto.startSprintWeek,
       },
     });
     if (duplicate) {
-      throw new BadRequestException('This epic is already assigned to that user in that sprint');
+      throw new BadRequestException('This epic is already assigned to that user in that sprint week');
     }
 
     await this.prisma.epicAssignment.create({
@@ -332,6 +352,7 @@ export class ProjectsService {
         userId: dto.assigneeId,
         workingDays: template.workingDays,
         startSprintNumber: dto.startSprintNumber,
+        startSprintWeek: dto.startSprintWeek,
       },
     });
 
@@ -354,10 +375,15 @@ export class ProjectsService {
     if (!backlogEpic && !assignment) throw new NotFoundException('Epic not found');
 
     if (backlogEpic) {
+      const title = dto.title !== undefined ? dto.title.trim() : undefined;
+      if (title !== undefined) {
+        this.assertUniqueEpicTitle(project.epics, title, epicId);
+      }
+
       await this.prisma.epic.update({
         where: { id: epicId },
         data: {
-          ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+          ...(title !== undefined ? { title } : {}),
           ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
           ...(dto.backgroundColor !== undefined
             ? { backgroundColor: dto.backgroundColor.toLowerCase() }
@@ -375,24 +401,30 @@ export class ProjectsService {
         dto.startSprintNumber !== undefined
           ? dto.startSprintNumber
           : assignment.assignment.startSprintNumber;
+      const nextWeek =
+        dto.startSprintWeek !== undefined
+          ? dto.startSprintWeek
+          : assignment.assignment.startSprintWeek;
 
-      if (!nextUserId || nextSprint == null) {
-        throw new BadRequestException('Assignments require an assignee and start sprint');
+      if (!nextUserId || nextSprint == null || nextWeek == null) {
+        throw new BadRequestException('Assignments require an assignee, start sprint, and start week');
       }
 
       await this.ensureAssignable(project, userId, [nextUserId]);
       this.assertStartSprint(project, nextSprint);
+      this.assertStartSprintWeek(nextWeek);
 
       const duplicate = await this.prisma.epicAssignment.findFirst({
         where: {
           epicId: assignment.epic.id,
           userId: nextUserId,
           startSprintNumber: nextSprint,
+          startSprintWeek: nextWeek,
           id: { not: epicId },
         },
       });
       if (duplicate) {
-        throw new BadRequestException('This epic is already assigned to that user in that sprint');
+        throw new BadRequestException('This epic is already assigned to that user in that sprint week');
       }
 
       await this.prisma.epicAssignment.update({
@@ -400,6 +432,7 @@ export class ProjectsService {
         data: {
           userId: nextUserId,
           startSprintNumber: nextSprint,
+          startSprintWeek: nextWeek,
           ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
         },
       });
@@ -587,6 +620,7 @@ export class ProjectsService {
         title: epic.title,
         workingDays: epic.workingDays,
         startSprintNumber: epic.startSprintNumber,
+        startSprintWeek: epic.startSprintWeek,
         backgroundColor: epic.backgroundColor,
         createdAt:
           typeof epic.createdAt === 'string' ? epic.createdAt : epic.createdAt.toISOString(),
@@ -632,6 +666,7 @@ export class ProjectsService {
       assignee: epic.assignees[0]?.name ?? null,
       workingDays: epic.workingDays,
       startSprintNumber: epic.startSprintNumber,
+      startSprintWeek: epic.startSprintWeek ?? null,
       status,
       changes: changes ?? [],
     };
@@ -647,6 +682,13 @@ export class ProjectsService {
       const from = orig.startSprintNumber ?? 'unscheduled';
       const to = latest.startSprintNumber ?? 'unscheduled';
       changes.push(`Start sprint: ${from} → ${to}`);
+    }
+    const origWeek = orig.startSprintWeek ?? null;
+    const latestWeek = latest.startSprintWeek ?? null;
+    if (origWeek !== latestWeek) {
+      const from = origWeek ?? 'unscheduled';
+      const to = latestWeek ?? 'unscheduled';
+      changes.push(`Start week: ${from} → ${to}`);
     }
     const origAssignee = orig.assignees[0]?.name ?? 'unassigned';
     const latestAssignee = latest.assignees[0]?.name ?? 'unassigned';
@@ -794,7 +836,7 @@ export class ProjectsService {
   private epicMatchKey(epic: SnapshotEpic) {
     const assigneeId = epic.assignees[0]?.id ?? '';
     const source = epic.sourceEpicId ?? epic.groupKey ?? epic.id;
-    return `${source}:${assigneeId}:${epic.startSprintNumber ?? ''}`;
+    return `${source}:${assigneeId}:${epic.startSprintNumber ?? ''}:${epic.startSprintWeek ?? ''}`;
   }
 
   private epicsEqual(a: SnapshotEpic, b: SnapshotEpic) {
@@ -804,6 +846,7 @@ export class ProjectsService {
       a.title === b.title &&
       a.workingDays === b.workingDays &&
       a.startSprintNumber === b.startSprintNumber &&
+      (a.startSprintWeek ?? null) === (b.startSprintWeek ?? null) &&
       a.backgroundColor === b.backgroundColor &&
       aAssignee === bAssignee
     );
@@ -819,9 +862,11 @@ export class ProjectsService {
     const epics: EpicWithAssignees[] = snapshot.epics.map((epic) => ({
       id: epic.id,
       groupKey: epic.groupKey ?? null,
+      sourceEpicId: epic.sourceEpicId ?? null,
       title: epic.title,
       workingDays: epic.workingDays,
       startSprintNumber: epic.startSprintNumber,
+      startSprintWeek: epic.startSprintWeek ?? (epic.startSprintNumber != null ? 1 : null),
       backgroundColor: epic.backgroundColor,
       createdAt: epic.createdAt,
       assignees: epic.assignees.map((user) => ({ userId: user.id, user })),
@@ -837,18 +882,15 @@ export class ProjectsService {
       endDate: snapshot.endDate,
       teamId: snapshot.teamId,
       team: snapshot.team,
-      sprints: sprints.map((s) => ({
-        id: s.id,
-        number: s.number,
-        startDate: s.startDate,
-        endDate: s.endDate,
-        workingDays: countWeekdays(s.startDate, s.endDate),
-      })),
+      sprints: this.mapSprintsWithWeeks(sprints),
       participants: participants.map((p) => ({
         ...p,
         cells: grid[p.id] || {},
       })),
-      epics: snapshot.epics,
+      epics: snapshot.epics.map((epic) => ({
+        ...epic,
+        startSprintWeek: epic.startSprintWeek ?? (epic.startSprintNumber != null ? 1 : null),
+      })),
     };
   }
 
@@ -963,13 +1005,7 @@ export class ProjectsService {
       addedParticipants: project.participants.map((p) => p.user),
       versionCount: project._count.versions,
       currentVersion: project.versions[0]?.versionNumber ?? null,
-      sprints: project.sprints.map((s) => ({
-        id: s.id,
-        number: s.number,
-        startDate: s.startDate,
-        endDate: s.endDate,
-        workingDays: countWeekdays(s.startDate, s.endDate),
-      })),
+      sprints: this.mapSprintsWithWeeks(project.sprints),
       participants: participants.map((p) => {
         const cap = capacityByUser.get(p.id);
         return {
@@ -997,6 +1033,7 @@ export class ProjectsService {
         title: epic.title,
         workingDays: epic.workingDays,
         startSprintNumber: epic.startSprintNumber,
+        startSprintWeek: epic.startSprintWeek,
         backgroundColor: epic.backgroundColor,
         createdAt: epic.createdAt,
         assignees: epic.assignees.map((a) => a.user),
@@ -1015,6 +1052,7 @@ export class ProjectsService {
         id: string;
         workingDays: number;
         startSprintNumber: number;
+        startSprintWeek: number;
         createdAt: Date;
         user: { id: string; name: string; email: string };
       }[];
@@ -1027,6 +1065,7 @@ export class ProjectsService {
       title: epic.title,
       workingDays: epic.workingDays,
       startSprintNumber: null as number | null,
+      startSprintWeek: null as number | null,
       backgroundColor: epic.backgroundColor,
       createdAt: epic.createdAt,
       assignees: [] as EpicWithAssignees['assignees'],
@@ -1040,6 +1079,7 @@ export class ProjectsService {
         title: epic.title,
         workingDays: assignment.workingDays,
         startSprintNumber: assignment.startSprintNumber,
+        startSprintWeek: assignment.startSprintWeek,
         backgroundColor: epic.backgroundColor,
         createdAt: assignment.createdAt,
         assignees: [{ userId: assignment.user.id, user: assignment.user }],
@@ -1156,6 +1196,7 @@ export class ProjectsService {
     ptos: { id: string; userId: string; name: string; startDate: Date; endDate: Date }[],
     holidays: { id: string; userId: string; name: string; startDate: Date; endDate: Date }[],
   ) {
+    const slots = sprintWeekSlots(sprints);
     const grid: Record<string, Record<string, {
       type: 'epic' | 'pto' | 'holiday';
       id: string;
@@ -1169,87 +1210,91 @@ export class ProjectsService {
     for (const userId of participantIds) {
       remaining.set(userId, new Map());
       grid[userId] = {};
-      for (const sprint of sprints) {
-        grid[userId][sprint.id] = [];
+      for (const slot of slots) {
+        grid[userId][slot.cellKey] = [];
         remaining.get(userId)!.set(
-          sprint.id,
-          Math.max(0, countWeekdays(sprint.startDate, sprint.endDate)),
+          slot.cellKey,
+          Math.max(0, countWeekdays(slot.startDate, slot.endDate)),
         );
       }
     }
 
     for (const holiday of holidays) {
       if (!grid[holiday.userId]) continue;
-      for (const sprint of sprints) {
+      for (const slot of slots) {
         const days = countWeekdaysOverlap(
           holiday.startDate,
           holiday.endDate,
-          sprint.startDate,
-          sprint.endDate,
+          slot.startDate,
+          slot.endDate,
         );
         if (days <= 0) continue;
-        grid[holiday.userId][sprint.id].push({
+        grid[holiday.userId][slot.cellKey].push({
           type: 'holiday',
           id: holiday.id,
           title: holiday.name,
           backgroundColor: HOLIDAY_CHIP_COLOR,
           daysInSprint: days,
         });
-        const rem = remaining.get(holiday.userId)!.get(sprint.id) ?? 0;
-        remaining.get(holiday.userId)!.set(sprint.id, Math.max(0, rem - days));
+        const rem = remaining.get(holiday.userId)!.get(slot.cellKey) ?? 0;
+        remaining.get(holiday.userId)!.set(slot.cellKey, Math.max(0, rem - days));
       }
     }
 
     for (const pto of ptos) {
       if (!grid[pto.userId]) continue;
-      for (const sprint of sprints) {
+      for (const slot of slots) {
         const days = countWeekdaysOverlap(
           pto.startDate,
           pto.endDate,
-          sprint.startDate,
-          sprint.endDate,
+          slot.startDate,
+          slot.endDate,
         );
         if (days <= 0) continue;
-        grid[pto.userId][sprint.id].push({
+        grid[pto.userId][slot.cellKey].push({
           type: 'pto',
           id: pto.id,
           title: pto.name,
           backgroundColor: PTO_CHIP_COLOR,
           daysInSprint: days,
         });
-        const rem = remaining.get(pto.userId)!.get(sprint.id) ?? 0;
-        remaining.get(pto.userId)!.set(sprint.id, Math.max(0, rem - days));
+        const rem = remaining.get(pto.userId)!.get(slot.cellKey) ?? 0;
+        remaining.get(pto.userId)!.set(slot.cellKey, Math.max(0, rem - days));
       }
     }
 
     for (const epic of epics) {
       if (!epic.assignees.length || epic.startSprintNumber == null) continue;
-      const startFrom = epic.startSprintNumber;
-      const eligible = sprints.filter((s) => s.number >= startFrom);
+      const startWeek = (epic.startSprintWeek ?? 1) as SprintWeekNumber;
+      const eligible = slots.filter(
+        (slot) =>
+          slot.sprintNumber > epic.startSprintNumber! ||
+          (slot.sprintNumber === epic.startSprintNumber && slot.week >= startWeek),
+      );
       for (const assignee of epic.assignees) {
         const userId = assignee.userId ?? assignee.user.id;
         if (!grid[userId]) continue;
         let daysLeft = epic.workingDays;
 
-        for (const sprint of eligible) {
+        for (const slot of eligible) {
           if (daysLeft <= 0) break;
-          const rem = remaining.get(userId)!.get(sprint.id) ?? 0;
+          const rem = remaining.get(userId)!.get(slot.cellKey) ?? 0;
           if (rem <= 0) continue;
           const used = Math.min(daysLeft, rem);
-          grid[userId][sprint.id].push({
+          grid[userId][slot.cellKey].push({
             type: 'epic',
             id: epic.id,
             title: epic.title,
             backgroundColor: epic.backgroundColor,
             daysInSprint: used,
           });
-          remaining.get(userId)!.set(sprint.id, rem - used);
+          remaining.get(userId)!.set(slot.cellKey, rem - used);
           daysLeft -= used;
         }
 
         if (daysLeft > 0 && eligible.length) {
           const last = eligible[eligible.length - 1];
-          const chips = grid[userId][last.id];
+          const chips = grid[userId][last.cellKey];
           const existing = chips.find((c) => c.type === 'epic' && c.id === epic.id);
           if (existing) existing.daysInSprint += daysLeft;
           else {
@@ -1266,6 +1311,28 @@ export class ProjectsService {
     }
 
     return grid;
+  }
+
+  private mapSprintsWithWeeks(
+    sprints: { id: string; number: number; startDate: Date; endDate: Date }[],
+  ) {
+    return sprints.map((s) => {
+      const weeks = sprintWeekSlots([s]).map((slot) => ({
+        week: slot.week,
+        startDate: slot.startDate,
+        endDate: slot.endDate,
+        workingDays: countWeekdays(slot.startDate, slot.endDate),
+        cellKey: slot.cellKey,
+      }));
+      return {
+        id: s.id,
+        number: s.number,
+        startDate: s.startDate,
+        endDate: s.endDate,
+        workingDays: countWeekdays(s.startDate, s.endDate),
+        weeks,
+      };
+    });
   }
 
   private projectSpan(sprints: { startDate: Date; endDate: Date }[]) {
@@ -1472,12 +1539,29 @@ export class ProjectsService {
     startSprintNumber: number,
   ) {
     const maxSprint = project.sprints[project.sprints.length - 1]?.number ?? 0;
-    if (!maxSprint || startSprintNumber > maxSprint) {
+    if (!maxSprint || startSprintNumber < 1 || startSprintNumber > maxSprint) {
       throw new BadRequestException(
         maxSprint
           ? `startSprintNumber must be between 1 and ${maxSprint}`
           : 'Project has no sprints to place an epic in',
       );
+    }
+  }
+
+  private assertStartSprintWeek(startSprintWeek: number) {
+    if (startSprintWeek !== 1 && startSprintWeek !== 2) {
+      throw new BadRequestException('startSprintWeek must be 1 or 2');
+    }
+  }
+
+  private assertUniqueEpicTitle(
+    epics: { id: string; title: string }[],
+    title: string,
+    excludeEpicId?: string,
+  ) {
+    const duplicate = epics.some((epic) => epic.title === title && epic.id !== excludeEpicId);
+    if (duplicate) {
+      throw new ConflictException('An epic with this name already exists in this project');
     }
   }
 

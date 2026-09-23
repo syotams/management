@@ -252,6 +252,7 @@ model Epic {
   creator     User             @relation("EpicCreator", fields: [createdBy], references: [id])
   assignments EpicAssignment[]
 
+  @@unique([projectId, title])
   @@index([projectId])
 }
 
@@ -261,13 +262,14 @@ model EpicAssignment {
   userId            String
   workingDays       Int
   startSprintNumber Int
+  startSprintWeek   Int
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   epic Epic @relation(fields: [epicId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([epicId, userId, startSprintNumber])
+  @@unique([epicId, userId, startSprintNumber, startSprintWeek])
   @@index([epicId])
   @@index([userId])
 }

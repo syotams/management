@@ -37,6 +37,57 @@ export function generateSprints(startDate: Date, endDate: Date): { number: numbe
   return sprints;
 }
 
+export type SprintWeekNumber = 1 | 2;
+
+export function sprintWeekRange(
+  sprint: { startDate: Date; endDate: Date },
+  week: SprintWeekNumber,
+): { startDate: Date; endDate: Date } {
+  const start = startOfUtcDay(sprint.startDate);
+  if (week === 1) {
+    return { startDate: start, endDate: addUtcDays(start, 6) };
+  }
+  return { startDate: addUtcDays(start, 7), endDate: startOfUtcDay(sprint.endDate) };
+}
+
+export function weekCellKey(sprintId: string, week: SprintWeekNumber): string {
+  return `${sprintId}:w${week}`;
+}
+
+export function sprintWeekSlots(
+  sprints: { id: string; number: number; startDate: Date; endDate: Date }[],
+): {
+  sprintId: string;
+  sprintNumber: number;
+  week: SprintWeekNumber;
+  startDate: Date;
+  endDate: Date;
+  cellKey: string;
+}[] {
+  const slots: {
+    sprintId: string;
+    sprintNumber: number;
+    week: SprintWeekNumber;
+    startDate: Date;
+    endDate: Date;
+    cellKey: string;
+  }[] = [];
+  for (const sprint of sprints) {
+    for (const week of [1, 2] as SprintWeekNumber[]) {
+      const range = sprintWeekRange(sprint, week);
+      slots.push({
+        sprintId: sprint.id,
+        sprintNumber: sprint.number,
+        week,
+        startDate: range.startDate,
+        endDate: range.endDate,
+        cellKey: weekCellKey(sprint.id, week),
+      });
+    }
+  }
+  return slots;
+}
+
 export function countWeekdays(startDate: Date, endDate: Date): number {
   let count = 0;
   let current = startOfUtcDay(startDate);
