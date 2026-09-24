@@ -269,7 +269,8 @@ model EpicAssignment {
   epic Epic @relation(fields: [epicId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([epicId, userId, startSprintNumber, startSprintWeek])
+  // MySQL identifier limit is 64 chars; default Prisma name exceeds it.
+  @@unique([epicId, userId, startSprintNumber, startSprintWeek], map: "EpicAssignment_epic_user_sprintWeek_key")
   @@index([epicId])
   @@index([userId])
 }

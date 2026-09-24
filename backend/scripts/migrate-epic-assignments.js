@@ -66,7 +66,7 @@ async function migrateEpicCopiesToAssignments(prisma) {
       \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
       \`updatedAt\` DATETIME(3) NOT NULL,
       PRIMARY KEY (\`id\`),
-      UNIQUE INDEX \`EpicAssignment_epicId_userId_startSprintNumber_startSprintWeek_key\` (\`epicId\`, \`userId\`, \`startSprintNumber\`, \`startSprintWeek\`),
+      UNIQUE INDEX \`EpicAssignment_epic_user_sprintWeek_key\` (\`epicId\`, \`userId\`, \`startSprintNumber\`, \`startSprintWeek\`),
       INDEX \`EpicAssignment_epicId_idx\` (\`epicId\`),
       INDEX \`EpicAssignment_userId_idx\` (\`userId\`)
     ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
@@ -167,8 +167,9 @@ async function migrateStartSprintWeek(prisma) {
     `);
   }
 
+  // Default Prisma name is >64 chars (MySQL limit); keep this short and mapped in schema.
   const oldUnique = 'EpicAssignment_epicId_userId_startSprintNumber_key';
-  const newUnique = 'EpicAssignment_epicId_userId_startSprintNumber_startSprintWeek_key';
+  const newUnique = 'EpicAssignment_epic_user_sprintWeek_key';
 
   if (await indexExists(prisma, 'EpicAssignment', oldUnique)) {
     console.log(`Dropping obsolete unique index ${oldUnique}...`);
