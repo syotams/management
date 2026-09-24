@@ -4,6 +4,7 @@
  *
  * 1) Epic copy rows (sourceEpicId) -> EpicAssignment
  * 2) Backfill EpicAssignment.startSprintWeek (week model) for existing rows
+ * 3) Dedupe Epic rows so @@unique([projectId, title]) can be applied
  */
 const { PrismaClient } = require('@prisma/client');
 
@@ -187,6 +188,115 @@ async function migrateStartSprintWeek(prisma) {
   console.log('startSprintWeek migration complete');
 }
 
+/**
+ * Production may still have duplicate epic titles from the old copy model
+ * (or pre-uniqueness data). Merge into one row per (projectId, title) before
+ * prisma db push creates Epic_projectId_title_key.
+ */
+async function dedupeEpicTitles(prisma) {
+  if (!(await tableExists(prisma, 'Epic'))) {
+    console.log('Skipping epic title dedupe (no Epic table yet)');
+    return;
+  }
+
+  const titleUnique = 'Epic_projectId_title_key';
+  if (await indexExists(prisma, 'Epic', titleUnique)) {
+    console.log('Skipping epic title dedupe (unique index already present)');
+    return;
+  }
+
+  const groups = await prisma.$queryRawUnsafe(`
+    SELECT \`projectId\`, \`title\`, COUNT(*) AS cnt
+    FROM \`Epic\`
+    GROUP BY \`projectId\`, \`title\`
+    HAVING COUNT(*) > 1
+  `);
+
+  if (!groups.length) {
+    console.log('No duplicate epic titles to merge');
+    return;
+  }
+
+  console.log(`Deduping epic titles (${groups.length} duplicate group(s))...`);
+  const hasAssignments = await tableExists(prisma, 'EpicAssignment');
+  const hasAssignees = await tableExists(prisma, 'EpicAssignee');
+  const hasStartWeek =
+    hasAssignments && (await columnExists(prisma, 'EpicAssignment', 'startSprintWeek'));
+
+  let removed = 0;
+  for (const group of groups) {
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT \`id\`
+       FROM \`Epic\`
+       WHERE \`projectId\` = ? AND \`title\` = ?
+       ORDER BY \`createdAt\` ASC, \`id\` ASC`,
+      group.projectId,
+      group.title,
+    );
+    if (rows.length < 2) continue;
+
+    const keepId = rows[0].id;
+    const dropIds = rows.slice(1).map((r) => r.id);
+
+    for (const dropId of dropIds) {
+      if (hasAssignments) {
+        if (hasStartWeek) {
+          await prisma.$executeRawUnsafe(
+            `INSERT IGNORE INTO \`EpicAssignment\`
+               (\`id\`, \`epicId\`, \`userId\`, \`workingDays\`, \`startSprintNumber\`, \`startSprintWeek\`, \`createdAt\`, \`updatedAt\`)
+             SELECT
+               CONCAT(a.\`id\`, '-dedupe'),
+               ?,
+               a.\`userId\`,
+               a.\`workingDays\`,
+               a.\`startSprintNumber\`,
+               a.\`startSprintWeek\`,
+               a.\`createdAt\`,
+               a.\`updatedAt\`
+             FROM \`EpicAssignment\` a
+             WHERE a.\`epicId\` = ?`,
+            keepId,
+            dropId,
+          );
+        } else {
+          await prisma.$executeRawUnsafe(
+            `INSERT IGNORE INTO \`EpicAssignment\`
+               (\`id\`, \`epicId\`, \`userId\`, \`workingDays\`, \`startSprintNumber\`, \`createdAt\`, \`updatedAt\`)
+             SELECT
+               CONCAT(a.\`id\`, '-dedupe'),
+               ?,
+               a.\`userId\`,
+               a.\`workingDays\`,
+               a.\`startSprintNumber\`,
+               a.\`createdAt\`,
+               a.\`updatedAt\`
+             FROM \`EpicAssignment\` a
+             WHERE a.\`epicId\` = ?`,
+            keepId,
+            dropId,
+          );
+        }
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM \`EpicAssignment\` WHERE \`epicId\` = ?`,
+          dropId,
+        );
+      }
+
+      if (hasAssignees) {
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM \`EpicAssignee\` WHERE \`epicId\` = ?`,
+          dropId,
+        );
+      }
+
+      await prisma.$executeRawUnsafe(`DELETE FROM \`Epic\` WHERE \`id\` = ?`, dropId);
+      removed += 1;
+    }
+  }
+
+  console.log(`Epic title dedupe complete (removed ${removed} duplicate row(s))`);
+}
+
 async function migrate() {
   const url = process.env.DATABASE_URL || '';
   if (!url.startsWith('mysql')) {
@@ -198,6 +308,7 @@ async function migrate() {
   try {
     await migrateEpicCopiesToAssignments(prisma);
     await migrateStartSprintWeek(prisma);
+    await dedupeEpicTitles(prisma);
   } finally {
     await prisma.$disconnect();
   }
