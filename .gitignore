@@ -7,3 +7,4 @@ node_modules/
 *.db
 *.db-journal
 ssh-connect
+docker-*.sh
