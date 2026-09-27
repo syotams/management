@@ -1,22 +1,37 @@
-/** 12 distinct palette hues for epic chips. */
-export const EPIC_COLORS = [
-  '#d9a69f',
-  '#6c739c',
-  '#f0dad5',
-  '#babbb1',
-  '#c56b62',
-  '#424658',
-  '#dea785',
-  '#c889b5',
-  '#fce5cc',
-  '#736eae',
-  '#527aa6',
-  '#97b3ae',
-];
+/** Named palette hues selectable as an epic background. */
+export const EPIC_COLOR_OPTIONS = [
+  { label: 'Radicchio', hex: '#c05476' },
+  { label: 'Cherry Blossom', hex: '#d85675' },
+  { label: 'Flamingo', hex: '#d6837a' },
+  { label: 'Tomato', hex: '#da5234' },
+  { label: 'Tangerine', hex: '#e3683e' },
+  { label: 'Pumpkin', hex: '#dd7835' },
+  { label: 'Mango', hex: '#e0963c' },
+  { label: 'Banana', hex: '#e7ba51' },
+  { label: 'Citron', hex: '#d8be5e' },
+  { label: 'Avocado', hex: '#bcc256' },
+  { label: 'Pistachio', hex: '#85ad59' },
+  { label: 'Basil', hex: '#489160' },
+  { label: 'Sage', hex: '#55b080' },
+  { label: 'Eucalyptus', hex: '#429a8e' },
+  { label: 'Peacock', hex: '#4b99d2' },
+  { label: 'Cobalt', hex: '#668be1' },
+  { label: 'Lavender', hex: '#828bc2' },
+  { label: 'Blueberry', hex: '#6e72c3' },
+  { label: 'Wisteria', hex: '#ae9cce' },
+  { label: 'Amethyst', hex: '#a479b1' },
+  { label: 'Grape', hex: '#a75aba' },
+  { label: 'Cocoa', hex: '#957367' },
+  { label: 'Graphite', hex: '#7c7c7c' },
+  { label: 'Birch', hex: '#a5998c' },
+  { label: 'Default', hex: '#333537' },
+] as const;
+
+export const EPIC_COLORS: readonly string[] = EPIC_COLOR_OPTIONS.map((color) => color.hex);
 
 /**
  * Returns a palette color for `index`.
- * First pass uses the 12 base hues; later passes use darker/lighter shades
+ * First pass uses the base hues; later passes use darker/lighter shades
  * so consecutive wraps stay visually distinct.
  */
 export function nextEpicColor(index: number): string {
