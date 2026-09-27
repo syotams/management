@@ -45,6 +45,29 @@ npm start
 
 Frontend runs at http://localhost:4200
 
+### Local production-like check (Docker)
+
+Before deploying, run the same MySQL + Nest + Nginx stack locally (migrations, `db push`, and the built frontend). No certbot.
+
+```bash
+./deploy/local-up.sh
+```
+
+Or manually:
+
+```bash
+cp .env.local.example .env.local
+docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
+```
+
+Open http://localhost:8080. MySQL is on `localhost:3307`.
+
+```bash
+docker compose -f docker-compose.local.yml --env-file .env.local logs -f backend
+docker compose -f docker-compose.local.yml --env-file .env.local down       # keep DB
+docker compose -f docker-compose.local.yml --env-file .env.local down -v    # wipe DB
+```
+
 ## Production deploy (DigitalOcean droplet)
 
 Designed for a small droplet (e.g. **1 vCPU / 512 MB RAM**). MySQL is memory-capped; add swap before the first build.

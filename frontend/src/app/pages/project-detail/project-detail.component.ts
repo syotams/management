@@ -21,7 +21,7 @@ import {
 } from '../../models';
 import { contrastText, formatDateOnly, projectEndDateFromStart, toDateInput, addUtcDaysToDateInput } from '../../utils/date';
 import { formatApiError } from '../../utils/api-error';
-import { EPIC_COLORS, nextUnusedEpicColor } from '../../utils/epic-colors';
+import { EPIC_COLOR_OPTIONS, EPIC_COLORS, nextUnusedEpicColor } from '../../utils/epic-colors';
 import { truncateEpicTitle } from '../../utils/text';
 
 type CellDropData = { participantId: string; sprintId: string; week: 1 | 2; cellKey: string };
@@ -66,7 +66,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   addingEpic = false;
   showAddEpic = false;
   addEpicError = '';
-  colors = EPIC_COLORS;
+  colors = EPIC_COLOR_OPTIONS;
 
   showEditEpic = false;
   editingEpic: ProjectEpic | null = null;

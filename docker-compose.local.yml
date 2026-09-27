@@ -1,0 +1,75 @@
+# Local pre-production stack: same images/entrypoint as production, no certbot.
+# Usage:
+#   cp .env.local.example .env.local
+#   docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
+#   open http://localhost:8080
+#
+# Or: ./deploy/local-up.sh
+
+name: management-local
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-management}
+      MYSQL_USER: ${MYSQL_USER:-management}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_local_data:/var/lib/mysql
+      - ./deploy/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    ports:
+      - "${MYSQL_HOST_PORT:-3307}:3306"
+    networks:
+      - app
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-management}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-management}
+      JWT_SECRET: ${JWT_SECRET}
+      APP_URL: ${APP_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      PORT: "3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app
+
+  nginx:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      NGINX_ENVSUBST_FILTER: "^DOMAIN$"
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    depends_on:
+      - backend
+    networks:
+      - app
+
+volumes:
+  mysql_local_data:
+
+networks:
+  app:
+    driver: bridge

@@ -756,14 +756,14 @@
               <div class="d-flex align-items-center gap-2">
                 <input type="color" class="form-control form-control-color" [(ngModel)]="epicColor" name="epicColor">
                 <div class="color-swatches">
-                  @for (color of colors; track color) {
+                  @for (color of colors; track color.hex) {
                     <button
                       type="button"
                       class="color-swatch"
-                      [class.selected]="epicColor === color"
-                      [style.background]="color"
-                      (click)="epicColor = color"
-                      [title]="color"
+                      [class.selected]="epicColor === color.hex"
+                      [style.background]="color.hex"
+                      (click)="epicColor = color.hex"
+                      [title]="color.label"
                     ></button>
                   }
                 </div>
@@ -863,14 +863,14 @@
               <div class="d-flex align-items-center gap-2">
                 <input type="color" class="form-control form-control-color" [(ngModel)]="editEpicColor" name="editEpicColor">
                 <div class="color-swatches">
-                  @for (color of colors; track color) {
+                  @for (color of colors; track color.hex) {
                     <button
                       type="button"
                       class="color-swatch"
-                      [class.selected]="editEpicColor === color"
-                      [style.background]="color"
-                      (click)="editEpicColor = color"
-                      [title]="color"
+                      [class.selected]="editEpicColor === color.hex"
+                      [style.background]="color.hex"
+                      (click)="editEpicColor = color.hex"
+                      [title]="color.label"
                     ></button>
                   }
                 </div>
