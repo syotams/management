@@ -1,7 +1,17 @@
 import { NgClass } from '@angular/common';
-import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  HostListener,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Observable, switchMap } from 'rxjs';
 import {
   CdkDrag,
   CdkDragDrop,
@@ -13,11 +23,12 @@ import {
   transferArrayItem,
 } from '@angular/cdk/drag-drop';
 import { TaskService } from '../../services/task.service';
+import { TaskListService } from '../../services/task-list.service';
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
 import { NotificationService } from '../../services/notification.service';
 import { TaskNavigationService } from '../../services/task-navigation.service';
-import { Task, AssignableMember, Priority } from '../../models';
+import { Task, AssignableMember, Priority, TaskList } from '../../models';
 import {
   groupTasks,
   flattenGroupedTasks,
@@ -47,8 +58,29 @@ interface TaskSection {
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.scss',
 })
-export class TaskListComponent implements OnInit {
+export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('newDescriptionInput') newDescriptionInput?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('listNameInput') listNameInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('tabsScroll') tabsScroll?: ElementRef<HTMLDivElement>;
+  @ViewChild('tabsList') tabsList?: ElementRef<HTMLUListElement>;
+
+  tabsOverflow = false;
+  canScrollTabsLeft = false;
+  canScrollTabsRight = false;
+  private tabsResizeObserver?: ResizeObserver;
+
+  lists: TaskList[] = [];
+  activeListId: string | null = null;
+  listError = '';
+  listMenuId: string | null = null;
+  creatingList = false;
+  savingList = false;
+  newListName = '';
+  renamingListId: string | null = null;
+  renameListName = '';
+  deleteListTarget: (TaskList & { taskCount: number }) | null = null;
+  deleteMoveToId = '';
+  deletingList = false;
 
   sections: TaskSection[] = [];
   loading = true;
@@ -79,6 +111,7 @@ export class TaskListComponent implements OnInit {
     dueDate: '',
     alertAt: '',
     assigneeId: '',
+    listId: '',
   };
 
   openDropdownId: string | null = null;
@@ -91,30 +124,283 @@ export class TaskListComponent implements OnInit {
 
   constructor(
     private taskService: TaskService,
+    private taskListService: TaskListService,
     public auth: AuthService,
     private teamService: TeamService,
     private notificationService: NotificationService,
     private taskNav: TaskNavigationService,
     private router: Router,
+    private zone: NgZone,
   ) {}
+
+  ngAfterViewInit() {
+    const scroll = this.tabsScroll?.nativeElement;
+    const list = this.tabsList?.nativeElement;
+    if (!scroll || !list || typeof ResizeObserver === 'undefined') return;
+    this.tabsResizeObserver = new ResizeObserver(() => this.zone.run(() => this.updateTabScroll()));
+    this.tabsResizeObserver.observe(scroll);
+    this.tabsResizeObserver.observe(list);
+  }
+
+  ngOnDestroy() {
+    this.tabsResizeObserver?.disconnect();
+  }
+
+  updateTabScroll() {
+    const el = this.tabsScroll?.nativeElement;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    this.tabsOverflow = maxScroll > 1;
+    this.canScrollTabsLeft = el.scrollLeft > 1;
+    this.canScrollTabsRight = el.scrollLeft < maxScroll - 1;
+  }
+
+  scrollTabs(direction: 1 | -1) {
+    const el = this.tabsScroll?.nativeElement;
+    if (!el) return;
+    this.listMenuId = null;
+    el.scrollBy({ left: direction * el.clientWidth * 0.7, behavior: 'smooth' });
+  }
 
   @HostListener('document:click')
   onDocumentClick() {
     this.openDropdownId = null;
+    this.listMenuId = null;
   }
 
   ngOnInit() {
     this.notificationService.startPolling();
-    this.loadTasks();
+    this.activeListId = this.taskNav.getActiveListId();
+    this.loadLists(() => this.loadTasks({ refreshCounts: false }));
     this.teamService.getAssignableMembers().subscribe((m) => (this.members = m));
   }
 
-  loadTasks(options?: { silent?: boolean }) {
+  loadLists(then?: () => void) {
+    this.taskListService.getLists().subscribe({
+      next: (lists) => {
+        this.lists = lists;
+        if (this.activeListId && !lists.some((l) => l.id === this.activeListId)) {
+          this.selectList(null, { reload: false });
+        }
+        then?.();
+      },
+      error: () => {
+        this.listError = 'Failed to load lists';
+        then?.();
+      },
+    });
+  }
+
+  get defaultList(): TaskList | undefined {
+    return this.lists[0];
+  }
+
+  get activeList(): TaskList | undefined {
+    return this.lists.find((l) => l.id === this.activeListId);
+  }
+
+  get totalOpenCount(): number {
+    return this.lists.reduce((sum, l) => sum + l.taskCount, 0);
+  }
+
+  listName(listId: string | undefined): string {
+    return this.lists.find((l) => l.id === listId)?.name ?? '';
+  }
+
+  selectList(listId: string | null, options?: { reload?: boolean }) {
+    this.activeListId = listId;
+    this.taskNav.setActiveListId(listId);
+    this.scrollActiveTabIntoView();
+    if (options?.reload !== false) this.loadTasks();
+  }
+
+  private scrollActiveTabIntoView() {
+    setTimeout(() => {
+      this.tabsScroll?.nativeElement
+        .querySelector('.nav-link.active')
+        ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    }, 0);
+  }
+
+  toggleListMenu(listId: string, event: Event) {
+    event.stopPropagation();
+    this.openDropdownId = null;
+    this.listMenuId = this.listMenuId === listId ? null : listId;
+  }
+
+  startCreateList() {
+    this.listError = '';
+    this.cancelRenameList();
+    this.creatingList = true;
+    this.newListName = '';
+    this.focusListNameInput();
+  }
+
+  private focusListNameInput() {
+    setTimeout(() => this.listNameInput?.nativeElement.select(), 0);
+  }
+
+  cancelCreateList() {
+    this.creatingList = false;
+    this.newListName = '';
+  }
+
+  createList() {
+    if (this.savingList) return;
+    const name = this.newListName.trim();
+    if (!name) {
+      this.cancelCreateList();
+      return;
+    }
+    this.savingList = true;
+    this.taskListService.createList(name).subscribe({
+      next: (list) => {
+        this.savingList = false;
+        this.cancelCreateList();
+        this.lists = [...this.lists, list];
+        this.selectList(list.id);
+      },
+      error: (err) => {
+        this.savingList = false;
+        this.listError = this.errorMessage(err, 'Failed to create list');
+      },
+    });
+  }
+
+  onNewListKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.createList();
+    } else if (event.key === 'Escape') {
+      this.cancelCreateList();
+    }
+  }
+
+  startRenameList(list: TaskList, event: Event) {
+    event.stopPropagation();
+    this.listMenuId = null;
+    this.listError = '';
+    this.cancelCreateList();
+    this.renamingListId = list.id;
+    this.renameListName = list.name;
+    this.focusListNameInput();
+  }
+
+  cancelRenameList() {
+    this.renamingListId = null;
+    this.renameListName = '';
+  }
+
+  saveRenameList() {
+    const listId = this.renamingListId;
+    const name = this.renameListName.trim();
+    const current = this.lists.find((l) => l.id === listId);
+    if (!listId || !current || !name || name === current.name) {
+      this.cancelRenameList();
+      return;
+    }
+    this.taskListService.renameList(listId, name).subscribe({
+      next: (updated) => {
+        this.lists = this.lists.map((l) => (l.id === listId ? { ...l, name: updated.name } : l));
+        this.cancelRenameList();
+      },
+      error: (err) => (this.listError = this.errorMessage(err, 'Failed to rename list')),
+    });
+  }
+
+  onRenameListKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.saveRenameList();
+    } else if (event.key === 'Escape') {
+      this.cancelRenameList();
+    }
+  }
+
+  requestDeleteList(list: TaskList, event: Event) {
+    event.stopPropagation();
+    this.listMenuId = null;
+    this.listError = '';
+    if (this.lists.length <= 1) return;
+    if (list.taskCount > 0) {
+      this.openDeleteListModal(list, list.taskCount);
+      return;
+    }
+    if (!confirm(`Delete the list "${list.name}"?`)) return;
+    this.taskListService.deleteList(list.id).subscribe({
+      next: () => this.afterListDeleted(list.id, null),
+      error: (err) => {
+        const taskCount = err.status === 409 ? err.error?.taskCount : undefined;
+        if (typeof taskCount === 'number') {
+          this.openDeleteListModal(list, taskCount);
+        } else {
+          this.listError = this.errorMessage(err, 'Failed to delete list');
+        }
+      },
+    });
+  }
+
+  otherLists(listId: string): TaskList[] {
+    return this.lists.filter((l) => l.id !== listId);
+  }
+
+  confirmDeleteList() {
+    const target = this.deleteListTarget;
+    if (!target || !this.deleteMoveToId) return;
+    this.deletingList = true;
+    this.taskListService.deleteList(target.id, this.deleteMoveToId).subscribe({
+      next: () => {
+        const moveTo = this.deleteMoveToId;
+        this.deletingList = false;
+        this.deleteListTarget = null;
+        this.afterListDeleted(target.id, moveTo);
+      },
+      error: (err) => {
+        this.deletingList = false;
+        this.listError = this.errorMessage(err, 'Failed to delete list');
+        this.deleteListTarget = null;
+      },
+    });
+  }
+
+  private openDeleteListModal(list: TaskList, taskCount: number) {
+    this.deleteListTarget = { ...list, taskCount };
+    this.deleteMoveToId = this.otherLists(list.id)[0]?.id ?? '';
+  }
+
+  private afterListDeleted(listId: string, moveTo: string | null) {
+    this.lists = this.lists.filter((l) => l.id !== listId);
+    if (this.activeListId === listId) {
+      this.selectList(moveTo);
+    } else {
+      this.loadTasks({ silent: true });
+    }
+  }
+
+  private errorMessage(err: { error?: { message?: string | string[] } }, fallback: string): string {
+    const msg = err.error?.message;
+    return Array.isArray(msg) ? msg.join(', ') : (msg || fallback);
+  }
+
+  private refreshListCounts() {
+    this.taskListService.getLists().subscribe((lists) => {
+      const counts = new Map(lists.map((l) => [l.id, l.taskCount]));
+      this.lists = this.lists.map((l) => ({ ...l, taskCount: counts.get(l.id) ?? l.taskCount }));
+    });
+  }
+
+  loadTasks(options?: { silent?: boolean; refreshCounts?: boolean }) {
     if (!options?.silent) {
       this.loading = true;
     }
+    if (options?.refreshCounts !== false) {
+      this.refreshListCounts();
+    }
     this.taskService
-      .getTasks(this.showClosed ? { includeClosed: true, closedDays: this.closedDays } : undefined)
+      .getTasks({
+        ...(this.showClosed && { includeClosed: true, closedDays: this.closedDays }),
+        listId: this.activeListId,
+      })
       .subscribe({
         next: (tasks) => {
           const grouped = groupTasks(tasks);
@@ -166,6 +452,7 @@ export class TaskListComponent implements OnInit {
           this.taskNav.setTaskList(flatTasks, {
             showClosed: this.showClosed,
             closedDays: this.closedDays,
+            listId: this.activeListId,
           });
           this.loading = false;
         },
@@ -229,6 +516,7 @@ export class TaskListComponent implements OnInit {
       ...(description && { description }),
       ...(this.showAlertField && this.newAlertAt && { alertAt: datetimeLocalToUtcIso(this.newAlertAt) }),
       ...(this.showAssigneeField && this.newAssigneeId && { assigneeId: this.newAssigneeId }),
+      ...(this.activeListId && { listId: this.activeListId }),
     };
 
     this.taskService.createTask(data).subscribe({
@@ -237,8 +525,7 @@ export class TaskListComponent implements OnInit {
         this.loadTasks();
       },
       error: (err) => {
-        const msg = err.error?.message;
-        this.error = Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create task');
+        this.error = this.errorMessage(err, 'Failed to create task');
         if (err.status === 401) {
           this.auth.logout();
         }
@@ -290,11 +577,29 @@ export class TaskListComponent implements OnInit {
 
   toggleDropdown(taskId: string, event: Event) {
     event.stopPropagation();
+    this.listMenuId = null;
     this.openDropdownId = this.openDropdownId === taskId ? null : taskId;
   }
 
   sectionHasOpenDropdown(section: TaskSection): boolean {
-    return !!this.openDropdownId && section.tasks.some((task) => task.id === this.openDropdownId);
+    return (
+      !!this.openDropdownId &&
+      section.tasks.some((task) => task.id === this.openDropdownId || this.moveMenuId(task) === this.openDropdownId)
+    );
+  }
+
+  moveMenuId(task: Task): string {
+    return `move:${task.id}`;
+  }
+
+  moveTaskToList(task: Task, listId: string, event: Event) {
+    event.stopPropagation();
+    this.closeDropdown();
+    if (task.listId === listId) return;
+    this.taskService.moveToList(task.id, listId).subscribe({
+      next: () => this.loadTasks({ silent: true }),
+      error: (err) => (this.error = this.errorMessage(err, 'Failed to move task')),
+    });
   }
 
   closeDropdown() {
@@ -364,6 +669,7 @@ export class TaskListComponent implements OnInit {
       dueDate: toDatetimeLocal(new Date(task.dueDate)),
       alertAt: toDatetimeLocal(new Date(task.alertAt)),
       assigneeId: task.assigneeId,
+      listId: task.listId ?? this.defaultList?.id ?? '',
     };
   }
 
@@ -379,9 +685,18 @@ export class TaskListComponent implements OnInit {
       data['dueDate'] = datetimeLocalToUtcIso(this.editForm.dueDate);
       data['alertAt'] = datetimeLocalToUtcIso(this.editForm.alertAt);
     }
-    this.taskService.updateTask(this.editTask.id, data).subscribe(() => {
-      this.editTask = null;
-      this.loadTasks();
+    const task = this.editTask;
+    const listId = this.editForm.listId;
+    const update$ = this.taskService.updateTask(task.id, data);
+    const save$: Observable<unknown> = listId && listId !== task.listId
+      ? update$.pipe(switchMap(() => this.taskService.moveToList(task.id, listId)))
+      : update$;
+    save$.subscribe({
+      next: () => {
+        this.editTask = null;
+        this.loadTasks();
+      },
+      error: (err) => (this.error = this.errorMessage(err, 'Failed to save task')),
     });
   }
 

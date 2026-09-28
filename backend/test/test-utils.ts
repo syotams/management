@@ -7,17 +7,31 @@ import { PrismaClient } from '@prisma/client';
 export const TEST_DB_PATH = join(__dirname, '..', 'prisma', 'test.db');
 export const TEST_DATABASE_URL = `file:${TEST_DB_PATH}`;
 
-export function resetTestDatabase() {
+/** `name` gives parallel jest workers their own SQLite file. */
+export function resetTestDatabase(name = 'test') {
   const dir = join(__dirname, '..', 'prisma');
   mkdirSync(dir, { recursive: true });
-  if (existsSync(TEST_DB_PATH)) unlinkSync(TEST_DB_PATH);
-  process.env.DATABASE_URL = TEST_DATABASE_URL;
+  const dbPath = name === 'test' ? TEST_DB_PATH : join(dir, `${name}.db`);
+  const databaseUrl = `file:${dbPath}`;
+  if (existsSync(dbPath)) unlinkSync(dbPath);
+  process.env.DATABASE_URL = databaseUrl;
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
   execSync('npx prisma db push --skip-generate --accept-data-loss', {
     cwd: join(__dirname, '..'),
-    env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
+    env: { ...process.env, DATABASE_URL: databaseUrl },
     stdio: 'inherit',
   });
+}
+
+export async function seedTaskListUsers(prisma: PrismaClient) {
+  const passwordHash = await bcrypt.hash('password123', 10);
+  const alice = await prisma.user.create({
+    data: { email: 'alice@test.com', name: 'Alice', passwordHash },
+  });
+  const bob = await prisma.user.create({
+    data: { email: 'bob@test.com', name: 'Bob', passwordHash },
+  });
+  return { alice, bob };
 }
 
 export async function seedEpicFixture(prisma: PrismaClient) {
