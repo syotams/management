@@ -59,6 +59,7 @@ export class TeamsService {
       members,
       invites: invites.map((inv) => ({
         ...inv,
+        status: inv.expiresAt > new Date() ? inv.status : 'expired',
         inviteLink: inv.status === 'pending' && inv.expiresAt > new Date()
           ? `${appUrl}/invites/${inv.token}`
           : null,
@@ -118,6 +119,20 @@ export class TeamsService {
     await this.prisma.teamInvite.updateMany({
       where: { id: inviteId, teamId },
       data: { status: 'expired' },
+    });
+    return { success: true };
+  }
+
+  async removeInvite(teamId: string, inviteId: string, userId: string) {
+    await this.ensureOwner(teamId, userId);
+    const invite = await this.prisma.teamInvite.findFirst({ where: { id: inviteId, teamId } });
+    if (!invite) throw new NotFoundException('Invite not found');
+    if (invite.status !== 'expired' && invite.expiresAt >= new Date()) {
+      throw new ConflictException('Only expired invites can be removed');
+    }
+    await this.prisma.teamInvite.update({
+      where: { id: inviteId },
+      data: { status: 'removed' },
     });
     return { success: true };
   }
@@ -208,7 +223,8 @@ export class TeamsService {
       include: { team: { select: { name: true } } },
     });
     if (!invite) throw new NotFoundException('Invite not found');
-    const expired = invite.status === 'expired' || invite.expiresAt < new Date();
+    const expired =
+      invite.status === 'expired' || invite.status === 'removed' || invite.expiresAt < new Date();
     return {
       email: invite.email,
       teamName: invite.team.name,
@@ -225,6 +241,7 @@ export class TeamsService {
     if (!invite) throw new NotFoundException('Invite not found');
     if (invite.status === 'accepted') throw new ConflictException('Invite already accepted');
     if (invite.status === 'declined') throw new ConflictException('Invite already declined');
+    if (invite.status === 'removed') throw new GoneException('Invite has expired');
     if (invite.status === 'expired' || invite.expiresAt < new Date()) {
       await this.prisma.teamInvite.update({ where: { id: invite.id }, data: { status: 'expired' } });
       throw new GoneException('Invite has expired');

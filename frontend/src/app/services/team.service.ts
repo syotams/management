@@ -30,6 +30,10 @@ export class TeamService {
     return this.api.delete(`/teams/${teamId}/invites/${inviteId}`);
   }
 
+  removeInvite(teamId: string, inviteId: string) {
+    return this.api.post(`/teams/${teamId}/invites/${inviteId}/remove`, {});
+  }
+
   reinvite(teamId: string, inviteId: string) {
     return this.api.post(`/teams/${teamId}/invites/${inviteId}/reinvite`, {});
   }
