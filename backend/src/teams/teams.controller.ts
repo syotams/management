@@ -55,6 +55,15 @@ export class TeamsController {
     return this.teamsService.reinvite(id, inviteId, user.id);
   }
 
+  @Post(':id/invites/:inviteId/remove')
+  removeInvite(
+    @Param('id') id: string,
+    @Param('inviteId') inviteId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.teamsService.removeInvite(id, inviteId, user.id);
+  }
+
   @Delete(':id/invites/:inviteId')
   revokeInvite(
     @Param('id') id: string,

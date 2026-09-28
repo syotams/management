@@ -156,6 +156,7 @@ import { Team, TeamMember, TeamInvite, PendingInvite } from '../../models';
                           }
                           @if (inv.status === 'expired' && isOwner(team)) {
                             <button class="btn btn-sm btn-outline-success me-1" (click)="reinvite(team.id, inv.id)">Re-invite</button>
+                            <button class="btn btn-sm btn-outline-danger" (click)="removeInvite(team.id, inv.id)">Remove</button>
                           }
                           @if (isOwner(team) && inv.status === 'pending') {
                             <button class="btn btn-sm btn-outline-danger" (click)="revokeInvite(team.id, inv.id)">Revoke</button>
@@ -290,6 +291,11 @@ export class TeamsComponent implements OnInit {
 
   revokeInvite(teamId: string, inviteId: string) {
     this.teamService.revokeInvite(teamId, inviteId).subscribe(() => this.loadMembers(teamId));
+  }
+
+  removeInvite(teamId: string, inviteId: string) {
+    if (!confirm('Remove this expired invitation?')) return;
+    this.teamService.removeInvite(teamId, inviteId).subscribe(() => this.loadMembers(teamId));
   }
 
   reinvite(teamId: string, inviteId: string) {
