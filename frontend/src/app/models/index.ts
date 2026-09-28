@@ -57,6 +57,13 @@ export interface AssignableMember {
   teamName: string;
 }
 
+export interface TaskList {
+  id: string;
+  name: string;
+  position: number;
+  taskCount: number;
+}
+
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 export type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'archived';
 
@@ -77,6 +84,7 @@ export interface Task {
   updatedAt: string;
   owner: User;
   assignee: User;
+  listId?: string;
   lastComment?: Comment | null;
 }
 

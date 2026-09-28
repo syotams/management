@@ -38,6 +38,126 @@
     </div>
   </div>
 
+  <div class="task-list-tabs mb-4">
+    <div class="tabs-scroll" #tabsScroll (scroll)="updateTabScroll()">
+    <ul class="nav nav-tabs flex-nowrap" role="tablist" #tabsList>
+      <li class="nav-item">
+        <button
+          type="button"
+          class="nav-link"
+          [class.active]="activeListId === null"
+          (click)="selectList(null)"
+        >
+          All tasks
+          <span class="badge rounded-pill list-count ms-1">{{ totalOpenCount }}</span>
+        </button>
+      </li>
+      @for (list of lists; track list.id) {
+        <li class="nav-item list-tab">
+          @if (renamingListId === list.id) {
+            <input
+              type="text"
+              class="form-control form-control-sm list-name-input"
+              maxlength="50"
+              [(ngModel)]="renameListName"
+              (keydown)="onRenameListKeydown($event)"
+              (blur)="saveRenameList()"
+              #listNameInput
+            >
+          } @else {
+            <button
+              type="button"
+              class="nav-link"
+              [class.active]="activeListId === list.id"
+              (click)="selectList(list.id)"
+              (dblclick)="startRenameList(list, $event)"
+            >
+              {{ list.name }}
+              <span class="badge rounded-pill list-count ms-1">{{ list.taskCount }}</span>
+              @if (activeListId === list.id) {
+                <span
+                  class="list-menu-toggle ms-1"
+                  role="button"
+                  title="List options"
+                  (click)="toggleListMenu(list.id, $event)"
+                >
+                  <i class="bi bi-three-dots-vertical"></i>
+                </span>
+              }
+            </button>
+            @if (listMenuId === list.id) {
+              <ul class="dropdown-menu show list-menu" (click)="$event.stopPropagation()">
+                <li>
+                  <button class="dropdown-item" (click)="startRenameList(list, $event)">
+                    <i class="bi bi-pencil me-2"></i>Rename
+                  </button>
+                </li>
+                <li>
+                  <button
+                    class="dropdown-item text-danger"
+                    [disabled]="lists.length <= 1"
+                    [title]="lists.length <= 1 ? 'You must keep at least one list' : ''"
+                    (click)="requestDeleteList(list, $event)"
+                  >
+                    <i class="bi bi-trash me-2"></i>Delete
+                  </button>
+                </li>
+              </ul>
+            }
+          }
+        </li>
+      }
+      <li class="nav-item">
+        @if (creatingList) {
+          <input
+            type="text"
+            class="form-control form-control-sm list-name-input"
+            placeholder="List name"
+            maxlength="50"
+            [(ngModel)]="newListName"
+            (keydown)="onNewListKeydown($event)"
+            (blur)="createList()"
+            #listNameInput
+          >
+        } @else {
+          <button type="button" class="nav-link new-list-link" (click)="startCreateList()">
+            <i class="bi bi-plus-lg me-1"></i>New list
+          </button>
+        }
+      </li>
+    </ul>
+    </div>
+    @if (tabsOverflow) {
+      <div class="tab-scroll-arrows">
+        <button
+          type="button"
+          class="btn btn-sm tab-scroll-btn"
+          title="Scroll lists left"
+          [disabled]="!canScrollTabsLeft"
+          (click)="scrollTabs(-1)"
+        >
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm tab-scroll-btn"
+          title="Scroll lists right"
+          [disabled]="!canScrollTabsRight"
+          (click)="scrollTabs(1)"
+        >
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (listError) {
+    <div class="alert alert-danger alert-dismissible">
+      {{ listError }}
+      <button type="button" class="btn-close" (click)="listError = ''"></button>
+    </div>
+  }
+
   @if (error) {
     <div class="alert alert-danger">{{ error }}</div>
   }
@@ -130,7 +250,10 @@
         </div>
       }
 
-      <small class="text-muted mt-2 d-block">Defaults: due in 1 hour, priority medium, assignee you</small>
+      <small class="text-muted mt-2 d-block">
+        Defaults: due in 1 hour, priority medium, assignee you, list
+        “{{ (activeList ?? defaultList)?.name }}”
+      </small>
     </div>
   </div>
 
@@ -216,6 +339,37 @@
                             <button class="btn btn-outline-secondary btn-sm btn-icon btn-postpone" title="Postpone" (click)="openPostpone(task, $event)">
                               <i class="bi bi-calendar-event"></i>
                             </button>
+                          }
+                          @if (lists.length > 1) {
+                            <div class="dropdown">
+                              <button
+                                class="btn btn-outline-secondary btn-sm btn-icon"
+                                type="button"
+                                title="Move to list"
+                                (click)="toggleDropdown(moveMenuId(task), $event)"
+                              >
+                                <i class="bi bi-folder-symlink"></i>
+                              </button>
+                              @if (openDropdownId === moveMenuId(task)) {
+                                <ul class="dropdown-menu dropdown-menu-end show">
+                                  <li><h6 class="dropdown-header">Move to list</h6></li>
+                                  @for (list of lists; track list.id) {
+                                    <li>
+                                      <button
+                                        class="dropdown-item"
+                                        [class.active]="task.listId === list.id"
+                                        (click)="moveTaskToList(task, list.id, $event)"
+                                      >
+                                        @if (task.listId === list.id) {
+                                          <i class="bi bi-check-lg me-2"></i>
+                                        }
+                                        {{ list.name }}
+                                      </button>
+                                    </li>
+                                  }
+                                </ul>
+                              }
+                            </div>
                           }
                           @if (hasStatusActions(task)) {
                             <div class="dropdown">
@@ -329,6 +483,43 @@
   </div>
 }
 
+@if (deleteListTarget) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Delete list “{{ deleteListTarget.name }}”</h5>
+          <button type="button" class="btn-close" (click)="deleteListTarget = null"></button>
+        </div>
+        <div class="modal-body">
+          <p>
+            @if (deleteListTarget.taskCount === 1) {
+              This list has 1 task. Move it to:
+            } @else {
+              This list has {{ deleteListTarget.taskCount }} tasks. Move them to:
+            }
+          </p>
+          <select class="form-select" [(ngModel)]="deleteMoveToId">
+            @for (other of otherLists(deleteListTarget.id); track other.id) {
+              <option [value]="other.id">{{ other.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="deleteListTarget = null">Cancel</button>
+          <button
+            class="btn btn-danger"
+            (click)="confirmDeleteList()"
+            [disabled]="!deleteMoveToId || deletingList"
+          >
+            {{ deletingList ? 'Deleting...' : 'Move tasks and delete' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
 @if (editTask) {
   <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -354,6 +545,14 @@
             <div class="col-12">
               <label class="form-label">Description</label>
               <textarea class="form-control" rows="3" [(ngModel)]="editForm.description"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">List</label>
+              <select class="form-select" [(ngModel)]="editForm.listId">
+                @for (list of lists; track list.id) {
+                  <option [value]="list.id">{{ list.name }}</option>
+                }
+              </select>
             </div>
             @if (isOwner(editTask)) {
               <div class="col-md-6">

@@ -125,7 +125,10 @@ export class TaskDetailComponent implements OnInit {
   private ensureTaskListForNavigation(currentId: string) {
     const opts = this.taskNav.getListOptions();
     this.taskService
-      .getTasks(opts.showClosed ? { includeClosed: true, closedDays: opts.closedDays } : undefined)
+      .getTasks({
+        ...(opts.showClosed && { includeClosed: true, closedDays: opts.closedDays }),
+        listId: opts.listId,
+      })
       .subscribe((tasks) => {
         const grouped = groupTasks(tasks);
         const flat = flattenGroupedTasks(grouped, opts.showClosed);

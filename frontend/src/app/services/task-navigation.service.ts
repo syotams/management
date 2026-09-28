@@ -4,7 +4,11 @@ import { Task } from '../models';
 export interface TaskListOptions {
   showClosed: boolean;
   closedDays: 7 | 30;
+  /** `null` means the "All tasks" view. */
+  listId: string | null;
 }
+
+const ACTIVE_LIST_STORAGE_KEY = 'tasks.activeListId';
 
 export interface TaskNavigation {
   prevId: string | null;
@@ -17,7 +21,11 @@ export interface TaskNavigation {
 export class TaskNavigationService {
   private taskIds: string[] = [];
   private taskCache = new Map<string, Task>();
-  private listOptions: TaskListOptions = { showClosed: false, closedDays: 7 };
+  private listOptions: TaskListOptions = {
+    showClosed: false,
+    closedDays: 7,
+    listId: localStorage.getItem(ACTIVE_LIST_STORAGE_KEY),
+  };
 
   setTaskList(tasks: Task[], options?: Partial<TaskListOptions>) {
     this.taskIds = tasks.map((t) => t.id);
@@ -26,8 +34,19 @@ export class TaskNavigationService {
       this.listOptions = {
         showClosed: options.showClosed ?? this.listOptions.showClosed,
         closedDays: options.closedDays ?? this.listOptions.closedDays,
+        listId: options.listId !== undefined ? options.listId : this.listOptions.listId,
       };
     }
+  }
+
+  getActiveListId(): string | null {
+    return this.listOptions.listId;
+  }
+
+  setActiveListId(listId: string | null) {
+    this.listOptions = { ...this.listOptions, listId };
+    if (listId) localStorage.setItem(ACTIVE_LIST_STORAGE_KEY, listId);
+    else localStorage.removeItem(ACTIVE_LIST_STORAGE_KEY);
   }
 
   getNavigation(taskId: string): TaskNavigation | null {

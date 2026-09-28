@@ -33,6 +33,8 @@ model User {
   projectHolidays       ProjectHoliday[]
   createdHolidays       ProjectHoliday[]     @relation("HolidayCreator")
   createdPtos           ProjectPto[]         @relation("PtoCreator")
+  taskLists             TaskList[]
+  taskPlacements        TaskPlacement[]
 }
 
 model Team {
@@ -100,6 +102,37 @@ model Task {
   team     Team?          @relation(fields: [teamId], references: [id])
   comments Comment[]
   auditLogs TaskAuditLog[]
+  placements TaskPlacement[]
+}
+
+model TaskList {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  placements TaskPlacement[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+/// Which of a user's own lists a task is filed in. Tasks without a row sit in the user's default list.
+model TaskPlacement {
+  id     String @id @default(uuid())
+  taskId String
+  userId String
+  listId String
+
+  task Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  list TaskList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([listId])
+  @@index([userId])
 }
 
 model Comment {

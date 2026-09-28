@@ -11,7 +11,14 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { TasksService } from './tasks.service';
-import { CreateTaskDto, PostponeTaskDto, UpdateTaskDto, CreateCommentDto, FindTasksQueryDto } from './dto/task.dto';
+import {
+  CreateTaskDto,
+  PostponeTaskDto,
+  UpdateTaskDto,
+  CreateCommentDto,
+  FindTasksQueryDto,
+  MoveTaskListDto,
+} from './dto/task.dto';
 import { CurrentUser } from '../common/current-user.decorator';
 
 @Controller('tasks')
@@ -24,6 +31,7 @@ export class TasksController {
     return this.tasksService.findAll(user.id, {
       includeClosed: query.includeClosed,
       closedDays: query.closedDays,
+      listId: query.listId,
     });
   }
 
@@ -64,6 +72,15 @@ export class TasksController {
   @Patch(':id/archive')
   archive(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.tasksService.archive(id, user.id);
+  }
+
+  @Patch(':id/list')
+  moveToList(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+    @Body() dto: MoveTaskListDto,
+  ) {
+    return this.tasksService.moveToList(id, user.id, dto.listId);
   }
 
   @Patch(':id/postpone')

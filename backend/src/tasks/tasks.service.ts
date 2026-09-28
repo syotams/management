@@ -3,8 +3,10 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/audit.service';
+import { TaskListsService } from '../task-lists/task-lists.service';
 import { CreateTaskDto, PostponeTaskDto, UpdateTaskDto, CreateCommentDto } from './dto/task.dto';
 import { defaultDueDateUtc } from '../common/date.util';
 
@@ -15,9 +17,17 @@ export class TasksService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private taskLists: TaskListsService,
   ) {}
 
-  async findAll(userId: string, options?: { includeClosed?: boolean; closedDays?: number }) {
+  async findAll(
+    userId: string,
+    options?: { includeClosed?: boolean; closedDays?: number; listId?: string },
+  ) {
+    const defaultListId = (await this.taskLists.getDefaultList(userId)).id;
+    const listFilter = options?.listId
+      ? this.listFilter(userId, await this.taskLists.resolveListId(userId, options.listId), defaultListId)
+      : {};
     const closedDays = Math.min(Math.max(options?.closedDays ?? 7, 1), 30);
     const closedCutoff = new Date(Date.now() - closedDays * 24 * 60 * 60 * 1000);
     const accessible = { OR: [{ ownerId: userId }, { assigneeId: userId }] };
@@ -35,7 +45,7 @@ export class TasksService {
 
     const tasks = await this.prisma.task.findMany({
       where: {
-        AND: [accessible, statusFilter],
+        AND: [accessible, statusFilter, listFilter],
       },
       include: {
         owner: { select: userSelect },
@@ -45,14 +55,15 @@ export class TasksService {
           take: 1,
           include: { user: { select: userSelect } },
         },
+        placements: { where: { userId }, select: { listId: true } },
       },
       orderBy: [{ dueDate: 'asc' }],
     });
 
-    return tasks.map((t) => ({
+    return tasks.map(({ placements, comments, ...t }) => ({
       ...t,
-      lastComment: t.comments[0] || null,
-      comments: undefined,
+      listId: placements[0]?.listId ?? defaultListId,
+      lastComment: comments[0] || null,
     }));
   }
 
@@ -68,7 +79,8 @@ export class TasksService {
       include: { user: { select: userSelect } },
       orderBy: { createdAt: 'desc' },
     });
-    return { ...task, comments, history };
+    const listId = await this.listIdFor(taskId, userId);
+    return { ...task, listId, comments, history };
   }
 
   async create(userId: string, dto: CreateTaskDto) {
@@ -83,6 +95,7 @@ export class TasksService {
     if (assigneeId !== userId) {
       await this.ensureTeamPeer(userId, assigneeId);
     }
+    const listId = await this.taskLists.resolveListId(userId, dto.listId);
 
     const task = await this.prisma.task.create({
       data: {
@@ -97,6 +110,7 @@ export class TasksService {
         createdBy: userId,
         alertAt,
         alertSent: false,
+        placements: { create: { userId, listId } },
       },
       include: {
         owner: { select: userSelect },
@@ -105,7 +119,18 @@ export class TasksService {
     });
 
     await this.audit.log(task.id, userId, 'CREATED');
-    return task;
+    return { ...task, listId };
+  }
+
+  async moveToList(taskId: string, userId: string, listId: string) {
+    await this.getAccessibleTask(taskId, userId);
+    await this.taskLists.resolveListId(userId, listId);
+    await this.prisma.taskPlacement.upsert({
+      where: { taskId_userId: { taskId, userId } },
+      create: { taskId, userId, listId },
+      update: { listId },
+    });
+    return { taskId, listId };
   }
 
   async update(taskId: string, userId: string, dto: UpdateTaskDto) {
@@ -275,6 +300,20 @@ export class TasksService {
       throw new ForbiddenException('Access denied');
     }
     return task;
+  }
+
+  private async listIdFor(taskId: string, userId: string) {
+    const placement = await this.prisma.taskPlacement.findUnique({
+      where: { taskId_userId: { taskId, userId } },
+    });
+    return placement?.listId ?? (await this.taskLists.getDefaultList(userId)).id;
+  }
+
+  private listFilter(userId: string, listId: string, defaultListId: string): Prisma.TaskWhereInput {
+    if (listId !== defaultListId) return { placements: { some: { userId, listId } } };
+    return {
+      OR: [{ placements: { some: { userId, listId } } }, { placements: { none: { userId } } }],
+    };
   }
 
   private async ensureTeamPeer(userId: string, peerId: string) {

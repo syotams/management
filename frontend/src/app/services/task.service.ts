@@ -6,11 +6,14 @@ import { Task, TaskDetail, Comment, AuditLog } from '../models';
 export class TaskService {
   constructor(private api: ApiService) {}
 
-  getTasks(options?: { includeClosed?: boolean; closedDays?: 7 | 30 }) {
+  getTasks(options?: { includeClosed?: boolean; closedDays?: 7 | 30; listId?: string | null }) {
     const params = new URLSearchParams();
     if (options?.includeClosed) {
       params.set('includeClosed', 'true');
       params.set('closedDays', String(options.closedDays ?? 7));
+    }
+    if (options?.listId) {
+      params.set('listId', options.listId);
     }
     const query = params.toString();
     return this.api.get<Task[]>(`/tasks${query ? `?${query}` : ''}`);
@@ -37,8 +40,13 @@ export class TaskService {
     assigneeId?: string;
     teamId?: string;
     alertAt?: string;
+    listId?: string;
   }) {
     return this.api.post<Task>('/tasks', data);
+  }
+
+  moveToList(id: string, listId: string) {
+    return this.api.patch<{ taskId: string; listId: string }>(`/tasks/${id}/list`, { listId });
   }
 
   start(id: string) {

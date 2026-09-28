@@ -18,6 +18,16 @@ export class FindTasksQueryDto {
   @Type(() => Number)
   @IsIn([7, 30])
   closedDays?: number;
+
+  @IsOptional()
+  @IsString()
+  listId?: string;
+}
+
+export class MoveTaskListDto {
+  @IsString()
+  @MinLength(1)
+  listId: string;
 }
 
 export class CreateTaskDto {
@@ -52,6 +62,10 @@ export class CreateTaskDto {
   @IsOptional()
   @IsDateString()
   alertAt?: string;
+
+  @IsOptional()
+  @IsString()
+  listId?: string;
 }
 
 export class PostponeTaskDto {
