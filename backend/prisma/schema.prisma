@@ -91,7 +91,7 @@ model Task {
   assigneeId  String
   teamId      String?
   createdBy   String
-  alertAt     DateTime
+  alertAt     DateTime?
   alertSent   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -105,7 +105,7 @@
               </div>
               <div class="task-meta-row">
                 <dt>Alert at</dt>
-                <dd>{{ formatDate(task.alertAt) }}</dd>
+                <dd>{{ formatAlert(task.alertAt) }}</dd>
               </div>
             </dl>
           </div>
@@ -212,16 +212,15 @@
                 <input type="datetime-local" class="form-control" [(ngModel)]="editForm.dueDate">
               </div>
               <div class="col-md-6">
-                <label class="form-label">Alert at</label>
-                <input type="datetime-local" class="form-control" [(ngModel)]="editForm.alertAt">
-              </div>
-              <div class="col-md-6">
                 <label class="form-label">Assignee</label>
                 <select class="form-select" [(ngModel)]="editForm.assigneeId">
-                  @for (m of members; track m.id) {
-                    <option [value]="m.id">{{ m.name }} ({{ m.teamName }})</option>
+                  @for (option of editAssigneeOptions; track option.id) {
+                    <option [value]="option.id">{{ option.label }}</option>
                   }
                 </select>
+              </div>
+              <div class="col-md-6">
+                <app-alert-picker idPrefix="edit-alert" [(mode)]="editForm.alertMode" [(alertAt)]="editForm.alertAt" />
               </div>
             }
           </div>

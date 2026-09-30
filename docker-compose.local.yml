@@ -35,6 +35,7 @@ services:
       - app
 
   backend:
+    image: management-backend:${IMAGE_TAG:-current}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -52,6 +53,7 @@ services:
       - app
 
   nginx:
+    image: management-nginx:${IMAGE_TAG:-current}
     build:
       context: .
       dockerfile: frontend/Dockerfile

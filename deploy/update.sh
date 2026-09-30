@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# DEPRECATED: releases are now shipped from a dev machine with ./deploy/release.sh
+# (tested images, no builds on the droplet). Kept only for reference; do not run
+# alongside release.sh, it rebuilds from git and would replace the released images.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"

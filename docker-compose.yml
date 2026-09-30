@@ -1,3 +1,6 @@
+# Pinned to the droplet folder name so the existing management_* volumes are always used.
+name: management
+
 services:
   mysql:
     image: mysql:8.0
@@ -23,6 +26,7 @@ services:
       - app
 
   backend:
+    image: management-backend:${IMAGE_TAG:-current}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -40,6 +44,7 @@ services:
       - app
 
   nginx:
+    image: management-nginx:${IMAGE_TAG:-current}
     build:
       context: .
       dockerfile: frontend/Dockerfile

@@ -1,4 +1,4 @@
-import { Task, DayGroup, GroupedTasks } from '../models';
+import { Task, DayGroup, GroupedTasks, AssignableMember } from '../models';
 import { localDayKey, fromDatetimeLocal, userTimeZone } from './date';
 
 export { dayKeyToDueDate, toDatetimeLocal } from './date';
@@ -103,6 +103,21 @@ export function formatDayLabel(date: Date): string {
 
 export function displayName(user: { name?: string; email?: string }): string {
   return user.name || user.email || 'Unknown';
+}
+
+/**
+ * Assignee dropdown options for editing a task. The current assignee is always included,
+ * even when they are no longer in the user's teams, so the select never renders blank.
+ */
+export function assigneeOptions(
+  members: AssignableMember[],
+  current: { id: string; name?: string; email?: string } | null | undefined,
+): { id: string; label: string }[] {
+  const options = members.map((m) => ({ id: m.id, label: `${m.name} (${m.teamName})` }));
+  if (current && !options.some((o) => o.id === current.id)) {
+    options.unshift({ id: current.id, label: displayName(current) });
+  }
+  return options;
 }
 
 export const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;

@@ -78,7 +78,7 @@ export interface Task {
   assigneeId: string;
   teamId: string | null;
   createdBy: string;
-  alertAt: string;
+  alertAt: string | null;
   alertSent: boolean;
   createdAt: string;
   updatedAt: string;

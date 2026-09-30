@@ -335,3 +335,7 @@ tr.cdk-drag-disabled {
 .modal-backdrop-custom {
   background: var(--app-modal-backdrop);
 }
+
+.postpone-modal-title {
+  min-width: 0;
+}
