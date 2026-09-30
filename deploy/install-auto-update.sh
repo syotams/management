@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# DEPRECATED: hourly git-pull deploys are replaced by ./deploy/release.sh.
+# To turn off an existing install: sudo systemctl disable --now management-update.timer
 set -euo pipefail
 
 if [ "$EUID" -ne 0 ]; then

@@ -16,6 +16,7 @@ import {
   statusClass,
   groupTasks,
   flattenGroupedTasks,
+  assigneeOptions,
 } from '../../utils/task-grouping';
 import { datetimeLocalToUtcIso, formatUserDateTime } from '../../utils/date';
 import { AlertMode, alertAtToLocal, initialAlertMode, resolveAlertAt } from '../../utils/alert';
@@ -222,6 +223,10 @@ export class TaskDetailComponent implements OnInit {
   deleteComment(commentId: string) {
     if (!this.task || !confirm('Delete this comment?')) return;
     this.taskService.deleteComment(this.task.id, commentId).subscribe(() => this.reload());
+  }
+
+  get editAssigneeOptions() {
+    return assigneeOptions(this.members, this.editTask?.assignee);
   }
 
   openEditModal() {

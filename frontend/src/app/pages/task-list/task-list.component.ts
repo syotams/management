@@ -34,6 +34,7 @@ import {
   flattenGroupedTasks,
   toDatetimeLocal,
   dayKeyToDueDate,
+  assigneeOptions,
   displayName,
   PRIORITIES,
   statusLabel,
@@ -653,6 +654,10 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
         this.postponeTask = null;
         this.loadTasks();
       });
+  }
+
+  get editAssigneeOptions() {
+    return assigneeOptions(this.members, this.editTask?.assignee);
   }
 
   openEditModal(task: Task, event: Event) {
