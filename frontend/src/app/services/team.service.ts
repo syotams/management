@@ -35,7 +35,7 @@ export class TeamService {
   }
 
   reinvite(teamId: string, inviteId: string) {
-    return this.api.post(`/teams/${teamId}/invites/${inviteId}/reinvite`, {});
+    return this.api.post<TeamInvite>(`/teams/${teamId}/invites/${inviteId}/reinvite`, {});
   }
 
   getAssignableMembers() {

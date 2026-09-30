@@ -105,13 +105,20 @@ export class TeamsService {
     await this.ensureOwner(teamId, userId);
     const old = await this.prisma.teamInvite.findFirst({ where: { id: inviteId, teamId } });
     if (!old) throw new NotFoundException('Invite not found');
+    if (old.status === 'accepted' || old.status === 'declined' || old.status === 'removed') {
+      throw new ConflictException('Only expired invites can be re-invited');
+    }
+    const expired = old.status === 'expired' || old.expiresAt < new Date();
+    if (!expired) {
+      throw new ConflictException('Only expired invites can be re-invited');
+    }
 
+    const created = await this.invite(teamId, userId, { email: old.email });
     await this.prisma.teamInvite.update({
       where: { id: inviteId },
-      data: { status: 'expired' },
+      data: { status: 'removed' },
     });
-
-    return this.invite(teamId, userId, { email: old.email });
+    return created;
   }
 
   async revokeInvite(teamId: string, inviteId: string, userId: string) {
@@ -127,8 +134,8 @@ export class TeamsService {
     await this.ensureOwner(teamId, userId);
     const invite = await this.prisma.teamInvite.findFirst({ where: { id: inviteId, teamId } });
     if (!invite) throw new NotFoundException('Invite not found');
-    if (invite.status !== 'expired' && invite.expiresAt >= new Date()) {
-      throw new ConflictException('Only expired invites can be removed');
+    if (invite.status === 'accepted' || invite.status === 'declined' || invite.status === 'removed') {
+      throw new ConflictException('Invite cannot be removed');
     }
     await this.prisma.teamInvite.update({
       where: { id: inviteId },
