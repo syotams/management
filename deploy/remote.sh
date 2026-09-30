@@ -3,7 +3,8 @@
 # (DEPLOY_DIR, e.g. /home/deploy/management) and is synced there on every release.
 #
 # Usage: deploy/remote.sh <command> [args]
-#   check              verify .env exists and the old auto-update timer is off
+#   check              verify .env, free disk space, and that the old auto-update timer is off
+#   load               docker load a gzipped image tarball from stdin, failing on unpack errors
 #   backup             mysqldump into backups/, keep the last 5
 #   current-tag        tag of the running release (last line of releases.log)
 #   previous-tag       tag to roll back to (second-to-last line of releases.log)
@@ -19,6 +20,8 @@ cd "$(dirname "$0")/.."
 RELEASES=releases.log
 KEEP_BACKUPS=5
 KEEP_IMAGES=3
+# Loading needs room for the compressed layers plus the unpacked snapshots.
+MIN_FREE_MB="${MIN_FREE_MB:-1500}"
 REPOS=(management-backend management-nginx)
 
 compose() { docker compose --env-file .env "$@"; }
@@ -41,12 +44,28 @@ shift || true
 case "$cmd" in
   check)
     if [ ! -f .env ]; then
-      echo "Missing $(pwd)/.env (copy it from the old clone: cp /home/deploy/management/.env $(pwd)/.env)" >&2
+      echo "Missing $(pwd)/.env (production secrets; see .env.example)" >&2
+      exit 1
+    fi
+    free_mb="$(df -Pm / | awk 'NR==2 {print $4}')"
+    if [ "$free_mb" -lt "$MIN_FREE_MB" ]; then
+      echo "Only ${free_mb}MB free on the droplet; need ${MIN_FREE_MB}MB to load new images." >&2
+      echo "Free space, e.g.: docker builder prune -af && docker image prune -f && journalctl --vacuum-size=50M" >&2
+      docker system df >&2 || true
       exit 1
     fi
     if [ "$(systemctl is-enabled management-update.timer 2>/dev/null || true)" = "enabled" ]; then
       echo "management-update.timer is still enabled and would rebuild over releases." >&2
       echo "Disable it once: sudo systemctl disable --now management-update.timer" >&2
+      exit 1
+    fi
+    ;;
+
+  load)
+    # docker load exits 0 even when layers fail to unpack (e.g. disk full).
+    out="$(gunzip | docker load 2>&1)" || { echo "$out" >&2; exit 1; }
+    echo "$out"
+    if grep -qi 'error' <<< "$out"; then
       exit 1
     fi
     ;;
@@ -117,6 +136,8 @@ case "$cmd" in
         | while read -r tag; do docker rmi "$repo:$tag" >/dev/null || true; done
     done
     docker image prune -f >/dev/null
+    # Images arrive prebuilt, so any build cache is leftover from on-droplet builds.
+    docker builder prune -af >/dev/null 2>&1 || true
     ;;
 
   logs)
@@ -124,7 +145,7 @@ case "$cmd" in
     ;;
 
   *)
-    sed -n '2,16p' "$0"
+    sed -n '2,17p' "$0"
     exit 2
     ;;
 esac

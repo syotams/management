@@ -181,8 +181,8 @@ fi
 step "Shipping images to $DEPLOY_HOST"
 docker save "management-backend:$TAG" "management-nginx:$TAG" \
   | gzip \
-  | ssh "${SSH_ARGS[@]}" "$DEPLOY_HOST" 'gunzip | docker load' \
-  || die "failed to transfer images"
+  | remote load \
+  || die "failed to load images on the droplet; production untouched"
 sync_stack_files || die "failed to sync compose files"
 
 # ---------------------------------------------------------------- 7. backup
