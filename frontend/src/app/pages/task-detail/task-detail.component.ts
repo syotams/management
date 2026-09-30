@@ -18,11 +18,13 @@ import {
   flattenGroupedTasks,
 } from '../../utils/task-grouping';
 import { datetimeLocalToUtcIso, formatUserDateTime } from '../../utils/date';
+import { AlertMode, alertAtToLocal, initialAlertMode, resolveAlertAt } from '../../utils/alert';
+import { AlertPickerComponent } from '../../components/alert-picker/alert-picker.component';
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [FormsModule, RouterLink, NgClass],
+  imports: [FormsModule, RouterLink, NgClass, AlertPickerComponent],
   templateUrl: './task-detail.component.html',
   styleUrl: './task-detail.component.scss',
 })
@@ -44,6 +46,7 @@ export class TaskDetailComponent implements OnInit {
     description: '',
     priority: 'medium' as Priority,
     dueDate: '',
+    alertMode: 'same' as AlertMode,
     alertAt: '',
     assigneeId: '',
   };
@@ -229,14 +232,15 @@ export class TaskDetailComponent implements OnInit {
       description: this.task.description || '',
       priority: this.task.priority,
       dueDate: toDatetimeLocal(new Date(this.task.dueDate)),
-      alertAt: toDatetimeLocal(new Date(this.task.alertAt)),
+      alertMode: initialAlertMode(this.task.alertAt, this.task.dueDate),
+      alertAt: alertAtToLocal(this.task.alertAt),
       assigneeId: this.task.assigneeId,
     };
   }
 
   saveEditModal() {
     if (!this.editTask) return;
-    const data: Record<string, string> = {
+    const data: Record<string, string | null> = {
       title: this.editForm.title.trim(),
       description: this.editForm.description,
       priority: this.editForm.priority,
@@ -244,7 +248,7 @@ export class TaskDetailComponent implements OnInit {
     if (this.isOwner()) {
       data['assigneeId'] = this.editForm.assigneeId;
       data['dueDate'] = datetimeLocalToUtcIso(this.editForm.dueDate);
-      data['alertAt'] = datetimeLocalToUtcIso(this.editForm.alertAt);
+      data['alertAt'] = resolveAlertAt(this.editForm.alertMode, this.editForm.dueDate, this.editForm.alertAt);
     }
     this.taskService.updateTask(this.editTask.id, data).subscribe((updated) => {
       this.editTask = null;
@@ -270,6 +274,10 @@ export class TaskDetailComponent implements OnInit {
     return formatUserDateTime(d);
   }
 
+  formatAlert(d: string | null): string {
+    return d ? this.formatDate(d) : 'none';
+  }
+
   formatAction(entry: { action: string; fieldName: string | null; oldValue: string | null; newValue: string | null }): string {
     switch (entry.action) {
       case 'CREATED': return 'created the task';
@@ -280,7 +288,7 @@ export class TaskDetailComponent implements OnInit {
       case 'PRIORITY_CHANGED': return `changed priority from ${entry.oldValue} to ${entry.newValue}`;
       case 'ASSIGNEE_CHANGED': return 'changed assignee';
       case 'OWNER_CHANGED': return 'changed owner';
-      case 'ALERT_CHANGED': return `changed alert from ${this.formatDate(entry.oldValue!)} to ${this.formatDate(entry.newValue!)}`;
+      case 'ALERT_CHANGED': return `changed alert from ${this.formatAlert(entry.oldValue)} to ${this.formatAlert(entry.newValue)}`;
       case 'COMMENT_ADDED': return `added comment: "${entry.newValue}"`;
       case 'COMMENT_DELETED': return `deleted comment: "${entry.oldValue}"`;
       default: return entry.action;

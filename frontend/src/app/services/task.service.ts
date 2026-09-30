@@ -61,7 +61,7 @@ export class TaskService {
     return this.api.patch<Task>(`/tasks/${id}/archive`);
   }
 
-  postpone(id: string, dueDate: string, alertAt?: string, updateAlert = true) {
+  postpone(id: string, dueDate: string, alertAt?: string | null, updateAlert = true) {
     return this.api.patch<Task>(`/tasks/${id}/postpone`, { dueDate, alertAt, updateAlert });
   }
 

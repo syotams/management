@@ -455,24 +455,17 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Postpone: {{ postponeTask.title }}</h5>
+          <h5 class="modal-title text-truncate postpone-modal-title" [title]="'Postpone: ' + postponeTask.title">Postpone: {{ postponeTask.title }}</h5>
           <button type="button" class="btn-close" (click)="postponeTask = null"></button>
         </div>
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">New due date & time</label>
-            <input type="datetime-local" class="form-control" [(ngModel)]="postponeDate" (ngModelChange)="onPostponeDateChange()">
+                <input type="datetime-local" class="form-control" [(ngModel)]="postponeDate">
           </div>
-          <div class="form-check mb-3">
-            <input type="checkbox" class="form-check-input" id="updateAlert" [(ngModel)]="updateAlertOnPostpone" (ngModelChange)="onUpdateAlertChange()">
-            <label class="form-check-label" for="updateAlert">Also set alert to the same time</label>
+          <div class="mb-3">
+            <app-alert-picker idPrefix="postpone-alert" [(mode)]="postponeAlertMode" [(alertAt)]="postponeAlertAt" />
           </div>
-          @if (!updateAlertOnPostpone) {
-            <div class="mb-3">
-              <label class="form-label">Alert at</label>
-              <input type="datetime-local" class="form-control" [(ngModel)]="postponeAlertAt">
-            </div>
-          }
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" (click)="postponeTask = null">Cancel</button>
@@ -560,16 +553,15 @@
                 <input type="datetime-local" class="form-control" [(ngModel)]="editForm.dueDate">
               </div>
               <div class="col-md-6">
-                <label class="form-label">Alert at</label>
-                <input type="datetime-local" class="form-control" [(ngModel)]="editForm.alertAt">
-              </div>
-              <div class="col-md-6">
                 <label class="form-label">Assignee</label>
                 <select class="form-select" [(ngModel)]="editForm.assigneeId">
                   @for (m of members; track m.id) {
                     <option [value]="m.id">{{ m.name }} ({{ m.teamName }})</option>
                   }
                 </select>
+              </div>
+              <div class="col-md-6">
+                <app-alert-picker idPrefix="edit-alert" [(mode)]="editForm.alertMode" [(alertAt)]="editForm.alertAt" />
               </div>
             }
           </div>

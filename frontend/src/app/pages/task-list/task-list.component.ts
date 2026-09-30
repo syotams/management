@@ -40,6 +40,8 @@ import {
   statusClass,
 } from '../../utils/task-grouping';
 import { datetimeLocalToUtcIso, formatUserDate, formatUserDateTime, fromDatetimeLocal } from '../../utils/date';
+import { AlertMode, alertAtToLocal, initialAlertMode, resolveAlertAt } from '../../utils/alert';
+import { AlertPickerComponent } from '../../components/alert-picker/alert-picker.component';
 
 interface TaskSection {
   key: string;
@@ -54,7 +56,16 @@ interface TaskSection {
 @Component({
   selector: 'app-task-list',
   standalone: true,
-  imports: [FormsModule, NgClass, CdkDropListGroup, CdkDropList, CdkDrag, CdkDragHandle, CdkDragPreview],
+  imports: [
+    FormsModule,
+    NgClass,
+    CdkDropListGroup,
+    CdkDropList,
+    CdkDrag,
+    CdkDragHandle,
+    CdkDragPreview,
+    AlertPickerComponent,
+  ],
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.scss',
 })
@@ -101,7 +112,7 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
   postponeTask: Task | null = null;
   postponeDate = '';
   postponeAlertAt = '';
-  updateAlertOnPostpone = true;
+  postponeAlertMode: AlertMode = 'same';
 
   editTask: Task | null = null;
   editForm = {
@@ -109,6 +120,7 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
     description: '',
     priority: 'medium' as Priority,
     dueDate: '',
+    alertMode: 'same' as AlertMode,
     alertAt: '',
     assigneeId: '',
     listId: '',
@@ -628,29 +640,13 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
     event.stopPropagation();
     this.postponeTask = task;
     this.postponeDate = toDatetimeLocal(new Date(task.dueDate));
-    this.updateAlertOnPostpone = true;
-    this.postponeAlertAt = this.postponeDate;
-  }
-
-  onPostponeDateChange() {
-    if (this.updateAlertOnPostpone) {
-      this.postponeAlertAt = this.postponeDate;
-    }
-  }
-
-  onUpdateAlertChange() {
-    if (this.updateAlertOnPostpone) {
-      this.postponeAlertAt = this.postponeDate;
-    } else if (this.postponeTask) {
-      this.postponeAlertAt = toDatetimeLocal(new Date(this.postponeTask.alertAt));
-    }
+    this.postponeAlertMode = 'same';
+    this.postponeAlertAt = alertAtToLocal(task.alertAt);
   }
 
   confirmPostpone() {
     if (!this.postponeTask) return;
-    const alertAt = this.updateAlertOnPostpone
-      ? datetimeLocalToUtcIso(this.postponeDate)
-      : datetimeLocalToUtcIso(this.postponeAlertAt);
+    const alertAt = resolveAlertAt(this.postponeAlertMode, this.postponeDate, this.postponeAlertAt);
     this.taskService
       .postpone(this.postponeTask.id, datetimeLocalToUtcIso(this.postponeDate), alertAt, true)
       .subscribe(() => {
@@ -667,7 +663,8 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
       description: task.description || '',
       priority: task.priority,
       dueDate: toDatetimeLocal(new Date(task.dueDate)),
-      alertAt: toDatetimeLocal(new Date(task.alertAt)),
+      alertMode: initialAlertMode(task.alertAt, task.dueDate),
+      alertAt: alertAtToLocal(task.alertAt),
       assigneeId: task.assigneeId,
       listId: task.listId ?? this.defaultList?.id ?? '',
     };
@@ -675,7 +672,7 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
 
   saveEditModal() {
     if (!this.editTask) return;
-    const data: Record<string, string> = {
+    const data: Record<string, string | null> = {
       title: this.editForm.title.trim(),
       description: this.editForm.description,
       priority: this.editForm.priority,
@@ -683,7 +680,7 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.isOwner(this.editTask)) {
       data['assigneeId'] = this.editForm.assigneeId;
       data['dueDate'] = datetimeLocalToUtcIso(this.editForm.dueDate);
-      data['alertAt'] = datetimeLocalToUtcIso(this.editForm.alertAt);
+      data['alertAt'] = resolveAlertAt(this.editForm.alertMode, this.editForm.dueDate, this.editForm.alertAt);
     }
     const task = this.editTask;
     const listId = this.editForm.listId;

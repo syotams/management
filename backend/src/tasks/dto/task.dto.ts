@@ -72,9 +72,10 @@ export class PostponeTaskDto {
   @IsDateString()
   dueDate: string;
 
+  /** `null` clears the alert. */
   @IsOptional()
   @IsDateString()
-  alertAt?: string;
+  alertAt?: string | null;
 
   @IsOptional()
   @Transform(({ value }) => {
@@ -110,9 +111,10 @@ export class UpdateTaskDto {
   @IsDateString()
   dueDate?: string;
 
+  /** `null` clears the alert. */
   @IsOptional()
   @IsDateString()
-  alertAt?: string;
+  alertAt?: string | null;
 }
 
 export class CreateCommentDto {

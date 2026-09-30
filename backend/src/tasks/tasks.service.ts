@@ -170,9 +170,16 @@ export class TasksService {
       await this.audit.log(taskId, userId, 'DUE_DATE_CHANGED', 'dueDate', task.dueDate.toISOString(), dto.dueDate);
     }
     if (dto.alertAt !== undefined) {
-      data.alertAt = new Date(dto.alertAt);
+      data.alertAt = dto.alertAt === null ? null : new Date(dto.alertAt);
       data.alertSent = false;
-      await this.audit.log(taskId, userId, 'ALERT_CHANGED', 'alertAt', task.alertAt.toISOString(), dto.alertAt);
+      await this.audit.log(
+        taskId,
+        userId,
+        'ALERT_CHANGED',
+        'alertAt',
+        task.alertAt?.toISOString() ?? null,
+        dto.alertAt,
+      );
     }
 
     return this.prisma.task.update({
@@ -204,10 +211,13 @@ export class TasksService {
     const data: Record<string, unknown> = { dueDate: newDueDate };
     const previousAlertAt = task.alertAt;
 
-    if (dto.updateAlert !== false && dto.alertAt) {
+    if (dto.updateAlert !== false && dto.alertAt === null) {
+      data.alertAt = null;
+      data.alertSent = false;
+    } else if (dto.updateAlert !== false && dto.alertAt) {
       data.alertAt = new Date(dto.alertAt);
       data.alertSent = false;
-    } else if (dto.updateAlert !== false) {
+    } else if (dto.updateAlert !== false && task.alertAt) {
       const delta = newDueDate.getTime() - task.dueDate.getTime();
       data.alertAt = new Date(task.alertAt.getTime() + delta);
       data.alertSent = false;
@@ -228,14 +238,15 @@ export class TasksService {
       newDueDate.toISOString(),
     );
 
-    if (data.alertAt instanceof Date) {
+    if (data.alertAt !== undefined) {
+      const newAlertAt = data.alertAt as Date | null;
       await this.audit.log(
         taskId,
         userId,
         'ALERT_CHANGED',
         'alertAt',
-        previousAlertAt.toISOString(),
-        data.alertAt.toISOString(),
+        previousAlertAt?.toISOString() ?? null,
+        newAlertAt?.toISOString() ?? null,
       );
     }
 
