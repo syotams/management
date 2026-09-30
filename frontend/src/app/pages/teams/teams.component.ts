@@ -8,6 +8,23 @@ import { Team, TeamMember, TeamInvite, PendingInvite } from '../../models';
   selector: 'app-teams',
   standalone: true,
   imports: [FormsModule],
+  styles: [`
+    .members-table {
+      table-layout: fixed;
+    }
+    .members-table .col-role {
+      width: 9rem;
+    }
+    .members-table .col-actions {
+      width: 10.5rem;
+    }
+    .members-table .col-role,
+    .members-table .col-actions,
+    .members-table td:nth-child(2),
+    .members-table td:nth-child(3) {
+      white-space: nowrap;
+    }
+  `],
   template: `
     <div class="py-2">
       <h2 class="page-title mb-4">Teams</h2>
@@ -97,7 +114,12 @@ import { Team, TeamMember, TeamInvite, PendingInvite } from '../../models';
 
               <!-- Members table -->
               <h6>Members</h6>
-              <table class="table table-sm">
+              <table class="table table-sm members-table">
+                <colgroup>
+                  <col>
+                  <col class="col-role">
+                  <col class="col-actions">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Email</th>
@@ -159,7 +181,8 @@ import { Team, TeamMember, TeamInvite, PendingInvite } from '../../models';
                             <button class="btn btn-sm btn-outline-danger" (click)="removeInvite(team.id, inv.id)">Remove</button>
                           }
                           @if (isOwner(team) && inv.status === 'pending') {
-                            <button class="btn btn-sm btn-outline-danger" (click)="revokeInvite(team.id, inv.id)">Revoke</button>
+                            <button class="btn btn-sm btn-outline-warning me-1" (click)="revokeInvite(team.id, inv.id)">Revoke</button>
+                            <button class="btn btn-sm btn-outline-danger" (click)="removeInvite(team.id, inv.id)">Remove</button>
                           }
                         </td>
                       </tr>
@@ -294,11 +317,21 @@ export class TeamsComponent implements OnInit {
   }
 
   removeInvite(teamId: string, inviteId: string) {
-    if (!confirm('Remove this expired invitation?')) return;
+    if (!confirm('Remove this invitation from the list?')) return;
     this.teamService.removeInvite(teamId, inviteId).subscribe(() => this.loadMembers(teamId));
   }
 
   reinvite(teamId: string, inviteId: string) {
-    this.teamService.reinvite(teamId, inviteId).subscribe(() => this.loadMembers(teamId));
+    this.teamService.reinvite(teamId, inviteId).subscribe({
+      next: (inv) => {
+        this.inviteMessage = inv.inviteLink
+          ? `Invite sent! Link: ${inv.inviteLink}`
+          : 'Invite sent!';
+        this.loadMembers(teamId);
+      },
+      error: (err) => {
+        this.inviteMessage = err.error?.message || 'Failed to re-invite';
+      },
+    });
   }
 }
