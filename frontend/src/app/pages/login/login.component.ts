@@ -12,6 +12,9 @@ import { AuthService } from '../../services/auth.service';
       <div class="card auth-card">
         <div class="card-body">
           <h2 class="card-title mb-4">Login</h2>
+          @if (resetNotice) {
+            <div class="alert alert-success">{{ resetNotice }}</div>
+          }
           @if (error) {
             <div class="alert alert-danger">{{ error }}</div>
           }
@@ -29,6 +32,9 @@ import { AuthService } from '../../services/auth.service';
             </button>
           </form>
           <p class="mt-3 mb-0 text-center">
+            <a routerLink="/forgot-password">Forgot password?</a>
+          </p>
+          <p class="mt-3 mb-0 text-center">
             Don't have an account? <a [routerLink]="['/register']" [queryParams]="registerQueryParams">Register</a>
           </p>
         </div>
@@ -43,6 +49,7 @@ export class LoginComponent implements OnInit {
   email = '';
   password = '';
   error = '';
+  resetNotice = '';
   loading = false;
   private returnUrl = '/tasks';
 
@@ -64,6 +71,9 @@ export class LoginComponent implements OnInit {
     const raw = q.get('returnUrl') || '/tasks';
     this.returnUrl = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/tasks';
     this.email = q.get('email') || '';
+    if (q.get('reset') === '1') {
+      this.resetNotice = 'Password updated. You can log in with your new password.';
+    }
   }
 
   onSubmit() {
