@@ -1,16 +1,29 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2029 # remote commands are built locally on purpose
 # Test, build, verify and ship a release to the production droplet.
-#
-# Usage:
-#   ./deploy/release.sh                 full release
-#   ./deploy/release.sh --no-deploy     everything up to (not including) touching the droplet
-#   ./deploy/release.sh --rollback      switch the droplet back to the previous release
-#
-# Options:
-#   --allow-dirty   allow uncommitted changes (only with --no-deploy)
-#
-# Config: .env.deploy (see .env.deploy.example).
+
+usage() {
+  cat <<'EOF'
+Test, build, verify and ship a release to the production droplet.
+
+Usage:
+  ./deploy/release.sh                 full release
+  ./deploy/release.sh --no-deploy     everything up to (not including) touching the droplet
+  ./deploy/release.sh --rollback      switch the droplet back to the previous release
+
+Options:
+  --allow-dirty   allow uncommitted changes (only with --no-deploy)
+  -h, --help      show this help
+
+Config: .env.deploy (see .env.deploy.example).
+EOF
+}
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  usage
+  exit 0
+fi
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,7 +37,7 @@ for arg in "$@"; do
     --no-deploy) NO_DEPLOY=1 ;;
     --rollback) ROLLBACK=1 ;;
     --allow-dirty) ALLOW_DIRTY=1 ;;
-    -h|--help) sed -n '3,13p' "$0"; exit 0 ;;
+    -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done

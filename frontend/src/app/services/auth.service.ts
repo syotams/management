@@ -43,6 +43,14 @@ export class AuthService {
     );
   }
 
+  forgotPassword(email: string) {
+    return this.api.postPublic<{ message: string }>('/auth/forgot-password', { email });
+  }
+
+  resetPassword(token: string, password: string) {
+    return this.api.postPublic<{ message: string }>('/auth/reset-password', { token, password });
+  }
+
   logout() {
     localStorage.removeItem('token');
     this.currentUser.set(null);
