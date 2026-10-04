@@ -1,43 +1,48 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import nodemailer, { Transporter } from 'nodemailer';
+
+const BREVO_URL = 'https://api.brevo.com/v3/smtp/email';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly transporter: Transporter | null;
+  private readonly apiKey: string | null;
 
   constructor(private config: ConfigService) {
-    const host = this.config.get<string>('SMTP_HOST')?.trim();
-    if (!host) {
-      this.transporter = null;
-      return;
+    const key = this.config.get<string>('BREVO_API_KEY')?.trim();
+    this.apiKey = key || null;
+    if (!this.apiKey) {
+      this.logger.warn('BREVO_API_KEY is empty; emails will be logged instead of sent');
     }
-
-    const port = Number(this.config.get<string>('SMTP_PORT') || 587);
-    const secureSetting = this.config.get<string>('SMTP_SECURE')?.trim().toLowerCase();
-    const secure = secureSetting === 'true' || secureSetting === '1' || (secureSetting !== 'false' && secureSetting !== '0' && port === 465);
-    const user = this.config.get<string>('SMTP_USER')?.trim();
-    const pass = this.config.get<string>('SMTP_PASS') ?? '';
-
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: user ? { user, pass } : undefined,
-    });
   }
 
   async sendAlert(to: string, subject: string, body: string) {
-    if (!this.transporter) {
+    if (!this.apiKey) {
       this.logger.log(`Email to ${to}: ${subject} — ${body}`);
       return;
     }
 
-    const from = this.config.get<string>('SMTP_FROM')?.trim()
-      || this.config.get<string>('SMTP_USER')?.trim()
-      || 'noreply@localhost';
-    await this.transporter.sendMail({ from, to, subject, text: body });
+    const sender = this.sender();
+    const response = await fetch(BREVO_URL, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'api-key': this.apiKey,
+      },
+      body: JSON.stringify({
+        sender,
+        to: [{ email: to }],
+        subject,
+        textContent: body,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 500);
+      throw new Error(`Brevo rejected email to ${to} (${response.status}): ${detail}`);
+    }
   }
 
   async sendInvite(to: string, teamName: string, inviteLink: string) {
@@ -50,5 +55,14 @@ export class EmailService {
     const subject = 'Reset your password';
     const body = `Click to choose a new password: ${resetLink}\n\nThis link expires in 1 hour.`;
     await this.sendAlert(to, subject, body);
+  }
+
+  private sender(): { email: string; name?: string } {
+    const email = this.config.get<string>('EMAIL_FROM')?.trim();
+    if (!email) {
+      throw new Error('EMAIL_FROM is required to send mail through Brevo');
+    }
+    const name = this.config.get<string>('EMAIL_FROM_NAME')?.trim();
+    return name ? { email, name } : { email };
   }
 }
