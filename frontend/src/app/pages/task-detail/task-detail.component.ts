@@ -21,11 +21,13 @@ import {
 import { datetimeLocalToUtcIso, formatUserDateTime } from '../../utils/date';
 import { AlertMode, alertAtToLocal, initialAlertMode, resolveAlertAt } from '../../utils/alert';
 import { AlertPickerComponent } from '../../components/alert-picker/alert-picker.component';
+import { MentionTextareaComponent } from '../../components/mention-textarea/mention-textarea.component';
+import { mentionSegments } from '../../utils/text';
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [FormsModule, RouterLink, NgClass, AlertPickerComponent],
+  imports: [FormsModule, RouterLink, NgClass, AlertPickerComponent, MentionTextareaComponent],
   templateUrl: './task-detail.component.html',
   styleUrl: './task-detail.component.scss',
 })
@@ -37,6 +39,7 @@ export class TaskDetailComponent implements OnInit {
   openStatusDropdown = false;
   newComment = '';
   displayName = displayName;
+  mentionSegments = mentionSegments;
   statusLabel = statusLabel;
   statusClass = statusClass;
   priorities = PRIORITIES;

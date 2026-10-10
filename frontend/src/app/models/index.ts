@@ -118,6 +118,20 @@ export interface TaskDetail extends Task {
   history: AuditLog[];
 }
 
+export type AppNotificationType = 'task_alert' | 'mention';
+
+export interface AppNotification {
+  id: string;
+  type: AppNotificationType;
+  taskId: string | null;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+  actor: { id: string; name: string } | null;
+  task: { id: string; title: string } | null;
+}
+
 export interface DayGroup {
   key: string;
   label: string;

@@ -9,6 +9,7 @@ import { AuditService } from '../common/audit.service';
 import { TaskListsService } from '../task-lists/task-lists.service';
 import { CreateTaskDto, PostponeTaskDto, UpdateTaskDto, CreateCommentDto } from './dto/task.dto';
 import { defaultDueDateUtc } from '../common/date.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const userSelect = { id: true, name: true, email: true };
 
@@ -18,6 +19,7 @@ export class TasksService {
     private prisma: PrismaService,
     private audit: AuditService,
     private taskLists: TaskListsService,
+    private notifications: NotificationsService,
   ) {}
 
   async findAll(
@@ -119,6 +121,12 @@ export class TasksService {
     });
 
     await this.audit.log(task.id, userId, 'CREATED');
+    await this.notifications.notifyMentions({
+      task,
+      authorId: userId,
+      source: 'description',
+      text: task.description,
+    });
     return { ...task, listId };
   }
 
@@ -182,11 +190,21 @@ export class TasksService {
       );
     }
 
-    return this.prisma.task.update({
+    const updated = await this.prisma.task.update({
       where: { id: taskId },
       data,
       include: { owner: { select: userSelect }, assignee: { select: userSelect } },
     });
+    if (dto.description !== undefined) {
+      await this.notifications.notifyMentions({
+        task: updated,
+        authorId: userId,
+        source: 'description',
+        text: updated.description,
+        previousText: task.description,
+      });
+    }
+    return updated;
   }
 
   async start(taskId: string, userId: string) {
@@ -254,12 +272,18 @@ export class TasksService {
   }
 
   async addComment(taskId: string, userId: string, dto: CreateCommentDto) {
-    await this.getAccessibleTask(taskId, userId);
+    const task = await this.getAccessibleTask(taskId, userId);
     const comment = await this.prisma.comment.create({
       data: { taskId, userId, body: dto.body },
       include: { user: { select: userSelect } },
     });
     await this.audit.log(taskId, userId, 'COMMENT_ADDED', 'comment', null, dto.body);
+    await this.notifications.notifyMentions({
+      task,
+      authorId: userId,
+      source: 'comment',
+      text: dto.body,
+    });
     return comment;
   }
 
@@ -275,21 +299,6 @@ export class TasksService {
     await this.prisma.comment.delete({ where: { id: commentId } });
     await this.audit.log(taskId, userId, 'COMMENT_DELETED', 'comment', comment.body, null);
     return { success: true };
-  }
-
-  async getPendingAlerts(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { webNotifications: true } });
-    if (!user?.webNotifications) return [];
-    const twoMinutesAgo = new Date(Date.now() - 120000);
-    return this.prisma.task.findMany({
-      where: {
-        OR: [{ ownerId: userId }, { assigneeId: userId }],
-        status: { in: ['todo', 'in_progress'] },
-        alertSent: true,
-        alertAt: { lte: new Date(), gte: twoMinutesAgo },
-      },
-      select: { id: true, title: true, dueDate: true, priority: true, alertAt: true },
-    });
   }
 
   private async changeStatus(taskId: string, userId: string, status: string, action: string) {

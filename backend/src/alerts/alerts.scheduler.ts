@@ -3,8 +3,9 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../common/email.service';
 import { formatInTimeZone } from '../common/date.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
-const recipientSelect = { email: true, timezone: true, emailNotifications: true } as const;
+const recipientSelect = { id: true, email: true, timezone: true, emailNotifications: true } as const;
 
 @Injectable()
 export class AlertsScheduler {
@@ -13,6 +14,7 @@ export class AlertsScheduler {
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
+    private notifications: NotificationsService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -32,14 +34,21 @@ export class AlertsScheduler {
 
     for (const task of tasks) {
       const subject = `Task alert: ${task.title}`;
-      for (const recipient of [task.assignee, task.owner]) {
-        if (!recipient.emailNotifications) continue;
+      const recipients = [task.assignee, task.owner].filter(
+        (r, i, all) => all.findIndex((o) => o.id === r.id) === i,
+      );
+      for (const recipient of recipients) {
         const due = formatInTimeZone(task.dueDate, recipient.timezone);
-        await this.email.sendAlert(
-          recipient.email,
-          subject,
-          `Your task "${task.title}" is due ${due}. Priority: ${task.priority}.`,
-        );
+        const body = `Your task "${task.title}" is due ${due}. Priority: ${task.priority}.`;
+        await this.notifications.create({
+          userId: recipient.id,
+          type: 'task_alert',
+          taskId: task.id,
+          title: subject,
+          body,
+        });
+        if (!recipient.emailNotifications) continue;
+        await this.email.sendAlert(recipient.email, subject, body);
       }
 
       await this.prisma.task.update({

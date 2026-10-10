@@ -1,6 +1,7 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, effect, untracked } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { NotificationService } from '../../services/notification.service';
 import { ThemeService } from '../../services/theme.service';
 
 @Component({
@@ -18,6 +19,18 @@ import { ThemeService } from '../../services/theme.service';
             <a class="nav-link px-2" routerLink="/tasks" routerLinkActive="active">Tasks</a>
             <a class="nav-link px-2" routerLink="/projects" routerLinkActive="active">Projects</a>
             <a class="nav-link px-2" routerLink="/teams" routerLinkActive="active">Teams</a>
+            <a
+              class="nav-link px-2 nav-notifications"
+              routerLink="/notifications"
+              routerLinkActive="active"
+              [title]="unreadLabel()"
+              [attr.aria-label]="unreadLabel()"
+            >
+              <i class="bi bi-bell"></i>
+              @if (notifications.unreadCount() > 0) {
+                <span class="notification-badge">{{ notifications.unreadCount() > 99 ? '99+' : notifications.unreadCount() }}</span>
+              }
+            </a>
             <div class="dropdown user-menu">
               <button
                 class="btn btn-user-menu dropdown-toggle"
@@ -77,7 +90,18 @@ export class NavbarComponent {
   constructor(
     public auth: AuthService,
     public theme: ThemeService,
-  ) {}
+    public notifications: NotificationService,
+  ) {
+    effect(() => {
+      if (!this.auth.currentUser()) return;
+      untracked(() => this.notifications.startPolling());
+    });
+  }
+
+  unreadLabel() {
+    const count = this.notifications.unreadCount();
+    return count ? `Notifications (${count} unread)` : 'Notifications';
+  }
 
   @HostListener('document:click')
   onDocumentClick() {
