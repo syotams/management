@@ -989,3 +989,8 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
   color: var(--app-priority-low-text) !important;
   border-color: var(--app-priority-low-border) !important;
 }
+
+.preserve-line-breaks {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

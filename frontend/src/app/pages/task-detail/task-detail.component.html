@@ -75,7 +75,7 @@
             </button>
           </div>
         </div>
-        <p class="text-muted">{{ task.description || 'No description' }}</p>
+        <p class="text-muted preserve-line-breaks">{{ task.description || 'No description' }}</p>
         <div class="row g-3">
           <div class="col-md-6">
             <dl class="task-meta">
@@ -138,7 +138,7 @@
                       }
                     </div>
                   </div>
-                  <p class="mb-0">{{ comment.body }}</p>
+                  <p class="mb-0 preserve-line-breaks">{{ comment.body }}</p>
                 </div>
               } @empty {
                 <p class="text-muted">No comments yet.</p>

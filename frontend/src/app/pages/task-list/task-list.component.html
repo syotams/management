@@ -420,7 +420,7 @@
                           <div class="comment-sub-row">
                             <div class="last-comment-block">
                               <i class="bi bi-chat-left-text text-muted"></i>
-                              <span class="last-comment-text">{{ task.lastComment.body }}</span>
+                              <span class="last-comment-text preserve-line-breaks">{{ task.lastComment.body }}</span>
                               <small class="last-comment-meta text-muted">
                                 {{ displayName(task.lastComment.user) }} ·
                                 <span [title]="formatDateTime(task.lastComment.createdAt)">{{ formatDate(task.lastComment.createdAt) }}</span>
