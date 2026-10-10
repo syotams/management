@@ -20,8 +20,8 @@ import { Team, TeamMember, TeamInvite, PendingInvite } from '../../models';
     }
     .members-table .col-role,
     .members-table .col-actions,
-    .members-table td:nth-child(2),
-    .members-table td:nth-child(3) {
+    .members-table td:nth-child(3),
+    .members-table td:nth-child(4) {
       white-space: nowrap;
     }
   `],
@@ -117,11 +117,13 @@ import { Team, TeamMember, TeamInvite, PendingInvite } from '../../models';
               <table class="table table-sm members-table">
                 <colgroup>
                   <col>
+                  <col>
                   <col class="col-role">
                   <col class="col-actions">
                 </colgroup>
                 <thead>
                   <tr>
+                    <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
                     <th>Actions</th>
@@ -130,7 +132,8 @@ import { Team, TeamMember, TeamInvite, PendingInvite } from '../../models';
                 <tbody>
                   @for (m of members.members; track m.id) {
                     <tr>
-                      <td>{{ m.user.name }}</td>
+                      <td class="text-truncate" [title]="m.user.name">{{ m.user.name }}</td>
+                      <td class="text-truncate" [title]="m.user.email">{{ m.user.email }}</td>
                       <td><span class="badge bg-secondary">{{ m.role }}</span></td>
                       <td>
                         @if (isOwner(team) && m.role !== 'owner' && m.userId !== auth.currentUser()?.id) {

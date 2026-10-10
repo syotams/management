@@ -51,6 +51,27 @@ describe('ProjectsService epic derivation', () => {
     });
   }
 
+  /** Assigns, then shrinks the placement so the epic still has unassigned days left. */
+  async function assignPartially(
+    epicId: string,
+    placement: { userId: string; startSprintNumber: number; startSprintWeek: number },
+    workingDays: number,
+  ) {
+    const detail = await service.assignEpic(projectId, epicId, creatorId, {
+      assigneeId: placement.userId,
+      startSprintNumber: placement.startSprintNumber,
+      startSprintWeek: placement.startSprintWeek,
+    });
+    const assignment = detail.epics.find(
+      (e) =>
+        e.sourceEpicId === epicId &&
+        e.startSprintNumber === placement.startSprintNumber &&
+        e.startSprintWeek === placement.startSprintWeek &&
+        e.assignees.some((a) => a.id === placement.userId),
+    )!;
+    return service.updateEpic(projectId, assignment.id, creatorId, { workingDays });
+  }
+
   it('assign creates an assignment, not a second Epic row', async () => {
     const before = await createBacklogEpic();
     const backlog = before.epics.find((e) => !e.sourceEpicId)!;
@@ -117,11 +138,7 @@ describe('ProjectsService epic derivation', () => {
     const created = await createBacklogEpic();
     const backlog = created.epics.find((e) => !e.sourceEpicId)!;
 
-    await service.assignEpic(projectId, backlog.id, creatorId, {
-      assigneeId,
-      startSprintNumber: 1,
-      startSprintWeek: 1,
-    });
+    await assignPartially(backlog.id, { userId: assigneeId, startSprintNumber: 1, startSprintWeek: 1 }, 2);
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 3,
@@ -138,11 +155,7 @@ describe('ProjectsService epic derivation', () => {
   it('rejects duplicate epic+user+sprint placement', async () => {
     const created = await createBacklogEpic();
     const backlog = created.epics.find((e) => !e.sourceEpicId)!;
-    await service.assignEpic(projectId, backlog.id, creatorId, {
-      assigneeId,
-      startSprintNumber: 1,
-      startSprintWeek: 1,
-    });
+    await assignPartially(backlog.id, { userId: assigneeId, startSprintNumber: 1, startSprintWeek: 1 }, 2);
 
     await expect(
       service.assignEpic(projectId, backlog.id, creatorId, {
@@ -150,7 +163,57 @@ describe('ProjectsService epic derivation', () => {
         startSprintNumber: 1,
         startSprintWeek: 1,
       }),
+    ).rejects.toThrow(/already assigned to that user/);
+  });
+
+  it('rejects assigning an epic whose working days are fully assigned', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    await assignPartially(backlog.id, { userId: assigneeId, startSprintNumber: 1, startSprintWeek: 1 }, 3);
+    await assignPartially(backlog.id, { userId: creatorId, startSprintNumber: 1, startSprintWeek: 1 }, 2);
+
+    await expect(
+      service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId,
+        startSprintNumber: 2,
+        startSprintWeek: 1,
+      }),
+    ).rejects.toThrow(new BadRequestException('This epic is already fully assigned (5/5 working days)'));
+    expect(await prisma.epicAssignment.count()).toBe(2);
+  });
+
+  it('rejects assigning once assigned days exceed the backlog estimate', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    await assignPartially(backlog.id, { userId: assigneeId, startSprintNumber: 1, startSprintWeek: 1 }, 8);
+
+    await expect(
+      service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId: creatorId,
+        startSprintNumber: 2,
+        startSprintWeek: 1,
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('allows assigning again after an assignment is removed', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+    const assignmentId = assigned.epics.find((e) => e.sourceEpicId === backlog.id)!.id;
+    await service.deleteEpic(projectId, assignmentId, creatorId);
+
+    await expect(
+      service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId: creatorId,
+        startSprintNumber: 2,
+        startSprintWeek: 1,
+      }),
+    ).resolves.toBeDefined();
   });
 
   it('rejects duplicate epic titles within the same project', async () => {
@@ -212,11 +275,7 @@ describe('ProjectsService epic derivation', () => {
   it('deletes only one assignment when deleting assignment id', async () => {
     const created = await createBacklogEpic();
     const backlog = created.epics.find((e) => !e.sourceEpicId)!;
-    await service.assignEpic(projectId, backlog.id, creatorId, {
-      assigneeId,
-      startSprintNumber: 1,
-      startSprintWeek: 1,
-    });
+    await assignPartially(backlog.id, { userId: assigneeId, startSprintNumber: 1, startSprintWeek: 1 }, 2);
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 2,
