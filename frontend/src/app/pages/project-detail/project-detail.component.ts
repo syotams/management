@@ -300,16 +300,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   backlogEpicTitle(epic: ProjectEpic): string {
     const assigned = this.assignedWorkingDays(epic.id);
-    const suffix = this.isBacklogFullyAssigned(epic) ? ' · fully assigned' : '';
-    return `${epic.title} · ${assigned}/${epic.workingDays}d assigned${suffix}`;
-  }
-
-  cellAssignItemTitle(epic: ProjectEpic, participantId: string, sprintNumber: number, week: number): string {
-    if (this.isBacklogFullyAssigned(epic)) {
-      return `Fully assigned (${this.assignedWorkingDays(epic.id)}/${epic.workingDays}d)`;
-    }
-    if (this.isAssignedToUser(epic.id, participantId, sprintNumber, week)) return 'Already assigned in this week';
-    return `Assign ${epic.title}`;
+    return `${epic.title} · ${assigned}/${epic.workingDays}d assigned`;
   }
 
   get weekColumnCount(): number {
@@ -953,10 +944,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     const startSprintNumber = targetSprint.number;
     const startSprintWeek = cell.week;
 
-    if (this.isBacklogFullyAssigned(template)) {
-      this.error = `"${template.title}" is already fully assigned (${this.assignedWorkingDays(template.id)}/${template.workingDays} working days)`;
-      return;
-    }
     if (this.isAssignedToUser(template.id, cell.participantId, startSprintNumber, startSprintWeek)) {
       this.error = 'This epic is already assigned to that user in that sprint week';
       return;

@@ -330,13 +330,6 @@ export class ProjectsService {
     const template = project.epics.find((e) => e.id === templateEpicId);
     if (!template) throw new NotFoundException('Epic not found');
 
-    const assignedDays = template.assignments.reduce((sum, a) => sum + a.workingDays, 0);
-    if (assignedDays >= template.workingDays) {
-      throw new BadRequestException(
-        `This epic is already fully assigned (${assignedDays}/${template.workingDays} working days)`,
-      );
-    }
-
     this.assertStartSprint(project, dto.startSprintNumber);
     this.assertStartSprintWeek(dto.startSprintWeek);
     await this.ensureAssignable(project, userId, [dto.assigneeId]);

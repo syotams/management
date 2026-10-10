@@ -109,7 +109,7 @@
                 [title]="backlogEpicTitle(epic)"
                 cdkDrag
                 [cdkDragData]="epic"
-                [cdkDragDisabled]="!canEditEpics || movingEpic || isBacklogFullyAssigned(epic)"
+                [cdkDragDisabled]="!canEditEpics || movingEpic"
               >
                 <span class="epic-chip-title">{{ truncateEpicTitle(epic.title) }}</span>
                 <span class="epic-chip-meta">
@@ -151,7 +151,7 @@
             }
           </div>
           @if (canEditEpics) {
-            <div class="form-text mt-2">Drag epics onto a participant and sprint to schedule them. The epic stays in the backlog so you can assign it to other users until its working days are fully assigned.</div>
+            <div class="form-text mt-2">Drag epics onto a participant and sprint to schedule them. The epic stays in the backlog so you can assign it to other users.</div>
           }
         </div>
       </div>
@@ -914,8 +914,8 @@
         <button
           type="button"
           class="dropdown-item cell-assign-item"
-          [disabled]="movingEpic || isBacklogFullyAssigned(epic) || isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week)"
-          [title]="cellAssignItemTitle(epic, menu.cell.participantId, menu.sprintNumber, menu.cell.week)"
+          [disabled]="movingEpic || isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week)"
+          [title]="isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week) ? 'Already assigned in this week' : 'Assign ' + epic.title"
           (click)="assignBacklogEpicToCell(epic.id, menu.cell)"
         >
           <span class="cell-assign-swatch" [style.background]="epic.backgroundColor"></span>
