@@ -187,13 +187,13 @@
       @if (showDescriptionField) {
         <div class="mt-3">
           <label class="form-label">Description</label>
-          <textarea
+          <app-mention-textarea
             #newDescriptionInput
-            class="form-control"
-            rows="3"
+            [rows]="3"
+            [members]="members"
             [(ngModel)]="newDescription"
-            placeholder="Add more details…"
-          ></textarea>
+            placeholder="Add more details… Type @ to mention a teammate"
+          />
         </div>
       }
 
@@ -537,7 +537,7 @@
             </div>
             <div class="col-12">
               <label class="form-label">Description</label>
-              <textarea class="form-control" rows="3" [(ngModel)]="editForm.description"></textarea>
+              <app-mention-textarea [rows]="3" [members]="members" [(ngModel)]="editForm.description" />
             </div>
             <div class="col-md-6">
               <label class="form-label">List</label>

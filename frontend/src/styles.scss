@@ -424,6 +424,29 @@ app-root {
 
   .navbar-text { color: var(--app-text-muted) !important; }
 
+  .nav-notifications {
+    position: relative;
+    font-size: 1.15rem;
+    line-height: 1;
+
+    .notification-badge {
+      position: absolute;
+      top: 0;
+      right: 0;
+      transform: translate(30%, -20%);
+      min-width: 1.15rem;
+      height: 1.15rem;
+      padding: 0 0.3rem;
+      border-radius: 999px;
+      background: var(--app-error);
+      color: #ffffff;
+      font-size: 0.68rem;
+      font-weight: 600;
+      line-height: 1.15rem;
+      text-align: center;
+    }
+  }
+
   .btn-theme-toggle {
     background: transparent;
     border: 1px solid var(--app-border);
@@ -993,4 +1016,12 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
 .preserve-line-breaks {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.mention {
+  color: var(--app-primary);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--app-primary) 10%, transparent);
+  border-radius: 4px;
+  padding: 0 0.15rem;
 }

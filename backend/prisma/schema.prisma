@@ -39,6 +39,27 @@ model User {
   taskLists             TaskList[]
   taskPlacements        TaskPlacement[]
   passwordResets        PasswordReset[]
+  notifications         Notification[]       @relation("NotificationRecipient")
+  actedNotifications    Notification[]       @relation("NotificationActor")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  /// "task_alert" | "mention"
+  type      String
+  taskId    String?
+  actorId   String?
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user  User  @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  task  Task? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model PasswordReset {
@@ -120,6 +141,7 @@ model Task {
   comments Comment[]
   auditLogs TaskAuditLog[]
   placements TaskPlacement[]
+  notifications Notification[]
 }
 
 model TaskList {

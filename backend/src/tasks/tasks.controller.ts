@@ -35,11 +35,6 @@ export class TasksController {
     });
   }
 
-  @Get('alerts/pending')
-  pendingAlerts(@CurrentUser() user: { id: string }) {
-    return this.tasksService.getPendingAlerts(user.id);
-  }
-
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.tasksService.findOne(id, user.id);

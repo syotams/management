@@ -26,7 +26,6 @@ import { TaskService } from '../../services/task.service';
 import { TaskListService } from '../../services/task-list.service';
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
-import { NotificationService } from '../../services/notification.service';
 import { TaskNavigationService } from '../../services/task-navigation.service';
 import { Task, AssignableMember, Priority, TaskList } from '../../models';
 import {
@@ -43,6 +42,7 @@ import {
 import { datetimeLocalToUtcIso, formatUserDate, formatUserDateTime, fromDatetimeLocal } from '../../utils/date';
 import { AlertMode, alertAtToLocal, initialAlertMode, resolveAlertAt } from '../../utils/alert';
 import { AlertPickerComponent } from '../../components/alert-picker/alert-picker.component';
+import { MentionTextareaComponent } from '../../components/mention-textarea/mention-textarea.component';
 
 interface TaskSection {
   key: string;
@@ -66,12 +66,13 @@ interface TaskSection {
     CdkDragHandle,
     CdkDragPreview,
     AlertPickerComponent,
+    MentionTextareaComponent,
   ],
   templateUrl: './task-list.component.html',
   styleUrl: './task-list.component.scss',
 })
 export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild('newDescriptionInput') newDescriptionInput?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('newDescriptionInput') newDescriptionInput?: MentionTextareaComponent;
   @ViewChild('listNameInput') listNameInput?: ElementRef<HTMLInputElement>;
   @ViewChild('tabsScroll') tabsScroll?: ElementRef<HTMLDivElement>;
   @ViewChild('tabsList') tabsList?: ElementRef<HTMLUListElement>;
@@ -140,7 +141,6 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
     private taskListService: TaskListService,
     public auth: AuthService,
     private teamService: TeamService,
-    private notificationService: NotificationService,
     private taskNav: TaskNavigationService,
     private router: Router,
     private zone: NgZone,
@@ -182,7 +182,6 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.notificationService.startPolling();
     this.activeListId = this.taskNav.getActiveListId();
     this.loadLists(() => this.loadTasks({ refreshCounts: false }));
     this.teamService.getAssignableMembers().subscribe((m) => (this.members = m));
@@ -548,7 +547,7 @@ export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
 
   showDescriptionInput() {
     this.showDescriptionField = true;
-    setTimeout(() => this.newDescriptionInput?.nativeElement.focus(), 0);
+    setTimeout(() => this.newDescriptionInput?.focus(), 0);
   }
 
   showDueDateInput() {

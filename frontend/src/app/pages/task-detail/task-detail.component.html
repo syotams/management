@@ -75,7 +75,7 @@
             </button>
           </div>
         </div>
-        <p class="text-muted preserve-line-breaks">{{ task.description || 'No description' }}</p>
+        <p class="text-muted preserve-line-breaks">@for (seg of mentionSegments(task.description); track $index) {<span [class.mention]="seg.mention">{{ seg.text }}</span>} @empty {No description}</p>
         <div class="row g-3">
           <div class="col-md-6">
             <dl class="task-meta">
@@ -138,7 +138,7 @@
                       }
                     </div>
                   </div>
-                  <p class="mb-0 preserve-line-breaks">{{ comment.body }}</p>
+                  <p class="mb-0 preserve-line-breaks">@for (seg of mentionSegments(comment.body); track $index) {<span [class.mention]="seg.mention">{{ seg.text }}</span>}</p>
                 </div>
               } @empty {
                 <p class="text-muted">No comments yet.</p>
@@ -146,7 +146,13 @@
               }
             </div>
             <div class="mt-3 pt-3 border-top">
-              <textarea class="form-control mb-2" rows="3" [(ngModel)]="newComment" placeholder="Add a comment..."></textarea>
+              <app-mention-textarea
+                class="mb-2"
+                [rows]="3"
+                [members]="members"
+                [(ngModel)]="newComment"
+                placeholder="Add a comment... Type @ to mention a teammate"
+              />
               <button class="btn btn-primary btn-sm" (click)="addComment()" [disabled]="!newComment.trim() || loadingDetails">Post Comment</button>
             </div>
           </div>
@@ -204,7 +210,7 @@
             </div>
             <div class="col-12">
               <label class="form-label">Description</label>
-              <textarea class="form-control" rows="3" [(ngModel)]="editForm.description"></textarea>
+              <app-mention-textarea [rows]="3" [members]="members" [(ngModel)]="editForm.description" />
             </div>
             @if (isOwner()) {
               <div class="col-md-6">
