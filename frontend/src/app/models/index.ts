@@ -3,8 +3,12 @@ export interface User {
   email: string;
   name: string;
   timezone?: string;
+  emailNotifications: boolean;
+  webNotifications: boolean;
   createdAt: string;
 }
+
+export type NotificationPreferences = Pick<User, 'emailNotifications' | 'webNotifications'>;
 
 export interface AuthResponse {
   accessToken: string;

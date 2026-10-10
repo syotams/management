@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
-import { AuthResponse, User } from '../models';
+import { AuthResponse, NotificationPreferences, User } from '../models';
 import { userTimeZone } from '../utils/date';
 
 @Injectable({ providedIn: 'root' })
@@ -49,6 +49,12 @@ export class AuthService {
 
   resetPassword(token: string, password: string) {
     return this.api.postPublic<{ message: string }>('/auth/reset-password', { token, password });
+  }
+
+  updateNotificationPreferences(prefs: Partial<NotificationPreferences>) {
+    return this.api.patch<User>('/auth/me', prefs).pipe(
+      tap((user) => this.currentUser.set(user)),
+    );
   }
 
   logout() {

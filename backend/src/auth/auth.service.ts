@@ -40,6 +40,7 @@ export class AuthService {
         name: dto.name,
         passwordHash,
         timezone: resolveTimeZone(dto.timezone),
+        emailNotifications: true,
       },
     });
 
@@ -72,9 +73,15 @@ export class AuthService {
   async updateMe(userId: string, dto: UpdateMeDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
-    const data: { timezone?: string } = {};
+    const data: { timezone?: string; emailNotifications?: boolean; webNotifications?: boolean } = {};
     if (dto.timezone !== undefined) {
       data.timezone = resolveTimeZone(dto.timezone);
+    }
+    if (dto.emailNotifications !== undefined) {
+      data.emailNotifications = dto.emailNotifications;
+    }
+    if (dto.webNotifications !== undefined) {
+      data.webNotifications = dto.webNotifications;
     }
     const updated = Object.keys(data).length
       ? await this.prisma.user.update({ where: { id: userId }, data })
@@ -130,7 +137,23 @@ export class AuthService {
     return this.jwtService.sign({ sub: id, email });
   }
 
-  private sanitize(user: { id: string; email: string; name: string; timezone: string; createdAt: Date }) {
-    return { id: user.id, email: user.email, name: user.name, timezone: user.timezone, createdAt: user.createdAt };
+  private sanitize(user: {
+    id: string;
+    email: string;
+    name: string;
+    timezone: string;
+    emailNotifications: boolean;
+    webNotifications: boolean;
+    createdAt: Date;
+  }) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      timezone: user.timezone,
+      emailNotifications: user.emailNotifications,
+      webNotifications: user.webNotifications,
+      createdAt: user.createdAt,
+    };
   }
 }
