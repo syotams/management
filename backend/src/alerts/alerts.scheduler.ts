@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../common/email.service';
 import { formatInTimeZone } from '../common/date.util';
 
+const recipientSelect = { email: true, timezone: true, emailNotifications: true } as const;
+
 @Injectable()
 export class AlertsScheduler {
   private readonly logger = new Logger(AlertsScheduler.name);
@@ -23,25 +25,22 @@ export class AlertsScheduler {
         alertSent: false,
       },
       include: {
-        assignee: { select: { email: true, timezone: true } },
-        owner: { select: { email: true, timezone: true } },
+        assignee: { select: recipientSelect },
+        owner: { select: recipientSelect },
       },
     });
 
     for (const task of tasks) {
       const subject = `Task alert: ${task.title}`;
-      const assigneeDue = formatInTimeZone(task.dueDate, task.assignee.timezone);
-      const ownerDue = formatInTimeZone(task.dueDate, task.owner.timezone);
-      await this.email.sendAlert(
-        task.assignee.email,
-        subject,
-        `Your task "${task.title}" is due ${assigneeDue}. Priority: ${task.priority}.`,
-      );
-      await this.email.sendAlert(
-        task.owner.email,
-        subject,
-        `Your task "${task.title}" is due ${ownerDue}. Priority: ${task.priority}.`,
-      );
+      for (const recipient of [task.assignee, task.owner]) {
+        if (!recipient.emailNotifications) continue;
+        const due = formatInTimeZone(task.dueDate, recipient.timezone);
+        await this.email.sendAlert(
+          recipient.email,
+          subject,
+          `Your task "${task.title}" is due ${due}. Priority: ${task.priority}.`,
+        );
+      }
 
       await this.prisma.task.update({
         where: { id: task.id },

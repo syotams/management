@@ -14,6 +14,9 @@ model User {
   name         String   @unique
   passwordHash String
   timezone     String   @default("UTC")
+  /// Defaults to false so `db push` opts existing users out; registration opts new users in.
+  emailNotifications Boolean @default(false)
+  webNotifications   Boolean @default(true)
   createdAt    DateTime @default(now())
 
   ownedTeams     Team[]       @relation("TeamCreator")

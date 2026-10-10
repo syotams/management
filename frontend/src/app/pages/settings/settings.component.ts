@@ -1,4 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
+import { NotificationPreferences } from '../../models';
+import { AuthService } from '../../services/auth.service';
+import { BrowserNotificationPermission, NotificationService } from '../../services/notification.service';
+import { formatApiError } from '../../utils/api-error';
 import {
   COLORFFY_SEED_KEYS,
   COLORFFY_SEED_LABELS,
@@ -13,6 +17,68 @@ import { Theme, ThemeService, THEME_OPTIONS } from '../../services/theme.service
   template: `
     <div class="py-2">
       <h2 class="page-title mb-4">Settings</h2>
+
+      <div class="card mb-4">
+        <div class="card-header">Notifications</div>
+        <div class="card-body">
+          <p class="text-muted mb-4">
+            Choose how you want to be alerted when a task you own or are assigned to reaches its alert time.
+          </p>
+
+          @if (auth.currentUser(); as user) {
+            <div class="notification-options">
+              <label class="notification-option">
+                <span class="notification-option-content">
+                  <span class="notification-option-name">Email</span>
+                  <span class="notification-option-description">Send task alerts to {{ user.email }}.</span>
+                </span>
+                <span class="form-check form-switch m-0">
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    class="form-check-input"
+                    [checked]="user.emailNotifications"
+                    [disabled]="saving()"
+                    (change)="togglePreference('emailNotifications', $event)"
+                  />
+                </span>
+              </label>
+
+              <label class="notification-option">
+                <span class="notification-option-content">
+                  <span class="notification-option-name">Web notifications</span>
+                  <span class="notification-option-description">Show a browser notification while SprintPulse is open.</span>
+                </span>
+                <span class="form-check form-switch m-0">
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    class="form-check-input"
+                    [checked]="user.webNotifications"
+                    [disabled]="saving()"
+                    (change)="togglePreference('webNotifications', $event)"
+                  />
+                </span>
+              </label>
+            </div>
+
+            @if (user.webNotifications && browserPermission() === 'denied') {
+              <p class="notification-warning mt-3 mb-0">
+                Your browser is blocking notifications for this site. Allow them in your browser's site settings to receive web notifications.
+              </p>
+            }
+            @if (user.webNotifications && browserPermission() === 'unsupported') {
+              <p class="notification-warning mt-3 mb-0">This browser does not support web notifications.</p>
+            }
+          } @else {
+            <p class="text-muted mb-0">Loading…</p>
+          }
+
+          @if (error()) {
+            <p class="text-danger mt-3 mb-0">{{ error() }}</p>
+          }
+        </div>
+      </div>
 
       <div class="card">
         <div class="card-header">Appearance</div>
@@ -122,6 +188,56 @@ import { Theme, ThemeService, THEME_OPTIONS } from '../../services/theme.service
     </div>
   `,
   styles: `
+    .notification-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .notification-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem;
+      border: 1.5px solid var(--app-border-subtle);
+      border-radius: 10px;
+      cursor: pointer;
+
+      &:hover {
+        background: var(--app-surface-hover);
+        border-color: var(--app-border);
+      }
+
+      .form-check-input {
+        width: 2.5rem;
+        height: 1.25rem;
+        cursor: pointer;
+      }
+    }
+
+    .notification-option-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 0;
+    }
+
+    .notification-option-name {
+      font-weight: 600;
+      color: var(--app-text);
+    }
+
+    .notification-option-description {
+      font-size: 0.875rem;
+      color: var(--app-text-muted);
+    }
+
+    .notification-warning {
+      font-size: 0.875rem;
+      color: var(--app-warning);
+    }
+
     .theme-options {
       display: flex;
       flex-direction: column;
@@ -311,7 +427,36 @@ export class SettingsComponent {
   readonly seedKeys = COLORFFY_SEED_KEYS;
   readonly seedLabels = COLORFFY_SEED_LABELS;
 
-  constructor(public theme: ThemeService) {}
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly browserPermission = signal<BrowserNotificationPermission>('default');
+
+  constructor(
+    public theme: ThemeService,
+    public auth: AuthService,
+    private notifications: NotificationService,
+  ) {
+    this.browserPermission.set(this.notifications.browserPermission());
+  }
+
+  async togglePreference(key: keyof NotificationPreferences, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const enabled = input.checked;
+    if (key === 'webNotifications' && enabled) {
+      this.browserPermission.set(await this.notifications.requestPermission());
+    }
+
+    this.saving.set(true);
+    this.error.set(null);
+    this.auth.updateNotificationPreferences({ [key]: enabled }).subscribe({
+      next: () => this.saving.set(false),
+      error: (err) => {
+        input.checked = !enabled;
+        this.saving.set(false);
+        this.error.set(formatApiError(err, 'Could not save notification settings.'));
+      },
+    });
+  }
 
   swatchesFor(option: (typeof THEME_OPTIONS)[number]): [string, string, string] {
     if (option.id !== 'dark-colorffy') return option.swatches;

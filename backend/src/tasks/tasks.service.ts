@@ -278,6 +278,8 @@ export class TasksService {
   }
 
   async getPendingAlerts(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { webNotifications: true } });
+    if (!user?.webNotifications) return [];
     const twoMinutesAgo = new Date(Date.now() - 120000);
     return this.prisma.task.findMany({
       where: {

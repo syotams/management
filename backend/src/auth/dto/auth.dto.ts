@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, Matches, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, Matches, IsOptional, IsBoolean } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -34,6 +34,14 @@ export class UpdateMeDto {
   @IsOptional()
   @IsString()
   timezone?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  emailNotifications?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  webNotifications?: boolean;
 }
 
 export class ForgotPasswordDto {
