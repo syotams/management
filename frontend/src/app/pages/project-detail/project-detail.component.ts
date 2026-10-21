@@ -287,6 +287,15 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     );
   }
 
+  get backlogWorkingDays(): number {
+    return this.backlogEpics.reduce((sum, epic) => sum + epic.workingDays, 0);
+  }
+
+  get backlogWorkingDaysLabel(): string {
+    const days = this.backlogWorkingDays;
+    return days === 1 ? '1 working day' : `${days} working days`;
+  }
+
   assignedWorkingDays(templateEpicId: string): number {
     if (!this.project) return 0;
     return this.project.epics
