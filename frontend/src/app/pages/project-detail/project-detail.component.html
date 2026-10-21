@@ -9,6 +9,7 @@
           · {{ teamsLabel }}
           · {{ project.sprints.length }} sprints
           · {{ backlogEpics.length }} epics
+          · {{ backlogWorkingDaysLabel }}
           @if (project.currentVersion) {
             · v{{ project.currentVersion }}
           }
@@ -79,7 +80,12 @@
     @if (canEditEpics || backlogEpics.length) {
       <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center gap-2">
-          <span><i class="bi bi-inbox me-2"></i>Epics Backlog</span>
+          <span>
+            <i class="bi bi-inbox me-2"></i>Epics Backlog
+            <span class="backlog-days-total" title="Total working days set on backlog epics">
+              {{ backlogWorkingDaysLabel }}
+            </span>
+          </span>
           @if (canEditEpics) {
             <button
               type="button"

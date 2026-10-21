@@ -379,6 +379,12 @@
   transition: transform 150ms cubic-bezier(0, 0, 0.2, 1);
 }
 
+.backlog-days-total {
+  margin-left: 0.65rem;
+  font-weight: 500;
+  color: var(--app-text-muted);
+}
+
 .epic-backlog {
   display: flex;
   flex-wrap: wrap;
