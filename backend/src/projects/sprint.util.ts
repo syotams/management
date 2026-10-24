@@ -118,38 +118,131 @@ export type DateRange = {
   endDate: Date;
 };
 
-export type SprintPlacement = {
+export type CapacitySlot = {
+  sprintNumber: number;
+  week: SprintWeekNumber;
+  capacity: number;
+};
+
+export type PaintedWeek = {
+  sprintNumber: number;
+  week: SprintWeekNumber;
+  days: number;
+};
+
+export type ExistingAssignmentSpan = {
+  workingDays: number;
   startSprintNumber: number;
   startSprintWeek: SprintWeekNumber;
 };
 
-export type WorkingDayChunk = SprintPlacement & {
-  workingDays: number;
-};
-
-export type SplitEpicResult =
-  | { ok: true; chunks: WorkingDayChunk[] }
-  | { ok: false; message: string };
+export type PlanAssignmentResult =
+  | { ok: true; weeks: PaintedWeek[] }
+  | { ok: false; reason: 'invalid' | 'overflow' | 'overlap'; message: string };
 
 export function pastLastSprintMessage(daysLeft: number): string {
   const noun = daysLeft === 1 ? 'day' : 'days';
   return `Not enough sprint capacity to assign this epic. ${daysLeft} working ${noun} would extend past the last sprint.`;
 }
 
-// First chunk keeps the dropped sprint and week. Later chunks start at week 1.
-// Each chunk is capped by the project max and by free weekdays from that start week
-// through the end of the sprint. Absences are subtracted one range at a time, matching
-// the grid, so the chunk stays inside its sprint. Empty sprints are skipped.
-// Failure returns no chunks.
-export function splitEpicAcrossSprints(input: {
+export function weekCapacity(sprint: DatedSprint, week: SprintWeekNumber, absences: DateRange[]): number {
+  const range = sprintWeekRange(sprint, week);
+  let remaining = countWeekdays(range.startDate, range.endDate);
+  for (const absence of absences) {
+    remaining -= countWeekdaysOverlap(
+      absence.startDate,
+      absence.endDate,
+      range.startDate,
+      range.endDate,
+    );
+  }
+  return Math.max(0, remaining);
+}
+
+export function assignmentSlots(
+  sprints: DatedSprint[],
+  startSprintNumber: number,
+  startSprintWeek: SprintWeekNumber,
+  absences: DateRange[] = [],
+): CapacitySlot[] | null {
+  const ordered = [...sprints].sort((a, b) => a.number - b.number);
+  const startIndex = ordered.findIndex((sprint) => sprint.number === startSprintNumber);
+  if (startIndex < 0) return null;
+
+  const slots: CapacitySlot[] = [];
+  for (let index = startIndex; index < ordered.length; index += 1) {
+    const sprint = ordered[index];
+    const weeks: SprintWeekNumber[] =
+      index === startIndex ? (startSprintWeek === 2 ? [2] : [1, 2]) : [1, 2];
+    for (const week of weeks) {
+      slots.push({
+        sprintNumber: sprint.number,
+        week,
+        capacity: weekCapacity(sprint, week, absences),
+      });
+    }
+  }
+  return slots;
+}
+
+// Walks week slots from the assignment start. Each sprint gets a fresh cap.
+// A week takes min(days left, free weekdays, cap still left in that sprint).
+// Empty weeks are skipped. Leftover days stay unplaced unless dumpRemainder is set,
+// which matches the grid's last-cell overflow for assignments already on the board.
+export function paintAssignmentWeeks(
+  workingDays: number,
+  maxWorkingDaysPerSprint: number,
+  slots: CapacitySlot[],
+  options?: { dumpRemainder?: boolean },
+): { weeks: PaintedWeek[]; daysLeft: number } {
+  const weeks: PaintedWeek[] = [];
+  let daysLeft = workingDays;
+  let currentSprint: number | null = null;
+  let capLeft = 0;
+
+  for (const slot of slots) {
+    if (daysLeft <= 0) break;
+    if (slot.sprintNumber !== currentSprint) {
+      currentSprint = slot.sprintNumber;
+      capLeft = maxWorkingDaysPerSprint;
+    }
+    if (slot.capacity <= 0 || capLeft <= 0) continue;
+    const used = Math.min(daysLeft, slot.capacity, capLeft);
+    weeks.push({ sprintNumber: slot.sprintNumber, week: slot.week, days: used });
+    daysLeft -= used;
+    capLeft -= used;
+  }
+
+  if (options?.dumpRemainder && daysLeft > 0 && slots.length) {
+    const last = slots[slots.length - 1];
+    const existing = weeks.find(
+      (week) => week.sprintNumber === last.sprintNumber && week.week === last.week,
+    );
+    if (existing) existing.days += daysLeft;
+    else weeks.push({ sprintNumber: last.sprintNumber, week: last.week, days: daysLeft });
+    daysLeft = 0;
+  }
+
+  return { weeks, daysLeft };
+}
+
+function weekKey(week: { sprintNumber: number; week: SprintWeekNumber }): string {
+  return `${week.sprintNumber}:${week.week}`;
+}
+
+// One assignment keeps the full working-day total and its start cell.
+// Later sprints are painted, not stored. A second assignment of the same epic
+// and user is rejected only when the painted weeks overlap.
+export function planAssignmentSpan(input: {
   workingDays: number;
   maxWorkingDaysPerSprint: number;
   startSprintNumber: number;
   startSprintWeek: SprintWeekNumber;
   sprints: DatedSprint[];
   absences?: DateRange[];
-  existingPlacements?: SprintPlacement[];
-}): SplitEpicResult {
+  existingPlacements?: ExistingAssignmentSpan[];
+  allowOverflow?: boolean;
+}): PlanAssignmentResult {
   const {
     workingDays,
     maxWorkingDaysPerSprint,
@@ -157,80 +250,59 @@ export function splitEpicAcrossSprints(input: {
     startSprintWeek,
     absences = [],
     existingPlacements = [],
+    allowOverflow = false,
   } = input;
 
   if (!Number.isInteger(workingDays) || workingDays < 1) {
-    return { ok: false, message: 'workingDays must be at least 1' };
+    return { ok: false, reason: 'invalid', message: 'workingDays must be at least 1' };
   }
   if (!Number.isInteger(maxWorkingDaysPerSprint) || maxWorkingDaysPerSprint < 1) {
-    return { ok: false, message: 'maxWorkingDaysPerSprint must be at least 1' };
+    return { ok: false, reason: 'invalid', message: 'maxWorkingDaysPerSprint must be at least 1' };
   }
   if (startSprintWeek !== 1 && startSprintWeek !== 2) {
-    return { ok: false, message: 'startSprintWeek must be 1 or 2' };
+    return { ok: false, reason: 'invalid', message: 'startSprintWeek must be 1 or 2' };
   }
 
-  const ordered = [...input.sprints].sort((a, b) => a.number - b.number);
-  const startIndex = ordered.findIndex((sprint) => sprint.number === startSprintNumber);
-  if (startIndex < 0) {
-    return { ok: false, message: 'Project has no sprint with that number' };
+  const slots = assignmentSlots(input.sprints, startSprintNumber, startSprintWeek, absences);
+  if (!slots) {
+    return { ok: false, reason: 'invalid', message: 'Project has no sprint with that number' };
   }
 
-  const taken = new Set(
-    existingPlacements.map(
-      (placement) => `${placement.startSprintNumber}:${placement.startSprintWeek}`,
-    ),
-  );
-  const chunks: WorkingDayChunk[] = [];
-  let daysLeft = workingDays;
+  const painted = paintAssignmentWeeks(workingDays, maxWorkingDaysPerSprint, slots, {
+    dumpRemainder: allowOverflow,
+  });
+  if (!allowOverflow && painted.daysLeft > 0) {
+    return {
+      ok: false,
+      reason: 'overflow',
+      message: pastLastSprintMessage(painted.daysLeft),
+    };
+  }
 
-  for (let index = startIndex; index < ordered.length && daysLeft > 0; index += 1) {
-    const sprint = ordered[index];
-    const week: SprintWeekNumber = index === startIndex ? startSprintWeek : 1;
-    const capacity = freeWeekdaysFromWeek(sprint, week, absences);
-    if (capacity <= 0) continue;
-
-    const chunkDays = Math.min(daysLeft, maxWorkingDaysPerSprint, capacity);
-    const key = `${sprint.number}:${week}`;
-    if (taken.has(key)) {
-      return { ok: false, message: DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE };
+  const occupied = new Set(painted.weeks.filter((week) => week.days > 0).map(weekKey));
+  for (const existing of existingPlacements) {
+    const existingSlots = assignmentSlots(
+      input.sprints,
+      existing.startSprintNumber,
+      existing.startSprintWeek,
+      absences,
+    );
+    if (!existingSlots) continue;
+    const existingPaint = paintAssignmentWeeks(
+      existing.workingDays,
+      maxWorkingDaysPerSprint,
+      existingSlots,
+      { dumpRemainder: true },
+    );
+    const overlaps = existingPaint.weeks.some(
+      (week) => week.days > 0 && occupied.has(weekKey(week)),
+    );
+    if (overlaps) {
+      return { ok: false, reason: 'overlap', message: DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE };
     }
-    taken.add(key);
-    chunks.push({
-      startSprintNumber: sprint.number,
-      startSprintWeek: week,
-      workingDays: chunkDays,
-    });
-    daysLeft -= chunkDays;
   }
 
-  if (daysLeft > 0) {
-    return { ok: false, message: pastLastSprintMessage(daysLeft) };
-  }
-
-  return { ok: true, chunks };
-}
-
-function freeWeekdaysFromWeek(
-  sprint: DatedSprint,
-  startWeek: SprintWeekNumber,
-  absences: DateRange[],
-): number {
-  const weeks: SprintWeekNumber[] = startWeek === 1 ? [1, 2] : [2];
-  let free = 0;
-  for (const week of weeks) {
-    const range = sprintWeekRange(sprint, week);
-    let remaining = countWeekdays(range.startDate, range.endDate);
-    for (const absence of absences) {
-      remaining -= countWeekdaysOverlap(
-        absence.startDate,
-        absence.endDate,
-        range.startDate,
-        range.endDate,
-      );
-    }
-    free += Math.max(0, remaining);
-  }
-  return free;
+  return { ok: true, weeks: painted.weeks.filter((week) => week.days > 0) };
 }
 
 export function countWeekdaysOverlap(

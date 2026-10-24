@@ -24,11 +24,11 @@ import {
   generateSprints,
   MAX_MAX_WORKING_DAYS_PER_SPRINT,
   MIN_MAX_WORKING_DAYS_PER_SPRINT,
+  paintAssignmentWeeks,
   parseDateOnly,
-  splitEpicAcrossSprints,
+  planAssignmentSpan,
   sprintWeekSlots,
   type SprintWeekNumber,
-  type WorkingDayChunk,
 } from './sprint.util';
 
 const PTO_CHIP_COLOR = '#94a3b8';
@@ -306,16 +306,18 @@ export class ProjectsService {
     const title = dto.title.trim();
     this.assertUniqueEpicTitle(project.epics, title);
     const backgroundColor = dto.backgroundColor.toLowerCase();
-    const plans =
-      assigneeIds.length > 0 && startSprintNumber !== null && startSprintWeek !== null
-        ? this.planScheduledChunks(
-            project,
-            assigneeIds,
-            dto.workingDays,
-            startSprintNumber,
-            startSprintWeek,
-          )
-        : [];
+    if (assigneeIds.length && startSprintNumber !== null && startSprintWeek !== null) {
+      for (const assigneeId of assigneeIds) {
+        this.assertAssignmentFits(
+          project,
+          null,
+          assigneeId,
+          dto.workingDays,
+          startSprintNumber,
+          startSprintWeek,
+        );
+      }
+    }
 
     await this.prisma.$transaction(async (tx) => {
       const epic = await tx.epic.create({
@@ -328,18 +330,16 @@ export class ProjectsService {
         },
       });
 
-      if (!plans.length) return;
+      if (!assigneeIds.length || startSprintNumber === null || startSprintWeek === null) return;
 
       await tx.epicAssignment.createMany({
-        data: plans.flatMap((plan) =>
-          plan.chunks.map((chunk) => ({
-            epicId: epic.id,
-            userId: plan.userId,
-            workingDays: chunk.workingDays,
-            startSprintNumber: chunk.startSprintNumber,
-            startSprintWeek: chunk.startSprintWeek,
-          })),
-        ),
+        data: assigneeIds.map((assigneeId) => ({
+          epicId: epic.id,
+          userId: assigneeId,
+          workingDays: dto.workingDays,
+          startSprintNumber,
+          startSprintWeek,
+        })),
       });
     });
 
@@ -364,7 +364,7 @@ export class ProjectsService {
     this.assertStartSprintWeek(dto.startSprintWeek);
     await this.ensureAssignable(project, userId, [dto.assigneeId]);
 
-    const chunks = this.planAssignmentChunks(
+    this.assertAssignmentFits(
       project,
       template.id,
       dto.assigneeId,
@@ -373,14 +373,14 @@ export class ProjectsService {
       dto.startSprintWeek,
     );
 
-    await this.prisma.epicAssignment.createMany({
-      data: chunks.map((chunk) => ({
+    await this.prisma.epicAssignment.create({
+      data: {
         epicId: template.id,
         userId: dto.assigneeId,
-        workingDays: chunk.workingDays,
-        startSprintNumber: chunk.startSprintNumber,
-        startSprintWeek: chunk.startSprintWeek,
-      })),
+        workingDays: template.workingDays,
+        startSprintNumber: dto.startSprintNumber,
+        startSprintWeek: dto.startSprintWeek,
+      },
     });
 
     await this.maybeVersionAfterChange(projectId, userId);
@@ -441,18 +441,17 @@ export class ProjectsService {
       this.assertStartSprint(project, nextSprint);
       this.assertStartSprintWeek(nextWeek);
 
-      const duplicate = await this.prisma.epicAssignment.findFirst({
-        where: {
-          epicId: assignment.epic.id,
-          userId: nextUserId,
-          startSprintNumber: nextSprint,
-          startSprintWeek: nextWeek,
-          id: { not: epicId },
-        },
-      });
-      if (duplicate) {
-        throw new BadRequestException('This epic is already assigned to that user in that sprint week');
-      }
+      const nextWorkingDays =
+        dto.workingDays !== undefined ? dto.workingDays : assignment.assignment.workingDays;
+      this.assertAssignmentFits(
+        project,
+        assignment.epic.id,
+        nextUserId,
+        nextWorkingDays,
+        nextSprint,
+        nextWeek,
+        { allowOverflow: true, excludeAssignmentId: epicId },
+      );
 
       await this.prisma.epicAssignment.update({
         where: { id: epicId },
@@ -902,7 +901,14 @@ export class ProjectsService {
 
     const participants = await this.resolveParticipantsFromSnapshot(snapshot);
     const participantIds = participants.map((p) => p.id);
-    const grid = this.buildGrid(sprints, epics, participantIds, [], []);
+    const grid = this.buildGrid(
+      sprints,
+      epics,
+      participantIds,
+      [],
+      [],
+      snapshot.maxWorkingDaysPerSprint ?? DEFAULT_MAX_WORKING_DAYS_PER_SPRINT,
+    );
 
     return {
       name: snapshot.name,
@@ -1008,6 +1014,7 @@ export class ProjectsService {
       participantIds,
       ptos,
       holidays,
+      project.maxWorkingDaysPerSprint,
     );
     const capacity = this.computeCapacity(
       project.sprints,
@@ -1226,6 +1233,7 @@ export class ProjectsService {
     participantIds: string[],
     ptos: { id: string; userId: string; name: string; startDate: Date; endDate: Date }[],
     holidays: { id: string; userId: string; name: string; startDate: Date; endDate: Date }[],
+    maxWorkingDaysPerSprint: number,
   ) {
     const slots = sprintWeekSlots(sprints);
     const grid: Record<string, Record<string, {
@@ -1305,38 +1313,33 @@ export class ProjectsService {
       for (const assignee of epic.assignees) {
         const userId = assignee.userId ?? assignee.user.id;
         if (!grid[userId]) continue;
-        let daysLeft = epic.workingDays;
+        const userRemaining = remaining.get(userId)!;
+        const painted = paintAssignmentWeeks(
+          epic.workingDays,
+          maxWorkingDaysPerSprint,
+          eligible.map((slot) => ({
+            sprintNumber: slot.sprintNumber,
+            week: slot.week,
+            capacity: userRemaining.get(slot.cellKey) ?? 0,
+          })),
+          { dumpRemainder: true },
+        );
 
-        for (const slot of eligible) {
-          if (daysLeft <= 0) break;
-          const rem = remaining.get(userId)!.get(slot.cellKey) ?? 0;
-          if (rem <= 0) continue;
-          const used = Math.min(daysLeft, rem);
+        for (const week of painted.weeks) {
+          if (week.days <= 0) continue;
+          const slot = eligible.find(
+            (entry) => entry.sprintNumber === week.sprintNumber && entry.week === week.week,
+          );
+          if (!slot) continue;
           grid[userId][slot.cellKey].push({
             type: 'epic',
             id: epic.id,
             title: epic.title,
             backgroundColor: epic.backgroundColor,
-            daysInSprint: used,
+            daysInSprint: week.days,
           });
-          remaining.get(userId)!.set(slot.cellKey, rem - used);
-          daysLeft -= used;
-        }
-
-        if (daysLeft > 0 && eligible.length) {
-          const last = eligible[eligible.length - 1];
-          const chips = grid[userId][last.cellKey];
-          const existing = chips.find((c) => c.type === 'epic' && c.id === epic.id);
-          if (existing) existing.daysInSprint += daysLeft;
-          else {
-            chips.push({
-              type: 'epic',
-              id: epic.id,
-              title: epic.title,
-              backgroundColor: epic.backgroundColor,
-              daysInSprint: daysLeft,
-            });
-          }
+          const rem = userRemaining.get(slot.cellKey) ?? 0;
+          userRemaining.set(slot.cellKey, Math.max(0, rem - week.days));
         }
       }
     }
@@ -1597,38 +1600,23 @@ export class ProjectsService {
     }
   }
 
-  private planScheduledChunks(
-    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
-    assigneeIds: string[],
-    workingDays: number,
-    startSprintNumber: number,
-    startSprintWeek: number,
-  ) {
-    return assigneeIds.map((assigneeId) => ({
-      userId: assigneeId,
-      chunks: this.planAssignmentChunks(
-        project,
-        null,
-        assigneeId,
-        workingDays,
-        startSprintNumber,
-        startSprintWeek,
-      ),
-    }));
-  }
-
-  private planAssignmentChunks(
+  private assertAssignmentFits(
     project: Awaited<ReturnType<ProjectsService['loadProject']>>,
     epicId: string | null,
     userId: string,
     workingDays: number,
     startSprintNumber: number,
     startSprintWeek: number,
-  ): WorkingDayChunk[] {
+    options?: { allowOverflow?: boolean; excludeAssignmentId?: string },
+  ) {
     const epic = epicId ? project.epics.find((entry) => entry.id === epicId) : undefined;
     const existingPlacements = (epic?.assignments ?? [])
-      .filter((assignment) => assignment.userId === userId)
+      .filter(
+        (assignment) =>
+          assignment.userId === userId && assignment.id !== options?.excludeAssignmentId,
+      )
       .map((assignment) => ({
+        workingDays: assignment.workingDays,
         startSprintNumber: assignment.startSprintNumber,
         startSprintWeek: assignment.startSprintWeek as SprintWeekNumber,
       }));
@@ -1637,7 +1625,7 @@ export class ProjectsService {
       ...project.ptos.filter((pto) => pto.userId === userId),
     ].map((absence) => ({ startDate: absence.startDate, endDate: absence.endDate }));
 
-    const split = splitEpicAcrossSprints({
+    const plan = planAssignmentSpan({
       workingDays,
       maxWorkingDaysPerSprint: project.maxWorkingDaysPerSprint,
       startSprintNumber,
@@ -1645,9 +1633,9 @@ export class ProjectsService {
       sprints: project.sprints,
       absences,
       existingPlacements,
+      allowOverflow: options?.allowOverflow,
     });
-    if (!split.ok) throw new BadRequestException(split.message);
-    return split.chunks;
+    if (!plan.ok) throw new BadRequestException(plan.message);
   }
 
   private assertUniqueEpicTitle(

@@ -2,7 +2,7 @@ import {
   addUtcDays,
   DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE,
   generateSprints,
-  splitEpicAcrossSprints,
+  planAssignmentSpan,
   sprintWeekRange,
 } from './sprint.util';
 
@@ -11,61 +11,63 @@ function sprints(count: number) {
   return generateSprints(start, addUtcDays(start, count * 14 - 1));
 }
 
-describe('splitEpicAcrossSprints', () => {
-  it('keeps an epic that fits under the cap in one sprint', () => {
-    expect(
-      splitEpicAcrossSprints({
-        workingDays: 5,
-        maxWorkingDaysPerSprint: 8,
-        startSprintNumber: 1,
-        startSprintWeek: 1,
-        sprints: sprints(3),
-      }),
-    ).toEqual({
+function plan(
+  overrides: Partial<Parameters<typeof planAssignmentSpan>[0]> & { workingDays: number },
+) {
+  return planAssignmentSpan({
+    maxWorkingDaysPerSprint: 8,
+    startSprintNumber: 1,
+    startSprintWeek: 1,
+    sprints: sprints(3),
+    ...overrides,
+  });
+}
+
+describe('planAssignmentSpan', () => {
+  it('keeps an epic that fits under the cap in the first sprint', () => {
+    expect(plan({ workingDays: 5 })).toEqual({
       ok: true,
-      chunks: [{ startSprintNumber: 1, startSprintWeek: 1, workingDays: 5 }],
+      weeks: [{ sprintNumber: 1, week: 1, days: 5 }],
     });
   });
 
-  it('splits 25 days at a cap of 8 across later sprints', () => {
+  it('paints 25 days at a cap of 8 across later sprints', () => {
     expect(
-      splitEpicAcrossSprints({
+      plan({
         workingDays: 25,
-        maxWorkingDaysPerSprint: 8,
-        startSprintNumber: 1,
-        startSprintWeek: 1,
         sprints: sprints(4),
       }),
     ).toEqual({
       ok: true,
-      chunks: [
-        { startSprintNumber: 1, startSprintWeek: 1, workingDays: 8 },
-        { startSprintNumber: 2, startSprintWeek: 1, workingDays: 8 },
-        { startSprintNumber: 3, startSprintWeek: 1, workingDays: 8 },
-        { startSprintNumber: 4, startSprintWeek: 1, workingDays: 1 },
+      weeks: [
+        { sprintNumber: 1, week: 1, days: 5 },
+        { sprintNumber: 1, week: 2, days: 3 },
+        { sprintNumber: 2, week: 1, days: 5 },
+        { sprintNumber: 2, week: 2, days: 3 },
+        { sprintNumber: 3, week: 1, days: 5 },
+        { sprintNumber: 3, week: 2, days: 3 },
+        { sprintNumber: 4, week: 1, days: 1 },
       ],
     });
   });
 
   it('uses only the 5 weekdays of week 2 when the drop starts there', () => {
     expect(
-      splitEpicAcrossSprints({
+      plan({
         workingDays: 9,
-        maxWorkingDaysPerSprint: 8,
-        startSprintNumber: 1,
         startSprintWeek: 2,
         sprints: sprints(2),
       }),
     ).toEqual({
       ok: true,
-      chunks: [
-        { startSprintNumber: 1, startSprintWeek: 2, workingDays: 5 },
-        { startSprintNumber: 2, startSprintWeek: 1, workingDays: 4 },
+      weeks: [
+        { sprintNumber: 1, week: 2, days: 5 },
+        { sprintNumber: 2, week: 1, days: 4 },
       ],
     });
   });
 
-  it('shrinks a chunk when PTO removes weekdays below the cap', () => {
+  it('shrinks the first sprint when PTO removes weekdays below the cap', () => {
     const generated = sprints(2);
     const pto = {
       startDate: generated[0].startDate,
@@ -73,41 +75,36 @@ describe('splitEpicAcrossSprints', () => {
     };
 
     expect(
-      splitEpicAcrossSprints({
+      plan({
         workingDays: 10,
-        maxWorkingDaysPerSprint: 8,
-        startSprintNumber: 1,
-        startSprintWeek: 1,
         sprints: generated,
         absences: [pto],
       }),
     ).toEqual({
       ok: true,
-      chunks: [
-        { startSprintNumber: 1, startSprintWeek: 1, workingDays: 7 },
-        { startSprintNumber: 2, startSprintWeek: 1, workingDays: 3 },
+      weeks: [
+        { sprintNumber: 1, week: 1, days: 2 },
+        { sprintNumber: 1, week: 2, days: 5 },
+        { sprintNumber: 2, week: 1, days: 3 },
       ],
     });
   });
 
-  it('shrinks a chunk when a holiday blocks the rest of the sprint', () => {
+  it('skips a holiday that blocks the rest of the sprint', () => {
     const generated = sprints(2);
     const holiday = sprintWeekRange(generated[0], 2);
 
     expect(
-      splitEpicAcrossSprints({
+      plan({
         workingDays: 9,
-        maxWorkingDaysPerSprint: 8,
-        startSprintNumber: 1,
-        startSprintWeek: 1,
         sprints: generated,
         absences: [holiday],
       }),
     ).toEqual({
       ok: true,
-      chunks: [
-        { startSprintNumber: 1, startSprintWeek: 1, workingDays: 5 },
-        { startSprintNumber: 2, startSprintWeek: 1, workingDays: 4 },
+      weeks: [
+        { sprintNumber: 1, week: 1, days: 5 },
+        { sprintNumber: 2, week: 1, days: 4 },
       ],
     });
   });
@@ -117,51 +114,77 @@ describe('splitEpicAcrossSprints', () => {
     const blocked = generated[1];
 
     expect(
-      splitEpicAcrossSprints({
+      plan({
         workingDays: 9,
-        maxWorkingDaysPerSprint: 8,
-        startSprintNumber: 1,
-        startSprintWeek: 1,
         sprints: generated,
         absences: [{ startDate: blocked.startDate, endDate: blocked.endDate }],
       }),
     ).toEqual({
       ok: true,
-      chunks: [
-        { startSprintNumber: 1, startSprintWeek: 1, workingDays: 8 },
-        { startSprintNumber: 3, startSprintWeek: 1, workingDays: 1 },
+      weeks: [
+        { sprintNumber: 1, week: 1, days: 5 },
+        { sprintNumber: 1, week: 2, days: 3 },
+        { sprintNumber: 3, week: 1, days: 1 },
       ],
     });
   });
 
-  it('fails with no chunks when days remain after the last sprint', () => {
+  it('fails when days remain after the last sprint', () => {
     expect(
-      splitEpicAcrossSprints({
+      plan({
         workingDays: 9,
-        maxWorkingDaysPerSprint: 8,
-        startSprintNumber: 1,
-        startSprintWeek: 1,
         sprints: sprints(1),
       }),
     ).toEqual({
       ok: false,
+      reason: 'overflow',
       message:
         'Not enough sprint capacity to assign this epic. 1 working day would extend past the last sprint.',
     });
   });
 
-  it('rejects the whole split when a later chunk would duplicate a placement', () => {
+  it('rejects a span that would paint onto a week another assignment occupies', () => {
     expect(
-      splitEpicAcrossSprints({
+      plan({
         workingDays: 9,
-        maxWorkingDaysPerSprint: 8,
-        startSprintNumber: 1,
-        startSprintWeek: 1,
-        sprints: sprints(3),
-        existingPlacements: [{ startSprintNumber: 2, startSprintWeek: 1 }],
+        existingPlacements: [
+          { workingDays: 5, startSprintNumber: 2, startSprintWeek: 1 },
+        ],
       }),
     ).toEqual({
       ok: false,
+      reason: 'overlap',
+      message: DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE,
+    });
+  });
+
+  it('allows a later assignment that starts after the first span ends', () => {
+    expect(
+      plan({
+        workingDays: 5,
+        startSprintNumber: 3,
+        existingPlacements: [
+          { workingDays: 9, startSprintNumber: 1, startSprintWeek: 1 },
+        ],
+      }),
+    ).toEqual({
+      ok: true,
+      weeks: [{ sprintNumber: 3, week: 1, days: 5 }],
+    });
+  });
+
+  it('rejects a start on a later week of a sprint the first assignment already fills', () => {
+    expect(
+      plan({
+        workingDays: 1,
+        startSprintWeek: 2,
+        existingPlacements: [
+          { workingDays: 8, startSprintNumber: 1, startSprintWeek: 1 },
+        ],
+      }),
+    ).toEqual({
+      ok: false,
+      reason: 'overlap',
       message: DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE,
     });
   });
