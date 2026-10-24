@@ -209,6 +209,7 @@ model Project {
   createdBy String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  maxWorkingDaysPerSprint Int @default(8)
 
   team            Team?                @relation(fields: [teamId], references: [id])
   creator         User                 @relation("ProjectCreator", fields: [createdBy], references: [id])

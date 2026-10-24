@@ -106,12 +106,19 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   editName = '';
   editStartDate = '';
   editEndDate = '';
+  editMaxWorkingDaysPerSprint: number | null = 8;
   editTeamId = '';
 
   backlogDropData = BACKLOG_DROP_DATA;
   rejectBacklogDrop = () => false;
   showWeekHeaders = localStorage.getItem(SHOW_WEEK_HEADERS_KEY) === 'true';
   cellAssignMenu: CellAssignMenuState | null = null;
+  showAssignDays = false;
+  assignDaysValue: number | null = null;
+  assignDaysMax = 1;
+  assignDaysTitle = '';
+  assignDaysError = '';
+  private assignDaysTarget: { templateEpicId: string; cell: CellDropData } | null = null;
   private readonly closeCellAssignMenuOnScroll = (event: Event) => {
     const target = event.target;
     if (target instanceof Node) {
@@ -414,12 +421,17 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.editName = this.project.name;
     this.editStartDate = toDateInput(this.project.startDate);
     this.editEndDate = projectEndDateFromStart(this.editStartDate);
+    this.editMaxWorkingDaysPerSprint = this.project.maxWorkingDaysPerSprint ?? 8;
     this.editTeamId = this.project.teamId || '';
     this.showEdit = true;
   }
 
+  isMaxWorkingDaysValid(value: number | null) {
+    return Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 10;
+  }
+
   saveEdit() {
-    if (!this.project || !this.editName.trim()) return;
+    if (!this.project || !this.editName.trim() || !this.isMaxWorkingDaysValid(this.editMaxWorkingDaysPerSprint)) return;
     this.saving = true;
     this.error = '';
     this.projectService
@@ -427,6 +439,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         name: this.editName.trim(),
         startDate: this.editStartDate,
         endDate: this.editEndDate,
+        maxWorkingDaysPerSprint: Number(this.editMaxWorkingDaysPerSprint),
         teamId: this.editTeamId || null,
       })
       .subscribe({
@@ -959,10 +972,115 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     }
 
     this.closeCellAssignMenu();
+    const alreadyAssigned = this.project.epics.some((epic) => epic.sourceEpicId === template.id);
+    if (!alreadyAssigned && this.spansMoreThanTwoSprints(template, cell)) {
+      this.assignDaysTarget = { templateEpicId: template.id, cell };
+      this.assignDaysTitle = template.title;
+      this.assignDaysMax = template.workingDays;
+      this.assignDaysValue = template.workingDays;
+      this.assignDaysError = '';
+      this.showAssignDays = true;
+      return;
+    }
+
+    this.commitBacklogAssign(template.id, cell);
+  }
+
+  cancelAssignDays() {
+    this.showAssignDays = false;
+    this.assignDaysTarget = null;
+    this.assignDaysError = '';
+  }
+
+  confirmAssignDays() {
+    if (!this.assignDaysTarget) return;
+    const days = Number(this.assignDaysValue);
+    if (!Number.isInteger(days) || days < 1 || days > this.assignDaysMax) {
+      this.assignDaysError = `Enter a whole number from 1 to ${this.assignDaysMax}`;
+      return;
+    }
+    const { templateEpicId, cell } = this.assignDaysTarget;
+    this.showAssignDays = false;
+    this.assignDaysTarget = null;
+    this.commitBacklogAssign(templateEpicId, cell, days);
+  }
+
+  private spansMoreThanTwoSprints(epic: ProjectEpic, cell: CellDropData): boolean {
+    if (!this.project) return false;
+    const startSprint = this.project.sprints.find((sprint) => sprint.id === cell.sprintId);
+    if (!startSprint) return false;
+    const cap = this.project.maxWorkingDaysPerSprint;
+    const absences = [
+      ...(this.project.ptos ?? []).filter((pto) => pto.userId === cell.participantId),
+      ...(this.project.holidays ?? []),
+    ];
+    let daysLeft = epic.workingDays;
+    const used = new Set<number>();
+    for (const sprint of this.project.sprints) {
+      if (sprint.number < startSprint.number || daysLeft <= 0) continue;
+      const alreadyInSprint = sprint.weeks.reduce(
+        (sum, week) => sum + this.epicDaysInCell(cell.participantId, week.cellKey),
+        0,
+      );
+      let capLeft = Math.max(0, cap - alreadyInSprint);
+      for (const week of sprint.weeks) {
+        if (daysLeft <= 0 || capLeft <= 0) break;
+        if (sprint.number === startSprint.number && week.week < cell.week) continue;
+        const blocked = absences.reduce(
+          (sum, absence) =>
+            sum + this.weekdayOverlap(absence.startDate, absence.endDate, week.startDate, week.endDate),
+          0,
+        );
+        const capacity = Math.max(
+          0,
+          week.workingDays - blocked - this.epicDaysInCell(cell.participantId, week.cellKey),
+        );
+        if (capacity <= 0) continue;
+        const taken = Math.min(daysLeft, capacity, capLeft);
+        if (taken > 0) used.add(sprint.number);
+        daysLeft -= taken;
+        capLeft -= taken;
+      }
+    }
+    return used.size + (daysLeft > 0 ? 1 : 0) > 2;
+  }
+
+  private epicDaysInCell(participantId: string, cellKey: string): number {
+    return this.cellsFor(participantId, cellKey)
+      .filter((chip) => chip.type === 'epic')
+      .reduce((sum, chip) => sum + chip.daysInSprint, 0);
+  }
+
+  private weekdayOverlap(startA: string, endA: string, startB: string, endB: string): number {
+    const start = toDateInput(startA) > toDateInput(startB) ? toDateInput(startA) : toDateInput(startB);
+    const end = toDateInput(endA) < toDateInput(endB) ? toDateInput(endA) : toDateInput(endB);
+    if (!start || !end || start > end) return 0;
+    let count = 0;
+    let cursor = start;
+    while (cursor <= end) {
+      const day = new Date(`${cursor}T00:00:00Z`).getUTCDay();
+      if (day !== 0 && day !== 6) count += 1;
+      cursor = addUtcDaysToDateInput(cursor, 1);
+    }
+    return count;
+  }
+
+  private commitBacklogAssign(templateEpicId: string, cell: CellDropData, workingDays?: number) {
+    if (!this.project || !this.canEditEpics || this.movingEpic) return;
+    const targetSprint = this.project.sprints.find((sprint) => sprint.id === cell.sprintId);
+    if (!targetSprint) return;
+
     this.movingEpic = true;
     this.error = '';
     this.projectService
-      .assignEpic(this.project.id, template.id, cell.participantId, startSprintNumber, startSprintWeek)
+      .assignEpic(
+        this.project.id,
+        templateEpicId,
+        cell.participantId,
+        targetSprint.number,
+        cell.week,
+        workingDays,
+      )
       .subscribe({
         next: (project) => {
           this.project = this.normalizeProject(project);

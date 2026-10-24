@@ -6,6 +6,7 @@ export interface CreateProjectPayload {
   name: string;
   startDate: string;
   endDate: string;
+  maxWorkingDaysPerSprint: number;
   teamId?: string | null;
   teamIds?: string[];
   userIds?: string[];
@@ -15,6 +16,7 @@ export interface UpdateProjectPayload {
   name?: string;
   startDate?: string;
   endDate?: string;
+  maxWorkingDaysPerSprint?: number;
   teamId?: string | null;
 }
 
@@ -86,11 +88,13 @@ export class ProjectService {
     assigneeId: string,
     startSprintNumber: number,
     startSprintWeek: number,
+    workingDays?: number,
   ) {
     return this.api.post<ProjectDetail>(`/projects/${projectId}/epics/${epicId}/assign`, {
       assigneeId,
       startSprintNumber,
       startSprintWeek,
+      ...(workingDays !== undefined ? { workingDays } : {}),
     });
   }
 

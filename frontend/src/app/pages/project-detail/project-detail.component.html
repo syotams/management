@@ -8,6 +8,7 @@
           {{ formatRange(project.startDate, project.endDate) }}
           · {{ teamsLabel }}
           · {{ project.sprints.length }} sprints
+          · max {{ project.maxWorkingDaysPerSprint }} working days/sprint
           · {{ backlogEpics.length }} epics
           · {{ backlogWorkingDaysLabel }}
           @if (project.currentVersion) {
@@ -469,6 +470,20 @@
             <input type="date" class="form-control" [(ngModel)]="editEndDate" name="editEndDate" readonly>
             <div class="form-text">Automatically set to the last day of the third month from the start date.</div>
           </div>
+          <div class="mb-3">
+            <label class="form-label">Max working days per sprint</label>
+            <input
+              type="number"
+              class="form-control"
+              [(ngModel)]="editMaxWorkingDaysPerSprint"
+              name="editMaxWorkingDaysPerSprint"
+              min="1"
+              max="10"
+              step="1"
+              required
+            >
+            <div class="form-text">Recommended: 8. A sprint has 10 working days, so a longer epic is split across later sprints.</div>
+          </div>
           <div class="mb-0">
             <label class="form-label">Primary team <span class="text-muted fw-normal">(optional)</span></label>
             <select class="form-select" [(ngModel)]="editTeamId" name="editTeamId">
@@ -481,7 +496,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" (click)="showEdit = false">Cancel</button>
-          <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="saving || !editName.trim() || !editStartDate || !editEndDate">
+          <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="saving || !editName.trim() || !editStartDate || !editEndDate || !isMaxWorkingDaysValid(editMaxWorkingDaysPerSprint)">
             {{ saving ? 'Saving...' : 'Save changes' }}
           </button>
         </div>
@@ -897,6 +912,43 @@
           <button type="button" class="btn btn-outline-secondary" (click)="showEditEpic = false">Cancel</button>
           <button type="button" class="btn btn-primary" (click)="saveEditEpic()" [disabled]="savingEpic || !canSaveEpic()">
             {{ savingEpic ? 'Saving...' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showAssignDays && project) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Assign working days</h5>
+          <button type="button" class="btn-close" (click)="cancelAssignDays()"></button>
+        </div>
+        <div class="modal-body">
+          @if (assignDaysError) {
+            <div class="alert alert-danger py-2">{{ assignDaysError }}</div>
+          }
+          <p class="mb-3">
+            {{ assignDaysTitle }} spans more than two sprints. Choose how many working days to assign to this user.
+          </p>
+          <label class="form-label">Working days</label>
+          <input
+            type="number"
+            class="form-control"
+            name="assignDaysValue"
+            [min]="1"
+            [max]="assignDaysMax"
+            [(ngModel)]="assignDaysValue"
+          >
+          <div class="form-text">Enter a whole number from 1 to {{ assignDaysMax }}.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" (click)="cancelAssignDays()">Cancel</button>
+          <button type="button" class="btn btn-primary" (click)="confirmAssignDays()" [disabled]="movingEpic">
+            {{ movingEpic ? 'Assigning...' : 'Assign' }}
           </button>
         </div>
       </div>
