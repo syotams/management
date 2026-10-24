@@ -81,6 +81,11 @@ type PlanSnapshot = {
 
 type SnapshotEpic = PlanSnapshot['epics'][number];
 
+function assignmentCreatedAt(value: Date | string): number {
+  const time = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
 @Injectable()
 export class ProjectsService {
   constructor(private prisma: PrismaService) {}
@@ -1248,9 +1253,11 @@ export class ProjectsService {
     }[]>> = {};
 
     const remaining = new Map<string, Map<string, number>>();
+    const capUsed = new Map<string, Map<number, number>>();
 
     for (const userId of participantIds) {
       remaining.set(userId, new Map());
+      capUsed.set(userId, new Map());
       grid[userId] = {};
       for (const slot of slots) {
         grid[userId][slot.cellKey] = [];
@@ -1305,8 +1312,11 @@ export class ProjectsService {
       }
     }
 
-    for (const epic of epics) {
-      if (!epic.assignees.length || epic.startSprintNumber == null) continue;
+    const scheduled = epics
+      .filter((epic) => epic.assignees.length > 0 && epic.startSprintNumber != null)
+      .sort((a, b) => assignmentCreatedAt(a.createdAt) - assignmentCreatedAt(b.createdAt));
+
+    for (const epic of scheduled) {
       const startWeek = (epic.startSprintWeek ?? 1) as SprintWeekNumber;
       const eligible = slots.filter(
         (slot) =>
@@ -1317,6 +1327,7 @@ export class ProjectsService {
         const userId = assignee.userId ?? assignee.user.id;
         if (!grid[userId]) continue;
         const userRemaining = remaining.get(userId)!;
+        const userCap = capUsed.get(userId)!;
         const painted = paintAssignmentWeeks(
           epic.workingDays,
           maxWorkingDaysPerSprint,
@@ -1325,7 +1336,7 @@ export class ProjectsService {
             week: slot.week,
             capacity: userRemaining.get(slot.cellKey) ?? 0,
           })),
-          { dumpRemainder: true },
+          { dumpRemainder: true, capUsedBySprint: userCap },
         );
 
         for (const week of painted.weeks) {
@@ -1343,6 +1354,7 @@ export class ProjectsService {
           });
           const rem = userRemaining.get(slot.cellKey) ?? 0;
           userRemaining.set(slot.cellKey, Math.max(0, rem - week.days));
+          userCap.set(week.sprintNumber, (userCap.get(week.sprintNumber) ?? 0) + week.days);
         }
       }
     }
@@ -1664,17 +1676,20 @@ export class ProjectsService {
     startSprintWeek: number,
     options?: { allowOverflow?: boolean; excludeAssignmentId?: string },
   ) {
-    const epic = epicId ? project.epics.find((entry) => entry.id === epicId) : undefined;
-    const existingPlacements = (epic?.assignments ?? [])
-      .filter(
-        (assignment) =>
-          assignment.userId === userId && assignment.id !== options?.excludeAssignmentId,
-      )
-      .map((assignment) => ({
-        workingDays: assignment.workingDays,
-        startSprintNumber: assignment.startSprintNumber,
-        startSprintWeek: assignment.startSprintWeek as SprintWeekNumber,
-      }));
+    const priorAssignments = project.epics.flatMap((entry) =>
+      entry.assignments
+        .filter(
+          (assignment) =>
+            assignment.userId === userId && assignment.id !== options?.excludeAssignmentId,
+        )
+        .map((assignment) => ({
+          epicId: entry.id,
+          workingDays: assignment.workingDays,
+          startSprintNumber: assignment.startSprintNumber,
+          startSprintWeek: assignment.startSprintWeek as SprintWeekNumber,
+          createdAt: assignment.createdAt,
+        })),
+    );
     const absences = [
       ...project.holidays.filter((holiday) => holiday.userId === userId),
       ...project.ptos.filter((pto) => pto.userId === userId),
@@ -1687,7 +1702,8 @@ export class ProjectsService {
       startSprintWeek: startSprintWeek as SprintWeekNumber,
       sprints: project.sprints,
       absences,
-      existingPlacements,
+      epicId,
+      priorAssignments,
       allowOverflow: options?.allowOverflow,
     });
     if (!plan.ok) throw new BadRequestException(plan.message);

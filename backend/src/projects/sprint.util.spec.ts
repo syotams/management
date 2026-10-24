@@ -175,7 +175,7 @@ describe('planAssignmentSpan', () => {
       plan({
         workingDays: 9,
         existingPlacements: [
-          { workingDays: 5, startSprintNumber: 2, startSprintWeek: 1 },
+          { workingDays: 2, startSprintNumber: 2, startSprintWeek: 1 },
         ],
       }),
     ).toEqual({
@@ -200,7 +200,7 @@ describe('planAssignmentSpan', () => {
     });
   });
 
-  it('rejects a start on a later week of a sprint the first assignment already fills', () => {
+  it('skips a later week once that sprint cap is already full', () => {
     expect(
       plan({
         workingDays: 1,
@@ -210,9 +210,68 @@ describe('planAssignmentSpan', () => {
         ],
       }),
     ).toEqual({
+      ok: true,
+      weeks: [{ sprintNumber: 2, week: 1, days: 1 }],
+    });
+  });
+
+  it('paints 15 days at a cap of 8 across two empty sprints', () => {
+    expect(plan({ workingDays: 15 })).toEqual({
+      ok: true,
+      weeks: [
+        { sprintNumber: 1, week: 1, days: 5 },
+        { sprintNumber: 1, week: 2, days: 3 },
+        { sprintNumber: 2, week: 1, days: 5 },
+        { sprintNumber: 2, week: 2, days: 2 },
+      ],
+    });
+  });
+
+  it('uses the 3 days left after 5 days are already painted in the sprint', () => {
+    expect(
+      plan({
+        workingDays: 6,
+        priorAssignments: [
+          { workingDays: 5, startSprintNumber: 1, startSprintWeek: 1 },
+        ],
+      }),
+    ).toEqual({
+      ok: true,
+      weeks: [
+        { sprintNumber: 1, week: 2, days: 3 },
+        { sprintNumber: 2, week: 1, days: 3 },
+      ],
+    });
+  });
+
+  it('skips a sprint that has no cap left and paints the next sprint', () => {
+    expect(
+      plan({
+        workingDays: 4,
+        priorAssignments: [
+          { workingDays: 8, startSprintNumber: 1, startSprintWeek: 1 },
+        ],
+      }),
+    ).toEqual({
+      ok: true,
+      weeks: [{ sprintNumber: 2, week: 1, days: 4 }],
+    });
+  });
+
+  it('rejects an assign whose remainder runs past the last sprint', () => {
+    expect(
+      plan({
+        workingDays: 1,
+        sprints: sprints(1),
+        priorAssignments: [
+          { workingDays: 8, startSprintNumber: 1, startSprintWeek: 1 },
+        ],
+      }),
+    ).toEqual({
       ok: false,
-      reason: 'overlap',
-      message: DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE,
+      reason: 'overflow',
+      message:
+        'Not enough sprint capacity to assign this epic. 1 working day would extend past the last sprint.',
     });
   });
 });

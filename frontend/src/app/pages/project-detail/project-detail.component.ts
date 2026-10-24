@@ -1018,7 +1018,11 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     const used = new Set<number>();
     for (const sprint of this.project.sprints) {
       if (sprint.number < startSprint.number || daysLeft <= 0) continue;
-      let capLeft = cap;
+      const alreadyInSprint = sprint.weeks.reduce(
+        (sum, week) => sum + this.epicDaysInCell(cell.participantId, week.cellKey),
+        0,
+      );
+      let capLeft = Math.max(0, cap - alreadyInSprint);
       for (const week of sprint.weeks) {
         if (daysLeft <= 0 || capLeft <= 0) break;
         if (sprint.number === startSprint.number && week.week < cell.week) continue;
@@ -1027,7 +1031,10 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
             sum + this.weekdayOverlap(absence.startDate, absence.endDate, week.startDate, week.endDate),
           0,
         );
-        const capacity = Math.max(0, week.workingDays - blocked);
+        const capacity = Math.max(
+          0,
+          week.workingDays - blocked - this.epicDaysInCell(cell.participantId, week.cellKey),
+        );
         if (capacity <= 0) continue;
         const taken = Math.min(daysLeft, capacity, capLeft);
         if (taken > 0) used.add(sprint.number);
@@ -1036,6 +1043,12 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       }
     }
     return used.size + (daysLeft > 0 ? 1 : 0) > 2;
+  }
+
+  private epicDaysInCell(participantId: string, cellKey: string): number {
+    return this.cellsFor(participantId, cellKey)
+      .filter((chip) => chip.type === 'epic')
+      .reduce((sum, chip) => sum + chip.daysInSprint, 0);
   }
 
   private weekdayOverlap(startA: string, endA: string, startB: string, endB: string): number {

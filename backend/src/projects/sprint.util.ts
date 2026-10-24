@@ -134,6 +134,8 @@ export type ExistingAssignmentSpan = {
   workingDays: number;
   startSprintNumber: number;
   startSprintWeek: SprintWeekNumber;
+  epicId?: string;
+  createdAt?: Date | string | number;
 };
 
 export type PlanAssignmentResult =
@@ -185,15 +187,16 @@ export function assignmentSlots(
   return slots;
 }
 
-// Walks week slots from the assignment start. Each sprint gets a fresh cap.
-// A week takes min(days left, free weekdays, cap still left in that sprint).
-// Empty weeks are skipped. Leftover days stay unplaced unless dumpRemainder is set,
-// which matches the grid's last-cell overflow for assignments already on the board.
+// Walks week slots from the assignment start. A sprint starts at the cap minus
+// days already painted there for this user. A week takes min(days left, free
+// weekdays, cap still left). Empty weeks are skipped. Leftover days stay
+// unplaced unless dumpRemainder is set, which matches the grid's last-cell
+// overflow for assignments already on the board.
 export function paintAssignmentWeeks(
   workingDays: number,
   maxWorkingDaysPerSprint: number,
   slots: CapacitySlot[],
-  options?: { dumpRemainder?: boolean },
+  options?: { dumpRemainder?: boolean; capUsedBySprint?: ReadonlyMap<number, number> },
 ): { weeks: PaintedWeek[]; daysLeft: number } {
   const weeks: PaintedWeek[] = [];
   let daysLeft = workingDays;
@@ -204,7 +207,8 @@ export function paintAssignmentWeeks(
     if (daysLeft <= 0) break;
     if (slot.sprintNumber !== currentSprint) {
       currentSprint = slot.sprintNumber;
-      capLeft = maxWorkingDaysPerSprint;
+      const alreadyUsed = options?.capUsedBySprint?.get(slot.sprintNumber) ?? 0;
+      capLeft = Math.max(0, maxWorkingDaysPerSprint - alreadyUsed);
     }
     if (slot.capacity <= 0 || capLeft <= 0) continue;
     const used = Math.min(daysLeft, slot.capacity, capLeft);
@@ -253,9 +257,62 @@ function weekKey(week: { sprintNumber: number; week: SprintWeekNumber }): string
   return `${week.sprintNumber}:${week.week}`;
 }
 
+function assignmentTime(value: Date | string | number | undefined): number {
+  if (value == null) return Number.NEGATIVE_INFINITY;
+  const time = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+type SprintBudget = {
+  capUsed: Map<number, number>;
+  weekRemaining: Map<string, number>;
+};
+
+function emptySprintBudget(sprints: DatedSprint[], absences: DateRange[]): SprintBudget {
+  const ordered = [...sprints].sort((a, b) => a.number - b.number);
+  const first = ordered[0];
+  const slots = first ? assignmentSlots(sprints, first.number, 1, absences) ?? [] : [];
+  return {
+    capUsed: new Map(),
+    weekRemaining: new Map(slots.map((slot) => [weekKey(slot), slot.capacity])),
+  };
+}
+
+function paintAgainstBudget(
+  workingDays: number,
+  maxWorkingDaysPerSprint: number,
+  sprints: DatedSprint[],
+  absences: DateRange[],
+  startSprintNumber: number,
+  startSprintWeek: SprintWeekNumber,
+  budget: SprintBudget,
+  dumpRemainder: boolean,
+) {
+  const slots = assignmentSlots(sprints, startSprintNumber, startSprintWeek, absences);
+  if (!slots) return null;
+  const adjusted = slots.map((slot) => ({
+    ...slot,
+    capacity: Math.min(slot.capacity, budget.weekRemaining.get(weekKey(slot)) ?? slot.capacity),
+  }));
+  const painted = paintAssignmentWeeks(workingDays, maxWorkingDaysPerSprint, adjusted, {
+    dumpRemainder,
+    capUsedBySprint: budget.capUsed,
+  });
+  for (const week of painted.weeks) {
+    if (week.days <= 0) continue;
+    const key = weekKey(week);
+    const left = budget.weekRemaining.get(key) ?? 0;
+    budget.weekRemaining.set(key, Math.max(0, left - week.days));
+    budget.capUsed.set(week.sprintNumber, (budget.capUsed.get(week.sprintNumber) ?? 0) + week.days);
+  }
+  return painted;
+}
+
 // One assignment keeps the full working-day total and its start cell.
-// Later sprints are painted, not stored. A second assignment of the same epic
-// and user is rejected only when the painted weeks overlap.
+// Earlier assignments for this user are painted oldest-first and keep the days
+// already on the board. The assignment being placed is last and receives only
+// the weekdays and cap still left. A second assignment of the same epic and
+// user is rejected only when the painted weeks overlap.
 export function planAssignmentSpan(input: {
   workingDays: number;
   maxWorkingDaysPerSprint: number;
@@ -263,7 +320,9 @@ export function planAssignmentSpan(input: {
   startSprintWeek: SprintWeekNumber;
   sprints: DatedSprint[];
   absences?: DateRange[];
+  epicId?: string | null;
   existingPlacements?: ExistingAssignmentSpan[];
+  priorAssignments?: ExistingAssignmentSpan[];
   allowOverflow?: boolean;
 }): PlanAssignmentResult {
   const {
@@ -272,7 +331,9 @@ export function planAssignmentSpan(input: {
     startSprintNumber,
     startSprintWeek,
     absences = [],
+    epicId = null,
     existingPlacements = [],
+    priorAssignments = [],
     allowOverflow = false,
   } = input;
 
@@ -286,14 +347,44 @@ export function planAssignmentSpan(input: {
     return { ok: false, reason: 'invalid', message: 'startSprintWeek must be 1 or 2' };
   }
 
-  const slots = assignmentSlots(input.sprints, startSprintNumber, startSprintWeek, absences);
-  if (!slots) {
-    return { ok: false, reason: 'invalid', message: 'Project has no sprint with that number' };
+  const budget = emptySprintBudget(input.sprints, absences);
+  const sameEpic = new Set(existingPlacements);
+  const priors = [...existingPlacements, ...priorAssignments].sort(
+    (a, b) => assignmentTime(a.createdAt) - assignmentTime(b.createdAt),
+  );
+  const occupied = new Set<string>();
+  for (const prior of priors) {
+    const painted = paintAgainstBudget(
+      prior.workingDays,
+      maxWorkingDaysPerSprint,
+      input.sprints,
+      absences,
+      prior.startSprintNumber,
+      prior.startSprintWeek,
+      budget,
+      true,
+    );
+    if (!painted) continue;
+    const blocksOverlap = sameEpic.has(prior) || (epicId != null && prior.epicId === epicId);
+    if (!blocksOverlap) continue;
+    for (const week of painted.weeks) {
+      if (week.days > 0) occupied.add(weekKey(week));
+    }
   }
 
-  const painted = paintAssignmentWeeks(workingDays, maxWorkingDaysPerSprint, slots, {
-    dumpRemainder: allowOverflow,
-  });
+  const painted = paintAgainstBudget(
+    workingDays,
+    maxWorkingDaysPerSprint,
+    input.sprints,
+    absences,
+    startSprintNumber,
+    startSprintWeek,
+    budget,
+    allowOverflow,
+  );
+  if (!painted) {
+    return { ok: false, reason: 'invalid', message: 'Project has no sprint with that number' };
+  }
   if (!allowOverflow && painted.daysLeft > 0) {
     return {
       ok: false,
@@ -301,28 +392,9 @@ export function planAssignmentSpan(input: {
       message: pastLastSprintMessage(painted.daysLeft),
     };
   }
-
-  const occupied = new Set(painted.weeks.filter((week) => week.days > 0).map(weekKey));
-  for (const existing of existingPlacements) {
-    const existingSlots = assignmentSlots(
-      input.sprints,
-      existing.startSprintNumber,
-      existing.startSprintWeek,
-      absences,
-    );
-    if (!existingSlots) continue;
-    const existingPaint = paintAssignmentWeeks(
-      existing.workingDays,
-      maxWorkingDaysPerSprint,
-      existingSlots,
-      { dumpRemainder: true },
-    );
-    const overlaps = existingPaint.weeks.some(
-      (week) => week.days > 0 && occupied.has(weekKey(week)),
-    );
-    if (overlaps) {
-      return { ok: false, reason: 'overlap', message: DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE };
-    }
+  const overlaps = painted.weeks.some((week) => week.days > 0 && occupied.has(weekKey(week)));
+  if (overlaps) {
+    return { ok: false, reason: 'overlap', message: DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE };
   }
 
   return { ok: true, weeks: painted.weeks.filter((week) => week.days > 0) };
