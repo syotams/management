@@ -45,6 +45,23 @@ import { formatDateOnly, localDateInput, projectEndDateFromStart } from '../../u
             </div>
 
             <div class="row g-3 mt-1">
+              <div class="col-md-8">
+                <label class="form-label">Max working days per sprint</label>
+                <input
+                  type="number"
+                  class="form-control max-working-days"
+                  name="maxWorkingDaysPerSprint"
+                  [(ngModel)]="maxWorkingDaysPerSprint"
+                  min="1"
+                  max="10"
+                  step="1"
+                  required
+                >
+                <div class="form-text">Recommended: 8. A sprint has 10 working days, so a longer epic is split across later sprints.</div>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-1">
               <div class="col-md-6">
                 <label class="form-label">Teams</label>
                 <div class="picker-list">
@@ -152,6 +169,9 @@ import { formatDateOnly, localDateInput, projectEndDateFromStart } from '../../u
     .picker-list .form-check {
       margin-bottom: 0.25rem;
     }
+    .max-working-days {
+      max-width: 8rem;
+    }
   `,
 })
 export class ProjectsComponent implements OnInit {
@@ -161,6 +181,7 @@ export class ProjectsComponent implements OnInit {
   name = '';
   startDate = localDateInput();
   endDate = projectEndDateFromStart(localDateInput());
+  maxWorkingDaysPerSprint = 8;
   selectedTeamIds: string[] = [];
   selectedUserIds: string[] = [];
   loading = true;
@@ -224,7 +245,17 @@ export class ProjectsComponent implements OnInit {
   }
 
   canCreate() {
-    return !!this.name.trim() && !!this.startDate && !!this.endDate && this.endDate >= this.startDate;
+    return (
+      !!this.name.trim() &&
+      !!this.startDate &&
+      !!this.endDate &&
+      this.endDate >= this.startDate &&
+      this.isMaxWorkingDaysValid(this.maxWorkingDaysPerSprint)
+    );
+  }
+
+  isMaxWorkingDaysValid(value: number | null) {
+    return Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 10;
   }
 
   createProject() {
@@ -236,6 +267,7 @@ export class ProjectsComponent implements OnInit {
         name: this.name.trim(),
         startDate: this.startDate,
         endDate: this.endDate,
+        maxWorkingDaysPerSprint: Number(this.maxWorkingDaysPerSprint),
         teamIds: this.selectedTeamIds.length ? this.selectedTeamIds : undefined,
         userIds: this.selectedUserIds.length ? this.selectedUserIds : undefined,
       })

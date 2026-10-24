@@ -153,6 +153,7 @@ export interface ProjectSummary {
   name: string;
   startDate: string;
   endDate: string;
+  maxWorkingDaysPerSprint: number;
   teamId: string | null;
   status: ProjectStatus;
   createdBy: string;
@@ -290,6 +291,7 @@ export interface ProjectDetail {
   name: string;
   startDate: string;
   endDate: string;
+  maxWorkingDaysPerSprint: number;
   teamId: string | null;
   status: ProjectStatus;
   createdBy: string;
