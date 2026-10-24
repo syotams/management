@@ -20,10 +20,15 @@ import {
 import {
   countWeekdays,
   countWeekdaysOverlap,
+  DEFAULT_MAX_WORKING_DAYS_PER_SPRINT,
   generateSprints,
+  MAX_MAX_WORKING_DAYS_PER_SPRINT,
+  MIN_MAX_WORKING_DAYS_PER_SPRINT,
   parseDateOnly,
+  splitEpicAcrossSprints,
   sprintWeekSlots,
   type SprintWeekNumber,
+  type WorkingDayChunk,
 } from './sprint.util';
 
 const PTO_CHIP_COLOR = '#94a3b8';
@@ -46,6 +51,7 @@ type EpicWithAssignees = {
 
 type PlanSnapshot = {
   name: string;
+  maxWorkingDaysPerSprint?: number;
   startDate: string;
   endDate: string;
   teamId: string | null;
@@ -80,6 +86,9 @@ export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
   async create(userId: string, dto: CreateProjectDto) {
+    if (dto.maxWorkingDaysPerSprint !== undefined) {
+      this.assertMaxWorkingDaysPerSprint(dto.maxWorkingDaysPerSprint);
+    }
     const { startDate, endDate } = this.parseRange(dto.startDate, dto.endDate);
     const teamIds = await this.resolveTeamIds(userId, dto.teamIds, dto.teamId);
     const userIds = await this.resolveParticipantUserIds(userId, dto.userIds);
@@ -89,6 +98,9 @@ export class ProjectsService {
         name: dto.name.trim(),
         startDate,
         endDate,
+        ...(dto.maxWorkingDaysPerSprint !== undefined
+          ? { maxWorkingDaysPerSprint: dto.maxWorkingDaysPerSprint }
+          : {}),
         teamId: teamIds[0] ?? null,
         status: 'draft',
         createdBy: userId,
@@ -158,6 +170,9 @@ export class ProjectsService {
     const project = await this.loadProject(id);
     this.ensureCreator(project, userId);
     this.ensureEditable(project);
+    if (dto.maxWorkingDaysPerSprint !== undefined) {
+      this.assertMaxWorkingDaysPerSprint(dto.maxWorkingDaysPerSprint);
+    }
 
     const startDate = dto.startDate ? parseDateOnly(dto.startDate) : project.startDate;
     const endDate = dto.endDate ? parseDateOnly(dto.endDate) : project.endDate;
@@ -175,6 +190,9 @@ export class ProjectsService {
         where: { id },
         data: {
           ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+          ...(dto.maxWorkingDaysPerSprint !== undefined
+            ? { maxWorkingDaysPerSprint: dto.maxWorkingDaysPerSprint }
+            : {}),
           startDate,
           endDate,
           teamId,
@@ -288,6 +306,16 @@ export class ProjectsService {
     const title = dto.title.trim();
     this.assertUniqueEpicTitle(project.epics, title);
     const backgroundColor = dto.backgroundColor.toLowerCase();
+    const plans =
+      assigneeIds.length > 0 && startSprintNumber !== null && startSprintWeek !== null
+        ? this.planScheduledChunks(
+            project,
+            assigneeIds,
+            dto.workingDays,
+            startSprintNumber,
+            startSprintWeek,
+          )
+        : [];
 
     await this.prisma.$transaction(async (tx) => {
       const epic = await tx.epic.create({
@@ -300,16 +328,18 @@ export class ProjectsService {
         },
       });
 
-      if (!assigneeIds.length || startSprintNumber === null || startSprintWeek === null) return;
+      if (!plans.length) return;
 
       await tx.epicAssignment.createMany({
-        data: assigneeIds.map((assigneeId) => ({
-          epicId: epic.id,
-          userId: assigneeId,
-          workingDays: dto.workingDays,
-          startSprintNumber,
-          startSprintWeek,
-        })),
+        data: plans.flatMap((plan) =>
+          plan.chunks.map((chunk) => ({
+            epicId: epic.id,
+            userId: plan.userId,
+            workingDays: chunk.workingDays,
+            startSprintNumber: chunk.startSprintNumber,
+            startSprintWeek: chunk.startSprintWeek,
+          })),
+        ),
       });
     });
 
@@ -334,26 +364,23 @@ export class ProjectsService {
     this.assertStartSprintWeek(dto.startSprintWeek);
     await this.ensureAssignable(project, userId, [dto.assigneeId]);
 
-    const duplicate = await this.prisma.epicAssignment.findFirst({
-      where: {
-        epicId: templateEpicId,
-        userId: dto.assigneeId,
-        startSprintNumber: dto.startSprintNumber,
-        startSprintWeek: dto.startSprintWeek,
-      },
-    });
-    if (duplicate) {
-      throw new BadRequestException('This epic is already assigned to that user in that sprint week');
-    }
+    const chunks = this.planAssignmentChunks(
+      project,
+      template.id,
+      dto.assigneeId,
+      template.workingDays,
+      dto.startSprintNumber,
+      dto.startSprintWeek,
+    );
 
-    await this.prisma.epicAssignment.create({
-      data: {
-        epicId: templateEpicId,
+    await this.prisma.epicAssignment.createMany({
+      data: chunks.map((chunk) => ({
+        epicId: template.id,
         userId: dto.assigneeId,
-        workingDays: template.workingDays,
-        startSprintNumber: dto.startSprintNumber,
-        startSprintWeek: dto.startSprintWeek,
-      },
+        workingDays: chunk.workingDays,
+        startSprintNumber: chunk.startSprintNumber,
+        startSprintWeek: chunk.startSprintWeek,
+      })),
     });
 
     await this.maybeVersionAfterChange(projectId, userId);
@@ -600,6 +627,7 @@ export class ProjectsService {
     const teams = project.projectTeams.map((qt) => qt.team);
     return {
       name: project.name,
+      maxWorkingDaysPerSprint: project.maxWorkingDaysPerSprint,
       startDate: project.startDate.toISOString(),
       endDate: project.endDate.toISOString(),
       teamId: project.teamId,
@@ -878,6 +906,8 @@ export class ProjectsService {
 
     return {
       name: snapshot.name,
+      maxWorkingDaysPerSprint:
+        snapshot.maxWorkingDaysPerSprint ?? DEFAULT_MAX_WORKING_DAYS_PER_SPRINT,
       startDate: snapshot.startDate,
       endDate: snapshot.endDate,
       teamId: snapshot.teamId,
@@ -995,6 +1025,7 @@ export class ProjectsService {
       name: project.name,
       startDate: project.startDate,
       endDate: project.endDate,
+      maxWorkingDaysPerSprint: project.maxWorkingDaysPerSprint,
       teamId: project.teamId,
       status,
       createdBy: project.createdBy,
@@ -1552,6 +1583,71 @@ export class ProjectsService {
     if (startSprintWeek !== 1 && startSprintWeek !== 2) {
       throw new BadRequestException('startSprintWeek must be 1 or 2');
     }
+  }
+
+  private assertMaxWorkingDaysPerSprint(value: number) {
+    if (
+      !Number.isInteger(value) ||
+      value < MIN_MAX_WORKING_DAYS_PER_SPRINT ||
+      value > MAX_MAX_WORKING_DAYS_PER_SPRINT
+    ) {
+      throw new BadRequestException(
+        `maxWorkingDaysPerSprint must be an integer between ${MIN_MAX_WORKING_DAYS_PER_SPRINT} and ${MAX_MAX_WORKING_DAYS_PER_SPRINT}`,
+      );
+    }
+  }
+
+  private planScheduledChunks(
+    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
+    assigneeIds: string[],
+    workingDays: number,
+    startSprintNumber: number,
+    startSprintWeek: number,
+  ) {
+    return assigneeIds.map((assigneeId) => ({
+      userId: assigneeId,
+      chunks: this.planAssignmentChunks(
+        project,
+        null,
+        assigneeId,
+        workingDays,
+        startSprintNumber,
+        startSprintWeek,
+      ),
+    }));
+  }
+
+  private planAssignmentChunks(
+    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
+    epicId: string | null,
+    userId: string,
+    workingDays: number,
+    startSprintNumber: number,
+    startSprintWeek: number,
+  ): WorkingDayChunk[] {
+    const epic = epicId ? project.epics.find((entry) => entry.id === epicId) : undefined;
+    const existingPlacements = (epic?.assignments ?? [])
+      .filter((assignment) => assignment.userId === userId)
+      .map((assignment) => ({
+        startSprintNumber: assignment.startSprintNumber,
+        startSprintWeek: assignment.startSprintWeek as SprintWeekNumber,
+      }));
+    const absences = [
+      ...project.holidays.filter((holiday) => holiday.userId === userId),
+      ...project.ptos.filter((pto) => pto.userId === userId),
+    ].map((absence) => ({ startDate: absence.startDate, endDate: absence.endDate }));
+
+    const split = splitEpicAcrossSprints({
+      workingDays,
+      maxWorkingDaysPerSprint: project.maxWorkingDaysPerSprint,
+      startSprintNumber,
+      startSprintWeek: startSprintWeek as SprintWeekNumber,
+      sprints: project.sprints,
+      absences,
+      existingPlacements,
+    });
+    if (!split.ok) throw new BadRequestException(split.message);
+    return split.chunks;
   }
 
   private assertUniqueEpicTitle(

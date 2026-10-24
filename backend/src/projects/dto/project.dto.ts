@@ -13,6 +13,10 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import {
+  MAX_MAX_WORKING_DAYS_PER_SPRINT,
+  MIN_MAX_WORKING_DAYS_PER_SPRINT,
+} from '../sprint.util';
 
 const emptyToUndefined = ({ value }: { value: unknown }) =>
   value === '' || value === null ? undefined : value;
@@ -30,6 +34,14 @@ export class CreateProjectDto {
 
   @IsDateString()
   endDate: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_MAX_WORKING_DAYS_PER_SPRINT)
+  @Max(MAX_MAX_WORKING_DAYS_PER_SPRINT)
+  maxWorkingDaysPerSprint?: number;
 
   @Transform(emptyToUndefined)
   @IsOptional()
@@ -62,6 +74,14 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_MAX_WORKING_DAYS_PER_SPRINT)
+  @Max(MAX_MAX_WORKING_DAYS_PER_SPRINT)
+  maxWorkingDaysPerSprint?: number;
 
   @Transform(emptyToNull)
   @IsOptional()

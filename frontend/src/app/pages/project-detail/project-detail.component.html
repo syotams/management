@@ -8,6 +8,7 @@
           {{ formatRange(project.startDate, project.endDate) }}
           · {{ teamsLabel }}
           · {{ project.sprints.length }} sprints
+          · max {{ project.maxWorkingDaysPerSprint }} working days/sprint
           · {{ backlogEpics.length }} epics
           · {{ backlogWorkingDaysLabel }}
           @if (project.currentVersion) {
@@ -469,6 +470,20 @@
             <input type="date" class="form-control" [(ngModel)]="editEndDate" name="editEndDate" readonly>
             <div class="form-text">Automatically set to the last day of the third month from the start date.</div>
           </div>
+          <div class="mb-3">
+            <label class="form-label">Max working days per sprint</label>
+            <input
+              type="number"
+              class="form-control"
+              [(ngModel)]="editMaxWorkingDaysPerSprint"
+              name="editMaxWorkingDaysPerSprint"
+              min="1"
+              max="10"
+              step="1"
+              required
+            >
+            <div class="form-text">Recommended: 8. A sprint has 10 working days, so a longer epic is split across later sprints.</div>
+          </div>
           <div class="mb-0">
             <label class="form-label">Primary team <span class="text-muted fw-normal">(optional)</span></label>
             <select class="form-select" [(ngModel)]="editTeamId" name="editTeamId">
@@ -481,7 +496,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" (click)="showEdit = false">Cancel</button>
-          <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="saving || !editName.trim() || !editStartDate || !editEndDate">
+          <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="saving || !editName.trim() || !editStartDate || !editEndDate || !isMaxWorkingDaysValid(editMaxWorkingDaysPerSprint)">
             {{ saving ? 'Saving...' : 'Save changes' }}
           </button>
         </div>

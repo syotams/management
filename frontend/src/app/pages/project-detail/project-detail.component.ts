@@ -106,6 +106,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   editName = '';
   editStartDate = '';
   editEndDate = '';
+  editMaxWorkingDaysPerSprint: number | null = 8;
   editTeamId = '';
 
   backlogDropData = BACKLOG_DROP_DATA;
@@ -414,12 +415,17 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.editName = this.project.name;
     this.editStartDate = toDateInput(this.project.startDate);
     this.editEndDate = projectEndDateFromStart(this.editStartDate);
+    this.editMaxWorkingDaysPerSprint = this.project.maxWorkingDaysPerSprint ?? 8;
     this.editTeamId = this.project.teamId || '';
     this.showEdit = true;
   }
 
+  isMaxWorkingDaysValid(value: number | null) {
+    return Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 10;
+  }
+
   saveEdit() {
-    if (!this.project || !this.editName.trim()) return;
+    if (!this.project || !this.editName.trim() || !this.isMaxWorkingDaysValid(this.editMaxWorkingDaysPerSprint)) return;
     this.saving = true;
     this.error = '';
     this.projectService
@@ -427,6 +433,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         name: this.editName.trim(),
         startDate: this.editStartDate,
         endDate: this.editEndDate,
+        maxWorkingDaysPerSprint: Number(this.editMaxWorkingDaysPerSprint),
         teamId: this.editTeamId || null,
       })
       .subscribe({

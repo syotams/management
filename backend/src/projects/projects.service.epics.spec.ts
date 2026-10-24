@@ -273,4 +273,288 @@ describe('ProjectsService epic derivation', () => {
       true,
     );
   });
+
+  function placementsFor(
+    detail: Awaited<ReturnType<ProjectsService['findOne']>>,
+    backlogId: string,
+  ) {
+    return detail.epics
+      .filter((epic) => epic.sourceEpicId === backlogId)
+      .map((epic) => ({
+        workingDays: epic.workingDays,
+        startSprintNumber: epic.startSprintNumber,
+        startSprintWeek: epic.startSprintWeek,
+      }))
+      .sort(
+        (a, b) =>
+          a.startSprintNumber! - b.startSprintNumber! ||
+          a.startSprintWeek! - b.startSprintWeek!,
+      );
+  }
+
+  it('keeps a 5-day assign as one assignment on the default cap of 8', async () => {
+    const detail = await service.findOne(projectId, creatorId);
+    expect(detail.maxWorkingDaysPerSprint).toBe(8);
+
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+
+    expect(await prisma.epicAssignment.count()).toBe(1);
+    expect(assigned.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(5);
+    expect(placementsFor(assigned, backlog.id)).toEqual([
+      { workingDays: 5, startSprintNumber: 1, startSprintWeek: 1 },
+    ]);
+  });
+
+  it('splits a 9-day epic into 8 days plus 1 day on the next sprint', async () => {
+    const created = await createBacklogEpic({ workingDays: 9 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+
+    expect(await prisma.epic.count({ where: { projectId } })).toBe(1);
+    expect(assigned.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(9);
+    expect(placementsFor(assigned, backlog.id)).toEqual([
+      { workingDays: 8, startSprintNumber: 1, startSprintWeek: 1 },
+      { workingDays: 1, startSprintNumber: 2, startSprintWeek: 1 },
+    ]);
+  });
+
+  it('leaves zero assignments when the epic does not fit', async () => {
+    const created = await createBacklogEpic({ workingDays: 25 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+
+    await expect(
+      service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId,
+        startSprintNumber: 1,
+        startSprintWeek: 1,
+      }),
+    ).rejects.toThrow(/extend past the last sprint/);
+
+    expect(await prisma.epicAssignment.count()).toBe(0);
+    const detail = await service.findOne(projectId, creatorId);
+    expect(detail.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(25);
+    expect(placementsFor(detail, backlog.id)).toEqual([]);
+  });
+
+  it('starts a week-2 assign in that week and continues at week 1 of the next sprint', async () => {
+    const created = await createBacklogEpic({ workingDays: 9 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 2,
+    });
+
+    expect(placementsFor(assigned, backlog.id)).toEqual([
+      { workingDays: 5, startSprintNumber: 1, startSprintWeek: 2 },
+      { workingDays: 4, startSprintNumber: 2, startSprintWeek: 1 },
+    ]);
+  });
+
+  it('shrinks the first chunk when the assignee has PTO in that sprint', async () => {
+    await service.addPto(projectId, creatorId, {
+      name: 'PTO',
+      startDate: '2026-01-05',
+      endDate: '2026-01-07',
+      userIds: [assigneeId],
+    });
+    const created = await createBacklogEpic({ workingDays: 10 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+
+    expect(assigned.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(10);
+    expect(placementsFor(assigned, backlog.id)).toEqual([
+      { workingDays: 7, startSprintNumber: 1, startSprintWeek: 1 },
+      { workingDays: 3, startSprintNumber: 2, startSprintWeek: 1 },
+    ]);
+  });
+
+  it('rejects a split that would duplicate a later sprint week and writes nothing new', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 2,
+      startSprintWeek: 1,
+    });
+    await service.updateEpic(projectId, backlog.id, creatorId, { workingDays: 9 });
+
+    await expect(
+      service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId,
+        startSprintNumber: 1,
+        startSprintWeek: 1,
+      }),
+    ).rejects.toThrow(/already assigned/);
+
+    expect(await prisma.epicAssignment.count()).toBe(1);
+    const detail = await service.findOne(projectId, creatorId);
+    expect(detail.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(9);
+    expect(placementsFor(detail, backlog.id)).toEqual([
+      { workingDays: 5, startSprintNumber: 2, startSprintWeek: 1 },
+    ]);
+  });
+
+  it('does not re-split when an existing board chip is moved', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+    const assignmentId = assigned.epics.find((e) => e.sourceEpicId === backlog.id)!.id;
+
+    await service.updateEpic(projectId, assignmentId, creatorId, { workingDays: 12 });
+    const moved = await service.updateEpic(projectId, assignmentId, creatorId, {
+      startSprintNumber: 3,
+      startSprintWeek: 2,
+    });
+
+    expect(await prisma.epic.count({ where: { projectId } })).toBe(1);
+    expect(await prisma.epicAssignment.count()).toBe(1);
+    expect(moved.epics.find((e) => e.id === assignmentId)).toMatchObject({
+      workingDays: 12,
+      startSprintNumber: 3,
+      startSprintWeek: 2,
+    });
+  });
+
+  it('does not rewrite existing assignments when the cap changes', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+
+    const updated = await service.update(projectId, creatorId, { maxWorkingDaysPerSprint: 4 });
+    expect(updated.maxWorkingDaysPerSprint).toBe(4);
+    expect(placementsFor(updated, backlog.id)).toEqual([
+      { workingDays: 5, startSprintNumber: 1, startSprintWeek: 1 },
+    ]);
+
+    const bigger = await createBacklogEpic({ title: 'Bigger', workingDays: 9 });
+    const biggerBacklog = bigger.epics.find((e) => e.title === 'Bigger' && !e.sourceEpicId)!;
+    const assigned = await service.assignEpic(projectId, biggerBacklog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+
+    expect(placementsFor(assigned, backlog.id)).toEqual([
+      { workingDays: 5, startSprintNumber: 1, startSprintWeek: 1 },
+    ]);
+    expect(placementsFor(assigned, biggerBacklog.id)).toEqual([
+      { workingDays: 4, startSprintNumber: 1, startSprintWeek: 1 },
+      { workingDays: 4, startSprintNumber: 2, startSprintWeek: 1 },
+      { workingDays: 1, startSprintNumber: 3, startSprintWeek: 1 },
+    ]);
+  });
+
+  it('splits a scheduled epic create and writes nothing when that split does not fit', async () => {
+    const created = await service.addEpic(projectId, creatorId, {
+      title: 'Scheduled',
+      workingDays: 9,
+      backgroundColor: '#4f46e5',
+      assigneeIds: [assigneeId],
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+    const backlog = created.epics.find((e) => e.title === 'Scheduled' && !e.sourceEpicId)!;
+    expect(backlog.workingDays).toBe(9);
+    expect(placementsFor(created, backlog.id)).toEqual([
+      { workingDays: 8, startSprintNumber: 1, startSprintWeek: 1 },
+      { workingDays: 1, startSprintNumber: 2, startSprintWeek: 1 },
+    ]);
+
+    await expect(
+      service.addEpic(projectId, creatorId, {
+        title: 'Too big',
+        workingDays: 25,
+        backgroundColor: '#4f46e5',
+        assigneeIds: [assigneeId],
+        startSprintNumber: 1,
+        startSprintWeek: 1,
+      }),
+    ).rejects.toThrow(/extend past the last sprint/);
+
+    expect(await prisma.epic.count({ where: { title: 'Too big' } })).toBe(0);
+    expect(await prisma.epicAssignment.count()).toBe(2);
+  });
+
+  it('stores the cap on create, update, and detail, and rejects values outside 1-10', async () => {
+    const created = await service.create(creatorId, {
+      name: 'Capped',
+      startDate: '2026-04-06',
+      endDate: '2026-05-03',
+      maxWorkingDaysPerSprint: 4,
+    });
+    expect(created.maxWorkingDaysPerSprint).toBe(4);
+    expect((await service.findOne(created.id, creatorId)).maxWorkingDaysPerSprint).toBe(4);
+
+    const omitted = await service.create(creatorId, {
+      name: 'Default cap',
+      startDate: '2026-06-01',
+      endDate: '2026-06-28',
+    });
+    expect(omitted.maxWorkingDaysPerSprint).toBe(8);
+
+    await expect(
+      service.create(creatorId, {
+        name: 'Too high',
+        startDate: '2026-07-06',
+        endDate: '2026-07-19',
+        maxWorkingDaysPerSprint: 11,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(await prisma.project.count({ where: { name: 'Too high' } })).toBe(0);
+
+    await expect(
+      service.update(projectId, creatorId, { maxWorkingDaysPerSprint: 0 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect((await service.findOne(projectId, creatorId)).maxWorkingDaysPerSprint).toBe(8);
+  });
+
+  it('stores the cap on new plan snapshots and still reads snapshots that omit it', async () => {
+    await createBacklogEpic();
+    await service.update(projectId, creatorId, { maxWorkingDaysPerSprint: 6 });
+    await service.start(projectId, creatorId);
+
+    const first = await prisma.projectVersion.findFirstOrThrow({
+      where: { projectId },
+      orderBy: { versionNumber: 'asc' },
+    });
+    const stored = JSON.parse(first.snapshot) as { maxWorkingDaysPerSprint?: number };
+    expect(stored.maxWorkingDaysPerSprint).toBe(6);
+
+    delete stored.maxWorkingDaysPerSprint;
+    await prisma.projectVersion.update({
+      where: { id: first.id },
+      data: { snapshot: JSON.stringify(stored) },
+    });
+
+    await service.update(projectId, creatorId, { maxWorkingDaysPerSprint: 7 });
+    const comparison = await service.compare(projectId, creatorId);
+    expect(comparison.original.maxWorkingDaysPerSprint).toBe(8);
+    expect(comparison.latest.maxWorkingDaysPerSprint).toBe(7);
+  });
 });
