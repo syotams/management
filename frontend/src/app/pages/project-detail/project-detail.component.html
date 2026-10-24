@@ -919,6 +919,43 @@
   </div>
 }
 
+@if (showAssignDays && project) {
+  <div class="modal fade show d-block modal-backdrop-custom" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Assign working days</h5>
+          <button type="button" class="btn-close" (click)="cancelAssignDays()"></button>
+        </div>
+        <div class="modal-body">
+          @if (assignDaysError) {
+            <div class="alert alert-danger py-2">{{ assignDaysError }}</div>
+          }
+          <p class="mb-3">
+            {{ assignDaysTitle }} spans more than two sprints. Choose how many working days to assign to this user.
+          </p>
+          <label class="form-label">Working days</label>
+          <input
+            type="number"
+            class="form-control"
+            name="assignDaysValue"
+            [min]="1"
+            [max]="assignDaysMax"
+            [(ngModel)]="assignDaysValue"
+          >
+          <div class="form-text">Enter a whole number from 1 to {{ assignDaysMax }}.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" (click)="cancelAssignDays()">Cancel</button>
+          <button type="button" class="btn btn-primary" (click)="confirmAssignDays()" [disabled]="movingEpic">
+            {{ movingEpic ? 'Assigning...' : 'Assign' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
 @if (cellAssignMenu; as menu) {
   <div
     class="dropdown-menu cell-assign-menu show"

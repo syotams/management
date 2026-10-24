@@ -226,6 +226,29 @@ export function paintAssignmentWeeks(
   return { weeks, daysLeft };
 }
 
+/** How many sprints an assignment would paint, counting one more when days remain past the last sprint. */
+export function sprintsUsedByAssignment(input: {
+  workingDays: number;
+  maxWorkingDaysPerSprint: number;
+  startSprintNumber: number;
+  startSprintWeek: SprintWeekNumber;
+  sprints: DatedSprint[];
+  absences?: DateRange[];
+}): number {
+  const slots =
+    assignmentSlots(
+      input.sprints,
+      input.startSprintNumber,
+      input.startSprintWeek,
+      input.absences ?? [],
+    ) ?? [];
+  const painted = paintAssignmentWeeks(input.workingDays, input.maxWorkingDaysPerSprint, slots);
+  const used = new Set(
+    painted.weeks.filter((week) => week.days > 0).map((week) => week.sprintNumber),
+  );
+  return used.size + (painted.daysLeft > 0 ? 1 : 0);
+}
+
 function weekKey(week: { sprintNumber: number; week: SprintWeekNumber }): string {
   return `${week.sprintNumber}:${week.week}`;
 }

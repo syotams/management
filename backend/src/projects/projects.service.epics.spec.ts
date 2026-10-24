@@ -114,13 +114,14 @@ describe('ProjectsService epic derivation', () => {
   });
 
   it('allows assigning the same epic to the same user in different sprints', async () => {
-    const created = await createBacklogEpic();
+    const created = await createBacklogEpic({ workingDays: 10 });
     const backlog = created.epics.find((e) => !e.sourceEpicId)!;
 
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
       startSprintWeek: 1,
+      workingDays: 4,
     });
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
@@ -210,12 +211,13 @@ describe('ProjectsService epic derivation', () => {
   });
 
   it('deletes only one assignment when deleting assignment id', async () => {
-    const created = await createBacklogEpic();
+    const created = await createBacklogEpic({ workingDays: 10 });
     const backlog = created.epics.find((e) => !e.sourceEpicId)!;
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 1,
       startSprintWeek: 1,
+      workingDays: 4,
     });
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
@@ -369,6 +371,7 @@ describe('ProjectsService epic derivation', () => {
       assigneeId,
       startSprintNumber: 1,
       startSprintWeek: 1,
+      workingDays: 4,
     });
 
     const again = await service.assignEpic(projectId, backlog.id, creatorId, {
@@ -379,15 +382,15 @@ describe('ProjectsService epic derivation', () => {
 
     const placements = placementsFor(again, backlog.id);
     expect(placements).toEqual([
-      expect.objectContaining({ workingDays: 9, startSprintNumber: 1, startSprintWeek: 1 }),
-      expect.objectContaining({ workingDays: 9, startSprintNumber: 2, startSprintWeek: 2 }),
+      expect.objectContaining({ workingDays: 4, startSprintNumber: 1, startSprintWeek: 1 }),
+      expect.objectContaining({ workingDays: 5, startSprintNumber: 2, startSprintWeek: 2 }),
     ]);
 
     const remaining = await service.deleteEpic(projectId, placements[0].id, creatorId);
     expect(placementsFor(remaining, backlog.id)).toEqual([
       expect.objectContaining({
         id: placements[1].id,
-        workingDays: 9,
+        workingDays: 5,
         startSprintNumber: 2,
         startSprintWeek: 2,
       }),
@@ -395,7 +398,6 @@ describe('ProjectsService epic derivation', () => {
     expect(epicDaysBySprint(remaining, assigneeId, placements[0].id)).toEqual([]);
     expect(epicDaysBySprint(remaining, assigneeId, placements[1].id)).toEqual([
       { sprint: 2, days: 5 },
-      { sprint: 3, days: 4 },
     ]);
   });
 
@@ -465,14 +467,14 @@ describe('ProjectsService epic derivation', () => {
   });
 
   it('rejects a split that would duplicate a later sprint week and writes nothing new', async () => {
-    const created = await createBacklogEpic({ workingDays: 5 });
+    const created = await createBacklogEpic({ workingDays: 15 });
     const backlog = created.epics.find((e) => !e.sourceEpicId)!;
     await service.assignEpic(projectId, backlog.id, creatorId, {
       assigneeId,
       startSprintNumber: 2,
       startSprintWeek: 1,
+      workingDays: 5,
     });
-    await service.updateEpic(projectId, backlog.id, creatorId, { workingDays: 9 });
 
     await expect(
       service.assignEpic(projectId, backlog.id, creatorId, {
@@ -484,7 +486,7 @@ describe('ProjectsService epic derivation', () => {
 
     expect(await prisma.epicAssignment.count()).toBe(1);
     const detail = await service.findOne(projectId, creatorId);
-    expect(detail.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(9);
+    expect(detail.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(15);
     expect(placementsFor(detail, backlog.id)).toEqual([
       expect.objectContaining({ workingDays: 5, startSprintNumber: 2, startSprintWeek: 1 }),
     ]);
@@ -637,5 +639,82 @@ describe('ProjectsService epic derivation', () => {
     const comparison = await service.compare(projectId, creatorId);
     expect(comparison.original.maxWorkingDaysPerSprint).toBe(8);
     expect(comparison.latest.maxWorkingDaysPerSprint).toBe(7);
+  });
+
+  it('assigns the full total when a first assign spans two sprints', async () => {
+    const created = await createBacklogEpic({ workingDays: 15 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+
+    expect(assigned.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(15);
+    expect(placementsFor(assigned, backlog.id)).toEqual([
+      expect.objectContaining({ workingDays: 15, startSprintNumber: 1, startSprintWeek: 1 }),
+    ]);
+    expect(
+      epicDaysBySprint(
+        assigned,
+        assigneeId,
+        placementsFor(assigned, backlog.id)[0].id,
+      ),
+    ).toEqual([
+      { sprint: 1, days: 8 },
+      { sprint: 2, days: 7 },
+    ]);
+  });
+
+  it('stores the chosen days on a three-sprint first assign and the remainder on the next user', async () => {
+    const created = await createBacklogEpic({ workingDays: 17 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+
+    const first = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+      workingDays: 7,
+    });
+    expect(first.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(17);
+    expect(placementsFor(first, backlog.id)).toEqual([
+      expect.objectContaining({ workingDays: 7, startSprintNumber: 1, startSprintWeek: 1 }),
+    ]);
+
+    const second = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId: creatorId,
+      startSprintNumber: 2,
+      startSprintWeek: 1,
+    });
+    expect(second.epics.find((e) => e.id === backlog.id)!.workingDays).toBe(17);
+    expect(placementsFor(second, backlog.id)).toEqual([
+      expect.objectContaining({ workingDays: 7, startSprintNumber: 1, startSprintWeek: 1 }),
+      expect.objectContaining({ workingDays: 10, startSprintNumber: 2, startSprintWeek: 1 }),
+    ]);
+
+    await expect(
+      service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId,
+        startSprintNumber: 3,
+        startSprintWeek: 2,
+      }),
+    ).rejects.toThrow(/no working days left/);
+    expect(await prisma.epicAssignment.count()).toBe(2);
+  });
+
+  it('rejects a first-assign day count outside the backlog total', async () => {
+    const created = await createBacklogEpic({ workingDays: 17 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+
+    await expect(
+      service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId,
+        startSprintNumber: 1,
+        startSprintWeek: 1,
+        workingDays: 18,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(await prisma.epicAssignment.count()).toBe(0);
   });
 });

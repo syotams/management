@@ -3,6 +3,7 @@ import {
   DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE,
   generateSprints,
   planAssignmentSpan,
+  sprintsUsedByAssignment,
   sprintWeekRange,
 } from './sprint.util';
 
@@ -22,6 +23,32 @@ function plan(
     ...overrides,
   });
 }
+
+describe('sprintsUsedByAssignment', () => {
+  it('counts two sprints for 15 days at a cap of 8', () => {
+    expect(
+      sprintsUsedByAssignment({
+        workingDays: 15,
+        maxWorkingDaysPerSprint: 8,
+        startSprintNumber: 1,
+        startSprintWeek: 1,
+        sprints: sprints(3),
+      }),
+    ).toBe(2);
+  });
+
+  it('counts more than two sprints when a third sprint is required', () => {
+    expect(
+      sprintsUsedByAssignment({
+        workingDays: 17,
+        maxWorkingDaysPerSprint: 8,
+        startSprintNumber: 1,
+        startSprintWeek: 1,
+        sprints: sprints(3),
+      }),
+    ).toBe(3);
+  });
+});
 
 describe('planAssignmentSpan', () => {
   it('keeps an epic that fits under the cap in the first sprint', () => {

@@ -306,18 +306,16 @@ export class ProjectsService {
     const title = dto.title.trim();
     this.assertUniqueEpicTitle(project.epics, title);
     const backgroundColor = dto.backgroundColor.toLowerCase();
-    if (assigneeIds.length && startSprintNumber !== null && startSprintWeek !== null) {
-      for (const assigneeId of assigneeIds) {
-        this.assertAssignmentFits(
-          project,
-          null,
-          assigneeId,
-          dto.workingDays,
-          startSprintNumber,
-          startSprintWeek,
-        );
-      }
-    }
+    const scheduledDays =
+      assigneeIds.length > 0 && startSprintNumber !== null && startSprintWeek !== null
+        ? this.planScheduledAssignmentDays(
+            project,
+            assigneeIds,
+            dto.workingDays,
+            startSprintNumber,
+            startSprintWeek,
+          )
+        : [];
 
     await this.prisma.$transaction(async (tx) => {
       const epic = await tx.epic.create({
@@ -333,10 +331,10 @@ export class ProjectsService {
       if (!assigneeIds.length || startSprintNumber === null || startSprintWeek === null) return;
 
       await tx.epicAssignment.createMany({
-        data: assigneeIds.map((assigneeId) => ({
+        data: scheduledDays.map((row) => ({
           epicId: epic.id,
-          userId: assigneeId,
-          workingDays: dto.workingDays,
+          userId: row.userId,
+          workingDays: row.workingDays,
           startSprintNumber,
           startSprintWeek,
         })),
@@ -364,11 +362,16 @@ export class ProjectsService {
     this.assertStartSprintWeek(dto.startSprintWeek);
     await this.ensureAssignable(project, userId, [dto.assigneeId]);
 
+    const workingDays = this.resolveAssignmentWorkingDays(
+      template.workingDays,
+      template.assignments.map((assignment) => assignment.workingDays),
+      dto.workingDays,
+    );
     this.assertAssignmentFits(
       project,
       template.id,
       dto.assigneeId,
-      template.workingDays,
+      workingDays,
       dto.startSprintNumber,
       dto.startSprintWeek,
     );
@@ -377,7 +380,7 @@ export class ProjectsService {
       data: {
         epicId: template.id,
         userId: dto.assigneeId,
-        workingDays: template.workingDays,
+        workingDays,
         startSprintNumber: dto.startSprintNumber,
         startSprintWeek: dto.startSprintWeek,
       },
@@ -1598,6 +1601,58 @@ export class ProjectsService {
         `maxWorkingDaysPerSprint must be an integer between ${MIN_MAX_WORKING_DAYS_PER_SPRINT} and ${MAX_MAX_WORKING_DAYS_PER_SPRINT}`,
       );
     }
+  }
+
+  private resolveAssignmentWorkingDays(
+    backlogWorkingDays: number,
+    existingAssignmentDays: number[],
+    requested?: number,
+  ): number {
+    if (!existingAssignmentDays.length) {
+      if (requested === undefined) return backlogWorkingDays;
+      if (
+        !Number.isInteger(requested) ||
+        requested < 1 ||
+        requested > backlogWorkingDays
+      ) {
+        throw new BadRequestException(
+          `workingDays must be between 1 and ${backlogWorkingDays}`,
+        );
+      }
+      return requested;
+    }
+
+    const remaining =
+      backlogWorkingDays - existingAssignmentDays.reduce((sum, days) => sum + days, 0);
+    if (remaining < 1) {
+      throw new BadRequestException('This epic has no working days left to assign');
+    }
+    return remaining;
+  }
+
+  private planScheduledAssignmentDays(
+    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
+    assigneeIds: string[],
+    backlogWorkingDays: number,
+    startSprintNumber: number,
+    startSprintWeek: number,
+  ): { userId: string; workingDays: number }[] {
+    const planned: { userId: string; workingDays: number }[] = [];
+    const allocated: number[] = [];
+    for (const assigneeId of assigneeIds) {
+      const workingDays = this.resolveAssignmentWorkingDays(backlogWorkingDays, allocated);
+      this.assertAssignmentFits(
+        project,
+        null,
+        assigneeId,
+        workingDays,
+        startSprintNumber,
+        startSprintWeek,
+      );
+      planned.push({ userId: assigneeId, workingDays });
+      allocated.push(workingDays);
+    }
+    return planned;
   }
 
   private assertAssignmentFits(

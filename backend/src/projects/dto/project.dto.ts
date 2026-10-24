@@ -147,6 +147,12 @@ export class AssignEpicDto {
   @Min(1)
   @Max(2)
   startSprintWeek: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  workingDays?: number;
 }
 
 export class UpdateEpicDto {
