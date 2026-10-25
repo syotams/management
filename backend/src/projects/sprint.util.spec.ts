@@ -1,10 +1,12 @@
 import {
   addUtcDays,
+  countInclusiveDays,
   DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE,
   generateSprints,
   planAssignmentSpan,
   sprintsUsedByAssignment,
   sprintWeekRange,
+  weekCapacity,
 } from './sprint.util';
 
 function sprints(count: number) {
@@ -23,6 +25,31 @@ function plan(
     ...overrides,
   });
 }
+
+describe('countInclusiveDays', () => {
+  it('counts the end date, so 1 Nov through 3 Nov is 3 days', () => {
+    const start = new Date(Date.UTC(2026, 10, 1));
+    const end = new Date(Date.UTC(2026, 10, 3));
+    expect(countInclusiveDays(start, end)).toBe(3);
+  });
+});
+
+describe('weekCapacity', () => {
+  it('removes every PTO day in the range, including the weekend and the end date', () => {
+    const sprint = {
+      number: 1,
+      startDate: new Date(Date.UTC(2026, 9, 24)),
+      endDate: new Date(Date.UTC(2026, 10, 6)),
+    };
+    const pto = {
+      startDate: new Date(Date.UTC(2026, 10, 1)),
+      endDate: new Date(Date.UTC(2026, 10, 3)),
+    };
+
+    expect(weekCapacity(sprint, 2, [])).toBe(5);
+    expect(weekCapacity(sprint, 2, [pto])).toBe(2);
+  });
+});
 
 describe('sprintsUsedByAssignment', () => {
   it('counts two sprints for 15 days at a cap of 8', () => {

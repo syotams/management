@@ -18,8 +18,8 @@ import {
   UpdateProjectDto,
 } from './dto/project.dto';
 import {
+  countInclusiveDaysOverlap,
   countWeekdays,
-  countWeekdaysOverlap,
   DEFAULT_MAX_WORKING_DAYS_PER_SPRINT,
   generateSprints,
   MAX_MAX_WORKING_DAYS_PER_SPRINT,
@@ -1271,7 +1271,7 @@ export class ProjectsService {
     for (const holiday of holidays) {
       if (!grid[holiday.userId]) continue;
       for (const slot of slots) {
-        const days = countWeekdaysOverlap(
+        const days = countInclusiveDaysOverlap(
           holiday.startDate,
           holiday.endDate,
           slot.startDate,
@@ -1293,7 +1293,7 @@ export class ProjectsService {
     for (const pto of ptos) {
       if (!grid[pto.userId]) continue;
       for (const slot of slots) {
-        const days = countWeekdaysOverlap(
+        const days = countInclusiveDaysOverlap(
           pto.startDate,
           pto.endDate,
           slot.startDate,
@@ -1395,7 +1395,7 @@ export class ProjectsService {
   ) {
     const span = this.projectSpan(sprints);
     if (!span) return 0;
-    return countWeekdaysOverlap(holiday.startDate, holiday.endDate, span.start, span.end);
+    return countInclusiveDaysOverlap(holiday.startDate, holiday.endDate, span.start, span.end);
   }
 
   private ptoWorkingDays(
@@ -1404,7 +1404,7 @@ export class ProjectsService {
   ) {
     const span = this.projectSpan(sprints);
     if (!span) return 0;
-    return countWeekdaysOverlap(pto.startDate, pto.endDate, span.start, span.end);
+    return countInclusiveDaysOverlap(pto.startDate, pto.endDate, span.start, span.end);
   }
 
   private computeCapacity(
@@ -1426,14 +1426,14 @@ export class ProjectsService {
       const ptoDays = span
         ? userPtos.reduce(
             (sum, p) =>
-              sum + countWeekdaysOverlap(p.startDate, p.endDate, span.start, span.end),
+              sum + countInclusiveDaysOverlap(p.startDate, p.endDate, span.start, span.end),
             0,
           )
         : 0;
       const holidayDays = span
         ? userHolidays.reduce(
             (sum, h) =>
-              sum + countWeekdaysOverlap(h.startDate, h.endDate, span.start, span.end),
+              sum + countInclusiveDaysOverlap(h.startDate, h.endDate, span.start, span.end),
             0,
           )
         : 0;
