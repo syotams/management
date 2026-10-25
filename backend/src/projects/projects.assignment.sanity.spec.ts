@@ -12,7 +12,7 @@ describe('assignment sanity', () => {
   let projectId: string;
 
   beforeAll(() => {
-    resetTestDatabase();
+    resetTestDatabase('test-assignment-sanity');
   });
 
   beforeEach(async () => {
@@ -37,7 +37,7 @@ describe('assignment sanity', () => {
   });
 
   afterEach(async () => {
-    await prisma.$disconnect();
+    await prisma?.$disconnect();
   });
 
   async function createBacklogEpic(overrides?: {
