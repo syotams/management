@@ -1028,7 +1028,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         if (sprint.number === startSprint.number && week.week < cell.week) continue;
         const blocked = absences.reduce(
           (sum, absence) =>
-            sum + this.weekdayOverlap(absence.startDate, absence.endDate, week.startDate, week.endDate),
+            sum + this.inclusiveDayOverlap(absence.startDate, absence.endDate, week.startDate, week.endDate),
           0,
         );
         const capacity = Math.max(
@@ -1051,15 +1051,15 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       .reduce((sum, chip) => sum + chip.daysInSprint, 0);
   }
 
-  private weekdayOverlap(startA: string, endA: string, startB: string, endB: string): number {
+  /** Inclusive calendar days shared by two ranges. 1 Nov through 3 Nov is 3 days. */
+  private inclusiveDayOverlap(startA: string, endA: string, startB: string, endB: string): number {
     const start = toDateInput(startA) > toDateInput(startB) ? toDateInput(startA) : toDateInput(startB);
     const end = toDateInput(endA) < toDateInput(endB) ? toDateInput(endA) : toDateInput(endB);
     if (!start || !end || start > end) return 0;
     let count = 0;
     let cursor = start;
     while (cursor <= end) {
-      const day = new Date(`${cursor}T00:00:00Z`).getUTCDay();
-      if (day !== 0 && day !== 6) count += 1;
+      count += 1;
       cursor = addUtcDaysToDateInput(cursor, 1);
     }
     return count;

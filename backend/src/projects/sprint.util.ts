@@ -100,6 +100,18 @@ export function countWeekdays(startDate: Date, endDate: Date): number {
   return count;
 }
 
+/** Inclusive calendar days. 1 Nov through 3 Nov is 3 days, weekends included. */
+export function countInclusiveDays(startDate: Date, endDate: Date): number {
+  let count = 0;
+  let current = startOfUtcDay(startDate);
+  const end = startOfUtcDay(endDate);
+  while (current <= end) {
+    count += 1;
+    current = addUtcDays(current, 1);
+  }
+  return count;
+}
+
 export const MIN_MAX_WORKING_DAYS_PER_SPRINT = 1;
 export const MAX_MAX_WORKING_DAYS_PER_SPRINT = 10;
 export const DEFAULT_MAX_WORKING_DAYS_PER_SPRINT = 8;
@@ -151,7 +163,7 @@ export function weekCapacity(sprint: DatedSprint, week: SprintWeekNumber, absenc
   const range = sprintWeekRange(sprint, week);
   let remaining = countWeekdays(range.startDate, range.endDate);
   for (const absence of absences) {
-    remaining -= countWeekdaysOverlap(
+    remaining -= countInclusiveDaysOverlap(
       absence.startDate,
       absence.endDate,
       range.startDate,
@@ -400,7 +412,7 @@ export function planAssignmentSpan(input: {
   return { ok: true, weeks: painted.weeks.filter((week) => week.days > 0) };
 }
 
-export function countWeekdaysOverlap(
+export function countInclusiveDaysOverlap(
   rangeStart: Date,
   rangeEnd: Date,
   clipStart: Date,
@@ -413,5 +425,5 @@ export function countWeekdaysOverlap(
   const from = start > clipS ? start : clipS;
   const to = end < clipE ? end : clipE;
   if (from > to) return 0;
-  return countWeekdays(from, to);
+  return countInclusiveDays(from, to);
 }

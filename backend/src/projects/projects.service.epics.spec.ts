@@ -439,6 +439,26 @@ describe('ProjectsService epic derivation', () => {
     ]);
   });
 
+  it('counts a PTO through its end date, including weekend days', async () => {
+    const detail = await service.addPto(projectId, creatorId, {
+      name: 'PTO',
+      startDate: '2026-01-31',
+      endDate: '2026-02-02',
+      userIds: [assigneeId],
+    });
+
+    const pto = detail.ptos.find((entry) => entry.userId === assigneeId);
+    expect(pto?.workingDays).toBe(3);
+
+    const participant = detail.participants.find((person) => person.id === assigneeId)!;
+    const painted = Object.values(participant.cells)
+      .flat()
+      .filter((chip) => chip.type === 'pto')
+      .reduce((sum, chip) => sum + chip.daysInSprint, 0);
+    expect(painted).toBe(3);
+    expect(detail.capacity.find((row) => row.userId === assigneeId)?.ptoDays).toBe(3);
+  });
+
   it('shrinks the first chunk when the assignee has PTO in that sprint', async () => {
     await service.addPto(projectId, creatorId, {
       name: 'PTO',
