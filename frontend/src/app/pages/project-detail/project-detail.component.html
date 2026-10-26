@@ -402,8 +402,14 @@
       </div>
     </div>
 
+    @if (project.capacity?.length || (project.participants.length && project.sprintSummaries?.length)) {
+      <div
+        class="capacity-panels mt-4"
+        [class.capacity-panels-split]="!!project.capacity?.length && !!project.participants.length && !!project.sprintSummaries?.length"
+      >
     @if (project.capacity?.length) {
-      <div class="card mt-4">
+      <div class="capacity-panel capacity-panel-users">
+      <div class="card">
         <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Users Capacity</div>
         <div class="card-body p-0">
           <div class="table-responsive">
@@ -439,6 +445,50 @@
             </table>
           </div>
         </div>
+      </div>
+      </div>
+    }
+
+    @if (project.participants.length && project.sprintSummaries?.length) {
+      <div class="capacity-panel capacity-panel-sprints">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-calendar3 me-2"></i>Sprint summary</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0 capacity-table">
+              <thead>
+                <tr>
+                  <th>Sprint</th>
+                  <th>User</th>
+                  <th class="text-end" title="Project max working days per sprint, minus this user's PTO and holidays">Total capacity</th>
+                  <th class="text-end" title="PTO and holidays in this sprint">Days offline</th>
+                  <th class="text-end" title="Epic days assigned to the user in this sprint">Committed</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (sprint of project.sprintSummaries; track sprint.sprintId) {
+                  @for (user of sprint.users; track user.userId; let first = $first) {
+                    <tr>
+                      @if (first) {
+                        <td class="align-top" [attr.rowspan]="sprint.users.length">
+                          <div>Sprint {{ sprint.sprintNumber }}</div>
+                          <div class="text-muted small">{{ sprintSummaryDates(sprint.sprintId) }}</div>
+                        </td>
+                      }
+                      <td>{{ user.name }}</td>
+                      <td class="text-end">{{ user.totalCapacity }}d</td>
+                      <td class="text-end" [attr.title]="offlineTooltip(user)">{{ user.offlineDays }}d</td>
+                      <td class="text-end">{{ user.committedDays }}d</td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      </div>
+    }
       </div>
     }
     </div>

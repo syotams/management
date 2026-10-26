@@ -357,6 +357,16 @@ describe('ProjectsService epic derivation', () => {
       { sprint: 1, days: 8 },
       { sprint: 2, days: 1 },
     ]);
+    expect(
+      assigned.sprintSummaries.map((sprint) => ({
+        sprint: sprint.sprintNumber,
+        committedDays: sprint.users.find((user) => user.userId === assigneeId)?.committedDays,
+      })),
+    ).toEqual([
+      { sprint: 1, committedDays: 8 },
+      { sprint: 2, committedDays: 1 },
+      { sprint: 3, committedDays: 0 },
+    ]);
 
     const cleared = await service.deleteEpic(projectId, placement[0].id, creatorId);
     expect(await prisma.epicAssignment.count()).toBe(0);
@@ -457,6 +467,21 @@ describe('ProjectsService epic derivation', () => {
       .reduce((sum, chip) => sum + chip.daysInSprint, 0);
     expect(painted).toBe(3);
     expect(detail.capacity.find((row) => row.userId === assigneeId)?.ptoDays).toBe(3);
+
+    const assigneeRows = detail.sprintSummaries.map((sprint) => {
+      const user = sprint.users.find((entry) => entry.userId === assigneeId);
+      return {
+        sprint: sprint.sprintNumber,
+        totalCapacity: user?.totalCapacity,
+        offlineDays: user?.offlineDays,
+        committedDays: user?.committedDays,
+      };
+    });
+    expect(assigneeRows).toEqual([
+      { sprint: 1, totalCapacity: 8, offlineDays: 0, committedDays: 0 },
+      { sprint: 2, totalCapacity: 6, offlineDays: 2, committedDays: 0 },
+      { sprint: 3, totalCapacity: 7, offlineDays: 1, committedDays: 0 },
+    ]);
   });
 
   it('shrinks the first chunk when the assignee has PTO in that sprint', async () => {

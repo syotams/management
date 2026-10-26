@@ -424,6 +424,31 @@
   }
 }
 
+.capacity-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  .capacity-panel {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 992px) {
+  .capacity-panels-split {
+    flex-direction: row;
+    align-items: flex-start;
+
+    .capacity-panel-users {
+      flex: 1 1 32%;
+    }
+
+    .capacity-panel-sprints {
+      flex: 2 1 64%;
+    }
+  }
+}
+
 .capacity-table {
   tr.capacity-high td {
     background: rgba(var(--bs-warning-rgb), 0.08);
