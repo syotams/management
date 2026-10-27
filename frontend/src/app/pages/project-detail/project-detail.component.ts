@@ -15,6 +15,7 @@ import {
   GridChip,
   ParticipantCapacity,
   ProjectDetail,
+  SprintUserSummary,
   ProjectEpic,
   ProjectPlanView,
   Team,
@@ -361,6 +362,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       holidays: project.holidays ?? [],
       ptos: project.ptos ?? [],
       capacity: project.capacity ?? [],
+      sprintSummaries: project.sprintSummaries ?? [],
       sprints: (project.sprints ?? []).map((sprint) => ({
         ...sprint,
         weeks:
@@ -518,6 +520,16 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     if (assigned > total) return 'capacity-over';
     if (assigned >= total * 0.9) return 'capacity-high';
     return '';
+  }
+
+  sprintSummaryDates(sprintId: string): string {
+    const sprint = this.project?.sprints.find((entry) => entry.id === sprintId);
+    if (!sprint) return '';
+    return this.sprintDates(sprint.startDate, sprint.endDate);
+  }
+
+  offlineTooltip(user: SprintUserSummary): string {
+    return `PTO ${user.ptoDays}d, holidays ${user.holidayDays}d`;
   }
 
   committedTooltip(row: ParticipantCapacity): string {
