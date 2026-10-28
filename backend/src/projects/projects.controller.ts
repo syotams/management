@@ -65,6 +65,15 @@ export class ProjectsController {
     return this.projectsService.addParticipant(id, user.id, dto);
   }
 
+  @Delete(':id/participants/:userId')
+  removeParticipant(
+    @Param('id') id: string,
+    @Param('userId') memberUserId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.projectsService.removeParticipant(id, memberUserId, user.id);
+  }
+
   @Post(':id/epics')
   addEpic(
     @Param('id') id: string,
