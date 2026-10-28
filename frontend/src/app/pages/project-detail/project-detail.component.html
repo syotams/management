@@ -77,6 +77,20 @@
   @if (loading) {
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
   } @else if (project) {
+    <div class="project-metrics">
+      @for (metric of projectMetrics; track metric.label) {
+        <div class="card stat-card">
+          <div class="card-body">
+            <div class="stat-label" [title]="metric.hint">{{ metric.label }}</div>
+            <div
+              class="stat-value"
+              [class.tone-match]="metric.tone === 'match'"
+              [class.tone-over]="metric.tone === 'over'"
+            >{{ metric.value }}d</div>
+          </div>
+        </div>
+      }
+    </div>
     <div cdkDropListGroup>
     @if (canEditEpics || backlogEpics.length) {
       <div class="card mb-4">
@@ -275,7 +289,7 @@
                       class="participant-capacity small"
                       [class]="capacityClass(person.epicDaysAssigned ?? 0, person.totalWorkingDays ?? 0)"
                     >
-                      {{ person.epicDaysAssigned ?? 0 }}/{{ person.totalWorkingDays ?? 0 }} committed
+                      {{ person.epicDaysAssigned ?? 0 }}/{{ person.totalWorkingDays ?? 0 }} assigned
                     </div>
                   </th>
                   @for (sprint of project.sprints; track sprint.id) {
@@ -402,67 +416,18 @@
       </div>
     </div>
 
-    @if (project.capacity?.length || (project.participants.length && project.sprintSummaries?.length)) {
-      <div
-        class="capacity-panels mt-4"
-        [class.capacity-panels-split]="!!project.capacity?.length && !!project.participants.length && !!project.sprintSummaries?.length"
-      >
-    @if (project.capacity?.length) {
-      <div class="capacity-panel capacity-panel-users">
-      <div class="card">
-        <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Users Capacity</div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0 capacity-table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th class="text-end">PTO</th>
-                  <th class="text-end">Holidays</th>
-                  <th
-                    class="text-end"
-                    title="Committed / Capacity / Sprint capacity&#10;Committed: epic days assigned to the user&#10;Capacity: available working days after PTO and holidays&#10;Sprint capacity: total working days across all sprints"
-                  >
-                    Committed
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of project.capacity; track row.userId) {
-                  <tr [class]="capacityClass(row.epicDaysAssigned, row.totalCapacity)">
-                    <td>{{ row.name }}</td>
-                    <td class="text-end">{{ row.ptoDays }}d</td>
-                    <td class="text-end">{{ row.holidayDays }}d</td>
-                    <td
-                      class="text-end fw-semibold capacity-committed"
-                      [attr.title]="committedTooltip(row)"
-                    >
-                      {{ row.epicDaysAssigned }}/{{ row.totalCapacity }}/{{ row.sprintCapacity ?? row.totalCapacity }}
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      </div>
-    }
-
     @if (project.participants.length && project.sprintSummaries?.length) {
-      <div class="capacity-panel capacity-panel-sprints">
-      <div class="card">
+      <div class="card mt-4">
         <div class="card-header"><i class="bi bi-calendar3 me-2"></i>Sprint summary</div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0 capacity-table">
+            <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr>
                   <th>Sprint</th>
                   <th>User</th>
                   <th class="text-end" title="Project max working days per sprint, minus this user's PTO and holidays">Total capacity</th>
-                  <th class="text-end" title="PTO and holidays in this sprint">Days offline</th>
-                  <th class="text-end" title="Epic days assigned to the user in this sprint">Committed</th>
+                  <th class="text-end" title="Epic days assigned to the user in this sprint">Assigned</th>
                 </tr>
               </thead>
               <tbody>
@@ -477,8 +442,11 @@
                       }
                       <td>{{ user.name }}</td>
                       <td class="text-end">{{ user.totalCapacity }}d</td>
-                      <td class="text-end" [attr.title]="offlineTooltip(user)">{{ user.offlineDays }}d</td>
-                      <td class="text-end">{{ user.committedDays }}d</td>
+                      <td
+                        class="text-end"
+                        [class.tone-match]="user.committedDays === user.totalCapacity"
+                        [class.tone-over]="user.committedDays > user.totalCapacity"
+                      >{{ user.committedDays }}d</td>
                     </tr>
                   }
                 }
@@ -486,9 +454,6 @@
             </table>
           </div>
         </div>
-      </div>
-      </div>
-    }
       </div>
     }
     </div>

@@ -1030,6 +1030,7 @@ export class ProjectsService {
       ptos,
       holidays,
       planEpics,
+      project.maxWorkingDaysPerSprint,
     );
     const sprintSummaries = this.computeSprintSummaries(
       project.sprints,
@@ -1422,12 +1423,14 @@ export class ProjectsService {
     ptos: { userId: string; startDate: Date; endDate: Date }[],
     holidays: { userId: string; startDate: Date; endDate: Date }[],
     epics: EpicWithAssignees[],
+    maxWorkingDaysPerSprint: number,
   ) {
     const span = this.projectSpan(sprints);
     const totalSprintDays = sprints.reduce(
       (sum, s) => sum + countWeekdays(s.startDate, s.endDate),
       0,
     );
+    const projectWorkingDays = maxWorkingDaysPerSprint * sprints.length;
 
     return participants.map((person) => {
       const userPtos = ptos.filter((p) => p.userId === person.id);
@@ -1459,7 +1462,7 @@ export class ProjectsService {
         name: person.name,
         ptoDays,
         holidayDays,
-        totalCapacity: Math.max(0, totalSprintDays - holidayDays - ptoDays),
+        totalCapacity: Math.max(0, projectWorkingDays - holidayDays - ptoDays),
         sprintCapacity: totalSprintDays,
         epicDaysAssigned,
       };

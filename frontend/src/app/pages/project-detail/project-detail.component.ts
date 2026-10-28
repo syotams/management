@@ -13,9 +13,7 @@ import { TeamService } from '../../services/team.service';
 import {
   AssignableMember,
   GridChip,
-  ParticipantCapacity,
   ProjectDetail,
-  SprintUserSummary,
   ProjectEpic,
   ProjectPlanView,
   Team,
@@ -284,6 +282,49 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return this.project.team?.name || 'No team';
   }
 
+  get projectMetrics(): { label: string; value: number; hint: string; tone?: 'match' | 'over' }[] {
+    if (!this.project) return [];
+    const sprintCount = this.project.sprints.length;
+    const totalPto = (this.project.capacity ?? []).reduce((sum, row) => sum + row.ptoDays, 0);
+    const totalHolidays = (this.project.holidays ?? []).reduce((sum, holiday) => sum + holiday.workingDays, 0);
+    const totalCapacity = (this.project.capacity ?? []).reduce((sum, row) => sum + row.totalCapacity, 0);
+    const assigned = (this.project.capacity ?? []).reduce((sum, row) => sum + row.epicDaysAssigned, 0);
+    return [
+      {
+        label: 'Total working days',
+        value: this.project.maxWorkingDaysPerSprint * sprintCount,
+        hint: 'Working days per sprint × number of sprints',
+      },
+      {
+        label: 'Total PTO',
+        value: totalPto,
+        hint: 'PTO days users have taken in this project',
+      },
+      {
+        label: 'Total holidays',
+        value: totalHolidays,
+        hint: 'Holiday days in this project',
+      },
+      {
+        label: 'Total capacity',
+        value: totalCapacity,
+        hint: 'Sum of each user’s capacity',
+      },
+      {
+        label: 'Assigned',
+        value: assigned,
+        hint: 'Working days assigned to users',
+        tone: this.capacityFillTone(assigned, totalCapacity),
+      },
+      {
+        label: 'Backlog',
+        value: this.backlogWorkingDays,
+        hint: 'Working days set on backlog epics',
+        tone: this.capacityFillTone(this.backlogWorkingDays, totalCapacity),
+      },
+    ];
+  }
+
   get backlogEpics(): ProjectEpic[] {
     if (!this.project) return [];
     return this.project.epics.filter(
@@ -515,6 +556,12 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return this.project ? toDateInput(this.project.endDate) : '';
   }
 
+  capacityFillTone(value: number, totalCapacity: number): 'match' | 'over' | undefined {
+    if (value > totalCapacity) return 'over';
+    if (value >= totalCapacity * 0.95) return 'match';
+    return undefined;
+  }
+
   capacityClass(assigned: number, total: number): string {
     if (total <= 0) return '';
     if (assigned > total) return 'capacity-over';
@@ -526,21 +573,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     const sprint = this.project?.sprints.find((entry) => entry.id === sprintId);
     if (!sprint) return '';
     return this.sprintDates(sprint.startDate, sprint.endDate);
-  }
-
-  offlineTooltip(user: SprintUserSummary): string {
-    return `PTO ${user.ptoDays}d, holidays ${user.holidayDays}d`;
-  }
-
-  committedTooltip(row: ParticipantCapacity): string {
-    const sprintCapacity = row.sprintCapacity ?? row.totalCapacity;
-    return [
-      `${row.epicDaysAssigned}/${row.totalCapacity}/${sprintCapacity}`,
-      '',
-      `Committed (${row.epicDaysAssigned}): epic days assigned to the user`,
-      `Capacity (${row.totalCapacity}): available working days after PTO and holidays`,
-      `Sprint capacity (${sprintCapacity}): total working days across all sprints`,
-    ].join('\n');
   }
 
   openAddPto(ctx?: { userId: string; startDate: string; endDate: string }) {

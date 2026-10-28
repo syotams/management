@@ -467,6 +467,7 @@ describe('ProjectsService epic derivation', () => {
       .reduce((sum, chip) => sum + chip.daysInSprint, 0);
     expect(painted).toBe(3);
     expect(detail.capacity.find((row) => row.userId === assigneeId)?.ptoDays).toBe(3);
+    expect(detail.capacity.find((row) => row.userId === assigneeId)?.totalCapacity).toBe(21);
 
     const assigneeRows = detail.sprintSummaries.map((sprint) => {
       const user = sprint.users.find((entry) => entry.userId === assigneeId);
