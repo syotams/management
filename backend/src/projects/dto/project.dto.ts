@@ -105,6 +105,13 @@ export class CreateEpicDto {
   @Min(1)
   workingDays: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(99)
+  priority?: number;
+
   @Transform(emptyToNull)
   @IsOptional()
   @ValidateIf((_, v) => v !== null && v !== undefined)
@@ -167,6 +174,13 @@ export class UpdateEpicDto {
   @Min(1)
   workingDays?: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(99)
+  priority?: number;
+
   @Transform(emptyToNull)
   @IsOptional()
   @ValidateIf((_, v) => v !== null && v !== undefined)
@@ -194,6 +208,12 @@ export class UpdateEpicDto {
   @IsString()
   @Matches(/^#([0-9a-fA-F]{6})$/, { message: 'backgroundColor must be a hex color like #4f46e5' })
   backgroundColor?: string;
+}
+
+export class ReorderEpicsDto {
+  @IsArray()
+  @IsString({ each: true })
+  epicIds: string[];
 }
 
 export class CreateHolidayDto {

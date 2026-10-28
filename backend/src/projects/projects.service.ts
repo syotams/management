@@ -42,6 +42,7 @@ type EpicWithAssignees = {
   sourceEpicId?: string | null;
   title: string;
   workingDays: number;
+  priority: number;
   startSprintNumber: number | null;
   startSprintWeek: number | null;
   backgroundColor: string;
@@ -71,6 +72,7 @@ type PlanSnapshot = {
     sourceEpicId: string | null;
     title: string;
     workingDays: number;
+    priority?: number;
     startSprintNumber: number | null;
     startSprintWeek?: number | null;
     backgroundColor: string;
@@ -328,6 +330,7 @@ export class ProjectsService {
           projectId,
           title,
           workingDays: dto.workingDays,
+          priority: dto.priority ?? 0,
           backgroundColor,
           createdBy: userId,
         },
@@ -420,6 +423,7 @@ export class ProjectsService {
         data: {
           ...(title !== undefined ? { title } : {}),
           ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
+          ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
           ...(dto.backgroundColor !== undefined
             ? { backgroundColor: dto.backgroundColor.toLowerCase() }
             : {}),
@@ -471,6 +475,36 @@ export class ProjectsService {
         },
       });
     }
+
+    await this.maybeVersionAfterChange(projectId, userId);
+    return this.findOne(projectId, userId);
+  }
+
+  async reorderEpics(projectId: string, userId: string, epicIds: string[]) {
+    const project = await this.loadProject(projectId);
+    this.ensureCreator(project, userId);
+    this.ensureEditable(project);
+
+    const backlogIds = project.epics.map((epic) => epic.id);
+    const backlogIdSet = new Set(backlogIds);
+    const uniqueIds = new Set(epicIds);
+    if (
+      epicIds.length !== backlogIds.length ||
+      uniqueIds.size !== epicIds.length ||
+      epicIds.some((id) => !backlogIdSet.has(id))
+    ) {
+      throw new BadRequestException('epicIds must list each backlog epic once');
+    }
+
+    const count = epicIds.length;
+    await this.prisma.$transaction(
+      epicIds.map((id, index) =>
+        this.prisma.epic.update({
+          where: { id },
+          data: { priority: Math.min(99, count - 1 - index) },
+        }),
+      ),
+    );
 
     await this.maybeVersionAfterChange(projectId, userId);
     return this.findOne(projectId, userId);
@@ -654,6 +688,7 @@ export class ProjectsService {
         sourceEpicId: epic.sourceEpicId ?? null,
         title: epic.title,
         workingDays: epic.workingDays,
+        priority: epic.priority ?? 0,
         startSprintNumber: epic.startSprintNumber,
         startSprintWeek: epic.startSprintWeek,
         backgroundColor: epic.backgroundColor,
@@ -712,6 +747,11 @@ export class ProjectsService {
     if (orig.title !== latest.title) changes.push(`Title: "${orig.title}" → "${latest.title}"`);
     if (orig.workingDays !== latest.workingDays) {
       changes.push(`Working days: ${orig.workingDays} → ${latest.workingDays}`);
+    }
+    const origPriority = orig.priority ?? 0;
+    const latestPriority = latest.priority ?? 0;
+    if (origPriority !== latestPriority) {
+      changes.push(`Priority: ${origPriority} → ${latestPriority}`);
     }
     if (orig.startSprintNumber !== latest.startSprintNumber) {
       const from = orig.startSprintNumber ?? 'unscheduled';
@@ -880,6 +920,7 @@ export class ProjectsService {
     return (
       a.title === b.title &&
       a.workingDays === b.workingDays &&
+      (a.priority ?? 0) === (b.priority ?? 0) &&
       a.startSprintNumber === b.startSprintNumber &&
       (a.startSprintWeek ?? null) === (b.startSprintWeek ?? null) &&
       a.backgroundColor === b.backgroundColor &&
@@ -900,6 +941,7 @@ export class ProjectsService {
       sourceEpicId: epic.sourceEpicId ?? null,
       title: epic.title,
       workingDays: epic.workingDays,
+      priority: epic.priority ?? 0,
       startSprintNumber: epic.startSprintNumber,
       startSprintWeek: epic.startSprintWeek ?? (epic.startSprintNumber != null ? 1 : null),
       backgroundColor: epic.backgroundColor,
@@ -933,6 +975,7 @@ export class ProjectsService {
       })),
       epics: snapshot.epics.map((epic) => ({
         ...epic,
+        priority: epic.priority ?? 0,
         startSprintWeek: epic.startSprintWeek ?? (epic.startSprintNumber != null ? 1 : null),
       })),
     };
@@ -1088,6 +1131,7 @@ export class ProjectsService {
         sourceEpicId: epic.sourceEpicId ?? null,
         title: epic.title,
         workingDays: epic.workingDays,
+        priority: epic.priority,
         startSprintNumber: epic.startSprintNumber,
         startSprintWeek: epic.startSprintWeek,
         backgroundColor: epic.backgroundColor,
@@ -1102,6 +1146,7 @@ export class ProjectsService {
       id: string;
       title: string;
       workingDays: number;
+      priority: number;
       backgroundColor: string;
       createdAt: Date;
       assignments: {
@@ -1120,6 +1165,7 @@ export class ProjectsService {
       sourceEpicId: null as string | null,
       title: epic.title,
       workingDays: epic.workingDays,
+      priority: epic.priority,
       startSprintNumber: null as number | null,
       startSprintWeek: null as number | null,
       backgroundColor: epic.backgroundColor,
@@ -1134,6 +1180,7 @@ export class ProjectsService {
         sourceEpicId: epic.id,
         title: epic.title,
         workingDays: assignment.workingDays,
+        priority: 0,
         startSprintNumber: assignment.startSprintNumber,
         startSprintWeek: assignment.startSprintWeek,
         backgroundColor: epic.backgroundColor,

@@ -316,6 +316,7 @@ model Epic {
   projectId       String
   title           String
   workingDays     Int
+  priority        Int      @default(0)
   backgroundColor String
   createdBy       String
   createdAt       DateTime @default(now())

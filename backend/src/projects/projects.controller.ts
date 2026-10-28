@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../common/current-user.decorator';
-import { CreateEpicDto, CreateProjectDto, AddProjectParticipantDto, AssignEpicDto, CreateHolidayDto, CreatePtoDto, UpdateEpicDto, UpdateProjectDto } from './dto/project.dto';
+import { CreateEpicDto, CreateProjectDto, AddProjectParticipantDto, AssignEpicDto, CreateHolidayDto, CreatePtoDto, ReorderEpicsDto, UpdateEpicDto, UpdateProjectDto } from './dto/project.dto';
 import { ProjectsService } from './projects.service';
 
 @Controller('projects')
@@ -82,6 +82,15 @@ export class ProjectsController {
     @Body() dto: AssignEpicDto,
   ) {
     return this.projectsService.assignEpic(id, epicId, user.id, dto);
+  }
+
+  @Patch(':id/epics/reorder')
+  reorderEpics(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+    @Body() dto: ReorderEpicsDto,
+  ) {
+    return this.projectsService.reorderEpics(id, user.id, dto.epicIds);
   }
 
   @Patch(':id/epics/:epicId')
