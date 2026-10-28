@@ -1025,3 +1025,136 @@ a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item) {
   border-radius: 4px;
   padding: 0 0.15rem;
 }
+
+// ── Plan pages (project detail and comparison) ───────────
+.back-link {
+  display: inline-block;
+  font-size: 0.875rem;
+  margin-bottom: 0.35rem;
+}
+
+.stat-card {
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--app-text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+}
+
+.project-grid {
+  min-width: 720px;
+
+  th,
+  td {
+    min-width: 120px;
+    vertical-align: top;
+  }
+
+  .participant-col {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    min-width: 160px;
+    background: var(--app-table-header-bg);
+  }
+
+  thead .participant-col {
+    z-index: 3;
+  }
+
+  tbody .participant-col {
+    background: var(--app-surface);
+    color: var(--app-text);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.9rem;
+  }
+
+  .week-header {
+    min-width: 120px;
+  }
+
+  .sprint-number,
+  .week-number,
+  .sprint-dates {
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .sprint-number,
+  .week-number {
+    color: var(--app-text);
+    font-size: 0.85rem;
+  }
+
+  .week-number {
+    font-weight: 600;
+  }
+
+  .sprint-dates {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--app-text-muted);
+    margin-top: 0.15rem;
+  }
+}
+
+.epic-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.epic-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.epic-chip-title,
+.cell-assign-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.epic-chip-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.epic-chip-days {
+  opacity: 0.85;
+  font-size: 0.72rem;
+}
+
+.epic-chip-pto {
+  font-style: italic;
+}
+
+.epic-chip-holiday {
+  font-weight: 700;
+}
+
+.tone-match {
+  color: var(--app-success);
+}
+
+.tone-over {
+  color: var(--app-error);
+}

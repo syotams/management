@@ -13,47 +13,8 @@
   }
 }
 
-.stat-card {
-  .card-body {
-    padding: 0.85rem 1rem;
-  }
-
-  .stat-label {
-    font-size: 0.8rem;
-    color: var(--app-text-muted);
-    margin-bottom: 0.35rem;
-  }
-
-  .stat-value {
-    font-size: 1.35rem;
-    font-weight: 700;
-    line-height: 1.3;
-  }
-}
-
-.tone-match {
-  color: var(--app-success);
-}
-
-.tone-over {
-  color: var(--app-error);
-}
-
-.back-link {
-  display: inline-block;
-  font-size: 0.875rem;
-  margin-bottom: 0.35rem;
-}
-
-.action-icons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.color-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+.stat-card .card-body {
+  padding: 0.85rem 1rem;
 }
 
 .color-swatch {
@@ -76,8 +37,8 @@
   padding: 0.2rem;
 }
 
-.assignee-list {
-  max-height: 8.5rem;
+.assignee-list,
+.picker-list {
   overflow: auto;
   border: 1px solid var(--app-border-subtle);
   border-radius: 8px;
@@ -89,50 +50,18 @@
   }
 }
 
+.assignee-list {
+  max-height: 8.5rem;
+}
+
+.picker-list {
+  max-height: 10rem;
+}
+
 .project-grid {
-  min-width: 720px;
-
-  th, td {
-    min-width: 120px;
-    vertical-align: top;
-  }
-
-  .participant-col {
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    min-width: 160px;
-    background: var(--app-table-header-bg);
-  }
-
-  thead .participant-col {
-    z-index: 3;
-  }
-
-  tbody .participant-col {
-    background: var(--app-surface);
-    color: var(--app-text);
-    font-weight: 600;
-    text-transform: none;
-    letter-spacing: 0;
-    font-size: 0.9rem;
-  }
-
-  .add-participant-row {
-    .participant-col {
-      font-weight: 500;
-      border-top: 1px dashed var(--app-border-subtle);
-    }
-  }
-
-  .add-participant-btn {
-    padding-left: 0;
-    text-decoration: none;
+  .add-participant-row .participant-col {
     font-weight: 500;
-
-    &:hover {
-      text-decoration: underline;
-    }
+    border-top: 1px dashed var(--app-border-subtle);
   }
 
   .sprint-group-header {
@@ -142,31 +71,6 @@
   &.show-week-headers .sprint-group-header {
     text-align: center;
     border-bottom: none;
-  }
-
-  .week-header {
-    min-width: 120px;
-  }
-
-  .sprint-number,
-  .week-number {
-    color: var(--app-text);
-    text-transform: none;
-    letter-spacing: 0;
-    font-size: 0.85rem;
-  }
-
-  .week-number {
-    font-weight: 600;
-  }
-
-  .sprint-dates {
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--app-text-muted);
-    margin-top: 0.15rem;
   }
 }
 
@@ -292,17 +196,7 @@
   font-size: 0.85rem;
 }
 
-.cell-assign-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
 .epic-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
   min-height: 2.75rem;
   height: 100%;
   border-radius: 6px;
@@ -330,14 +224,6 @@
 }
 
 .epic-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  border-radius: 8px;
-  padding: 0.35rem 0.55rem;
-  font-size: 0.8rem;
-  font-weight: 600;
   position: relative;
 
   &.epic-chip-editable {
@@ -353,25 +239,6 @@
     opacity: 1;
     pointer-events: auto;
   }
-}
-
-.epic-chip-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.epic-chip-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex-shrink: 0;
-}
-
-.epic-chip-days {
-  opacity: 0.85;
-  font-size: 0.72rem;
 }
 
 .epic-chip-actions {
@@ -446,24 +313,17 @@
   }
 }
 
-.modal-backdrop-custom {
-  background: var(--app-modal-backdrop);
-}
-
-.participant-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.35rem;
-}
-
-.participant-remove-btn {
+.participant-remove-btn,
+.holiday-remove-btn {
   border: 0;
   background: transparent;
   padding: 0;
   line-height: 1;
-  color: var(--app-text-muted);
   cursor: pointer;
+}
+
+.participant-remove-btn {
+  color: var(--app-text-muted);
 
   &:hover {
     color: var(--bs-danger);
@@ -494,56 +354,38 @@
   color: var(--app-text);
   border: 1px solid var(--app-border-subtle);
   font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
 }
 
 .holiday-remove-btn {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  line-height: 1;
   color: inherit;
   opacity: 0.6;
-  cursor: pointer;
 
   &:hover {
     opacity: 1;
   }
 }
 
-.picker-list {
-  max-height: 10rem;
-  overflow: auto;
-  border: 1px solid var(--app-border-subtle);
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  background: var(--app-input-bg);
-
-  .form-check {
-    margin-bottom: 0.25rem;
-  }
+.epic-chip-pto,
+.epic-chip-holiday {
+  background-image: repeating-linear-gradient(
+    var(--chip-stripe),
+    transparent,
+    transparent var(--chip-stripe-gap),
+    rgba(255, 255, 255, var(--chip-stripe-alpha)) var(--chip-stripe-gap),
+    rgba(255, 255, 255, var(--chip-stripe-alpha)) var(--chip-stripe-size)
+  ) !important;
 }
 
 .epic-chip-pto {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 4px,
-    rgba(255, 255, 255, 0.15) 4px,
-    rgba(255, 255, 255, 0.15) 8px
-  ) !important;
-  font-style: italic;
+  --chip-stripe: -45deg;
+  --chip-stripe-gap: 4px;
+  --chip-stripe-size: 8px;
+  --chip-stripe-alpha: 0.15;
 }
 
 .epic-chip-holiday {
-  background-image: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 3px,
-    rgba(255, 255, 255, 0.12) 3px,
-    rgba(255, 255, 255, 0.12) 6px
-  ) !important;
-  font-weight: 700;
+  --chip-stripe: 45deg;
+  --chip-stripe-gap: 3px;
+  --chip-stripe-size: 6px;
+  --chip-stripe-alpha: 0.12;
 }
