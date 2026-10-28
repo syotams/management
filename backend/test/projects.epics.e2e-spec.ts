@@ -275,6 +275,79 @@ describe('Projects epics (e2e)', () => {
     ]);
   });
 
+  it('adds a newly linked team’s members and keeps them after the team is removed', async () => {
+    const member = await prisma.user.create({
+      data: { email: 'linked@test.com', name: 'Linked', passwordHash: 'unused' },
+    });
+    const team = await prisma.team.create({
+      data: {
+        name: 'Platform',
+        createdBy: creatorId,
+        members: {
+          create: [
+            { userId: creatorId, role: 'owner', joinedAt: new Date('2026-01-01T00:00:00.000Z') },
+            { userId: member.id, role: 'member', joinedAt: new Date('2026-01-02T00:00:00.000Z') },
+          ],
+        },
+      },
+    });
+
+    const created = await request(app.getHttpServer())
+      .post('/projects')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Link later',
+        startDate: '2026-04-06',
+        endDate: '2026-05-03',
+      })
+      .expect(201);
+
+    expect(created.body.participants.map((person: { id: string }) => person.id)).toEqual([creatorId]);
+
+    const linked = await request(app.getHttpServer())
+      .patch(`/projects/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ teamIds: [team.id] })
+      .expect(200);
+
+    expect(linked.body.teams.map((item: { id: string }) => item.id)).toEqual([team.id]);
+    expect(linked.body.participants.map((person: { id: string }) => person.id)).toEqual([
+      creatorId,
+      member.id,
+    ]);
+
+    const later = await prisma.user.create({
+      data: { email: 'later-member@test.com', name: 'LaterMember', passwordHash: 'unused' },
+    });
+    await prisma.teamMember.create({
+      data: { teamId: team.id, userId: later.id, role: 'member' },
+    });
+    const synced = await request(app.getHttpServer())
+      .patch(`/projects/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ teamIds: [team.id] })
+      .expect(200);
+    expect(synced.body.participants.map((person: { id: string }) => person.id)).toEqual([
+      creatorId,
+      member.id,
+      later.id,
+    ]);
+
+    const unlinked = await request(app.getHttpServer())
+      .patch(`/projects/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ teamIds: [] })
+      .expect(200);
+
+    expect(unlinked.body.teams).toEqual([]);
+    expect(unlinked.body.teamId).toBeNull();
+    expect(unlinked.body.participants.map((person: { id: string }) => person.id)).toEqual([
+      creatorId,
+      member.id,
+      later.id,
+    ]);
+  });
+
   it('removes a participant, their project work, and lets the planner add them again', async () => {
     const member = await prisma.user.create({
       data: { email: 'member@test.com', name: 'Member', passwordHash: 'unused' },

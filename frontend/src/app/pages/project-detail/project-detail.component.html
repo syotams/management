@@ -514,13 +514,23 @@
             <div class="form-text">Recommended: 8. A sprint has 10 working days, so a longer epic is split across later sprints.</div>
           </div>
           <div class="mb-0">
-            <label class="form-label">Primary team <span class="text-muted fw-normal">(optional)</span></label>
-            <select class="form-select" [(ngModel)]="editTeamId" name="editTeamId">
-              <option value="">No team</option>
+            <label class="form-label">Teams</label>
+            <div class="picker-list">
               @for (team of teams; track team.id) {
-                <option [value]="team.id">{{ team.name }}</option>
+                <label class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    [checked]="isEditTeamSelected(team.id)"
+                    (change)="toggleEditTeam(team.id)"
+                  >
+                  <span class="form-check-label">{{ team.name }}</span>
+                </label>
+              } @empty {
+                <div class="text-muted small">No teams available</div>
               }
-            </select>
+            </div>
+            <div class="form-text">Saving with a team checked adds that team's current members to the plan. Unchecking a team leaves those people on the plan.</div>
           </div>
         </div>
         <div class="modal-footer">

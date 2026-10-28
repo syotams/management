@@ -88,6 +88,12 @@ export class UpdateProjectDto {
   @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsString()
   teamId?: string | null;
+
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  teamIds?: string[];
 }
 
 export class AddProjectParticipantDto {
