@@ -26,7 +26,7 @@
       }
     </div>
     @if (project && (isManager || canCompare)) {
-      <div class="d-flex gap-2 action-icons">
+      <div class="d-flex gap-2">
         @if (isManager && !isCompleted) {
           <button
             type="button"
@@ -241,7 +241,7 @@
           <div class="px-3 py-2 border-bottom holidays-bar">
             <span class="text-muted small me-2">Holidays:</span>
             @for (holiday of project.holidays; track holiday.groupKey || holiday.id) {
-              <span class="badge holiday-badge me-1">
+              <span class="badge holiday-badge d-inline-flex align-items-center gap-1 me-1">
                 {{ holiday.name }} · {{ formatRange(holiday.startDate, holiday.endDate) }} · {{ holiday.workingDays }}d
                 @if (canEditEpics) {
                   <button
@@ -286,7 +286,7 @@
               @for (person of project.participants; track person.id) {
                 <tr>
                   <th class="participant-col">
-                    <div class="participant-heading">
+                    <div class="d-flex align-items-start justify-content-between gap-1">
                       <span>{{ person.name }}</span>
                       @if (canRemoveParticipants) {
                         <button
@@ -418,7 +418,7 @@
               @if (isManager && !isCompleted && project.participants.length && addableParticipants.length) {
                 <tr class="add-participant-row">
                   <th class="participant-col" [attr.colspan]="weekColumnCount + 1">
-                    <button type="button" class="btn btn-link btn-sm action-link add-participant-btn" (click)="openAddParticipant()">
+                    <button type="button" class="btn btn-link btn-sm action-link" (click)="openAddParticipant()">
                       <i class="bi bi-plus-lg me-1"></i>Add another user
                     </button>
                   </th>
@@ -815,7 +815,7 @@
               <label class="form-label">Background color</label>
               <div class="d-flex align-items-center gap-2">
                 <input type="color" class="form-control form-control-color" [(ngModel)]="epicColor" name="epicColor">
-                <div class="color-swatches">
+                <div class="d-flex flex-wrap gap-1">
                   @for (color of colors; track color.hex) {
                     <button
                       type="button"
@@ -922,7 +922,7 @@
               <label class="form-label">Background color</label>
               <div class="d-flex align-items-center gap-2">
                 <input type="color" class="form-control form-control-color" [(ngModel)]="editEpicColor" name="editEpicColor">
-                <div class="color-swatches">
+                <div class="d-flex flex-wrap gap-1">
                   @for (color of colors; track color.hex) {
                     <button
                       type="button"
