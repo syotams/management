@@ -106,6 +106,10 @@ export class ProjectService {
     return this.api.post<ProjectDetail>(`/projects/${projectId}/participants`, { userId });
   }
 
+  removeParticipant(projectId: string, userId: string) {
+    return this.api.delete<ProjectDetail>(`/projects/${projectId}/participants/${userId}`);
+  }
+
   getAddableParticipants(projectId: string) {
     return this.api.get<{ id: string; name: string; email: string }[]>(
       `/projects/${projectId}/addable-participants`,

@@ -11,7 +11,6 @@ import { AuthService } from '../../services/auth.service';
 import { ProjectService } from '../../services/project.service';
 import { TeamService } from '../../services/team.service';
 import {
-  AssignableMember,
   GridChip,
   ProjectDetail,
   ProjectEpic,
@@ -50,7 +49,6 @@ const CELL_ASSIGN_MENU_MAX_HEIGHT = 224;
 export class ProjectDetailComponent implements OnInit, OnDestroy {
   project: ProjectDetail | null = null;
   teams: Team[] = [];
-  members: AssignableMember[] = [];
   loading = true;
   error = '';
   showEdit = false;
@@ -150,7 +148,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   ngOnInit() {
     document.addEventListener('scroll', this.closeCellAssignMenuOnScroll, true);
     this.teamService.getTeams().subscribe((teams) => (this.teams = teams));
-    this.teamService.getAssignableMembers().subscribe((members) => (this.members = members));
     this.route.paramMap.subscribe((params) => {
       const id = params.get('id');
       if (id) this.load(id);
@@ -238,6 +235,10 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return this.isManager && !this.isCompleted;
   }
 
+  get canRemoveParticipants(): boolean {
+    return this.isManager && this.isDraft;
+  }
+
   get canCompare(): boolean {
     return !!this.project && this.project.status !== 'draft' && this.project.versionCount > 0;
   }
@@ -251,13 +252,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   get assigneeOptions(): { id: string; name: string }[] {
     if (!this.project) return [];
-    const options = new Map<string, string>();
-    for (const p of this.project.participants) options.set(p.id, p.name);
-    for (const p of this.addableParticipants) options.set(p.id, p.name);
-    for (const m of this.members) options.set(m.id, m.name);
-    const me = this.auth.currentUser();
-    if (me) options.set(me.id, me.name);
-    return Array.from(options, ([id, name]) => ({ id, name }));
+    return this.project.participants.map((person) => ({ id: person.id, name: person.name }));
   }
 
   private loadAddableParticipants() {
@@ -752,6 +747,29 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.participantError = '';
     this.newParticipantId = this.addableParticipants[0]?.id ?? '';
     this.showAddParticipant = true;
+  }
+
+  removeParticipant(person: { id: string; name: string }) {
+    if (!this.project || !this.canRemoveParticipants) return;
+    if (
+      !confirm(
+        `Remove ${person.name} from this project? Their epic assignments, PTO, and holidays on this project will be removed.`,
+      )
+    ) {
+      return;
+    }
+    this.error = '';
+    this.projectService.removeParticipant(this.project.id, person.id).subscribe({
+      next: (project) => {
+        this.project = this.normalizeProject(project);
+        this.syncEpicAssignees();
+        this.loadAddableParticipants();
+      },
+      error: (err) => {
+        const msg = err.error?.message;
+        this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to remove participant';
+      },
+    });
   }
 
   addParticipant() {

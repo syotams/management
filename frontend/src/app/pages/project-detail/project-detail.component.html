@@ -286,7 +286,19 @@
               @for (person of project.participants; track person.id) {
                 <tr>
                   <th class="participant-col">
-                    <div>{{ person.name }}</div>
+                    <div class="participant-heading">
+                      <span>{{ person.name }}</span>
+                      @if (canRemoveParticipants) {
+                        <button
+                          type="button"
+                          class="participant-remove-btn"
+                          [title]="'Remove ' + person.name + ' from this project'"
+                          (click)="removeParticipant(person)"
+                        >
+                          <i class="bi bi-x"></i>
+                        </button>
+                      }
+                    </div>
                     <div
                       class="participant-capacity small"
                       [class]="capacityClass(person.epicDaysAssigned ?? 0, person.totalWorkingDays ?? 0)"

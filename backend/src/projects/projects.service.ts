@@ -60,6 +60,7 @@ type PlanSnapshot = {
   team: { id: string; name: string } | null;
   teams: { id: string; name: string }[];
   participantUserIds: string[];
+  explicitRoster?: boolean;
   sprints: {
     id: string;
     number: number;
@@ -98,7 +99,9 @@ export class ProjectsService {
     }
     const { startDate, endDate } = this.parseRange(dto.startDate, dto.endDate);
     const teamIds = await this.resolveTeamIds(userId, dto.teamIds, dto.teamId);
-    const userIds = await this.resolveParticipantUserIds(userId, dto.userIds);
+    const selectedUserIds = await this.resolveParticipantUserIds(userId, dto.userIds);
+    const roster = await this.buildCreateRoster(userId, teamIds, selectedUserIds);
+    const addedAtBase = Date.now();
 
     const project = await this.prisma.project.create({
       data: {
@@ -115,9 +118,12 @@ export class ProjectsService {
         projectTeams: teamIds.length
           ? { create: teamIds.map((teamId) => ({ teamId })) }
           : undefined,
-        participants: userIds.length
-          ? { create: userIds.map((uid) => ({ userId: uid })) }
-          : undefined,
+        participants: {
+          create: roster.map((uid, index) => ({
+            userId: uid,
+            addedAt: new Date(addedAtBase + index),
+          })),
+        },
       },
     });
 
@@ -238,6 +244,34 @@ export class ProjectsService {
     return this.findOne(id, userId);
   }
 
+  async removeParticipant(id: string, memberUserId: string, userId: string) {
+    const project = await this.loadProject(id);
+    this.ensureCreator(project, userId);
+    if (this.normalizeStatus(project.status) !== 'draft') {
+      throw new BadRequestException('Users can only be removed from a draft project');
+    }
+
+    const existing = project.participants.find((p) => p.userId === memberUserId);
+    if (!existing) throw new NotFoundException('Participant not found');
+
+    const epicIds = project.epics.map((epic) => epic.id);
+    await this.prisma.$transaction(async (tx) => {
+      if (epicIds.length) {
+        await tx.epicAssignment.deleteMany({
+          where: { epicId: { in: epicIds }, userId: memberUserId },
+        });
+      }
+      await tx.projectPto.deleteMany({ where: { projectId: id, userId: memberUserId } });
+      await tx.projectHoliday.deleteMany({ where: { projectId: id, userId: memberUserId } });
+      await tx.projectParticipant.delete({
+        where: { projectId_userId: { projectId: id, userId: memberUserId } },
+      });
+    });
+
+    await this.maybeVersionAfterChange(id, userId);
+    return this.findOne(id, userId);
+  }
+
   async start(id: string, userId: string) {
     const project = await this.loadProject(id);
     this.ensureCreator(project, userId);
@@ -307,7 +341,7 @@ export class ProjectsService {
       this.assertStartSprintWeek(startSprintWeek);
     }
     if (assigneeIds.length) {
-      await this.ensureAssignable(project, userId, assigneeIds);
+      this.ensureOnRoster(project, assigneeIds);
     }
 
     const title = dto.title.trim();
@@ -368,7 +402,7 @@ export class ProjectsService {
 
     this.assertStartSprint(project, dto.startSprintNumber);
     this.assertStartSprintWeek(dto.startSprintWeek);
-    await this.ensureAssignable(project, userId, [dto.assigneeId]);
+    this.ensureOnRoster(project, [dto.assigneeId]);
 
     const workingDays = this.resolveAssignmentWorkingDays(
       template.workingDays,
@@ -449,7 +483,7 @@ export class ProjectsService {
         throw new BadRequestException('Assignments require an assignee, start sprint, and start week');
       }
 
-      await this.ensureAssignable(project, userId, [nextUserId]);
+      this.ensureOnRoster(project, [nextUserId]);
       this.assertStartSprint(project, nextSprint);
       this.assertStartSprintWeek(nextWeek);
 
@@ -675,6 +709,7 @@ export class ProjectsService {
       teamIds: teams.map((t) => t.id),
       team: project.team,
       teams,
+      explicitRoster: true,
       participantUserIds: project.participants.map((p) => p.userId),
       sprints: project.sprints.map((s) => ({
         id: s.id,
@@ -982,6 +1017,19 @@ export class ProjectsService {
   }
 
   private async resolveParticipantsFromSnapshot(snapshot: PlanSnapshot) {
+    if (snapshot.explicitRoster) {
+      if (!snapshot.participantUserIds?.length) return [];
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: snapshot.participantUserIds } },
+        select: userSelect,
+      });
+      const byId = new Map(users.map((user) => [user.id, user]));
+      return snapshot.participantUserIds.flatMap((id) => {
+        const user = byId.get(id);
+        return user ? [user] : [];
+      });
+    }
+
     const byId = new Map<string, { id: string; name: string; email: string }>();
 
     const teamIds = snapshot.teamIds?.length
@@ -1022,7 +1070,10 @@ export class ProjectsService {
       include: {
         team: { select: { id: true, name: true } },
         projectTeams: { include: { team: { select: { id: true, name: true } } } },
-        participants: { include: { user: { select: userSelect } } },
+        participants: {
+          include: { user: { select: userSelect } },
+          orderBy: [{ addedAt: 'asc' }, { id: 'asc' }],
+        },
         sprints: { orderBy: { number: 'asc' } },
         epics: {
           orderBy: { createdAt: 'asc' },
@@ -1261,35 +1312,7 @@ export class ProjectsService {
   private async resolveParticipants(
     project: Awaited<ReturnType<ProjectsService['loadProject']>>,
   ) {
-    const byId = new Map<string, { id: string; name: string; email: string }>();
-    byId.set(project.creator.id, project.creator);
-
-    const teamIds = project.projectTeams.length
-      ? project.projectTeams.map((qt) => qt.teamId)
-      : project.teamId
-        ? [project.teamId]
-        : [];
-
-    if (teamIds.length) {
-      const members = await this.prisma.teamMember.findMany({
-        where: { teamId: { in: teamIds } },
-        include: { user: { select: userSelect } },
-        orderBy: { joinedAt: 'asc' },
-      });
-      for (const m of members) byId.set(m.user.id, m.user);
-    }
-
-    for (const participant of project.participants) {
-      byId.set(participant.user.id, participant.user);
-    }
-
-    for (const epic of project.epics) {
-      for (const assignment of epic.assignments) {
-        if (!byId.has(assignment.user.id)) byId.set(assignment.user.id, assignment.user);
-      }
-    }
-
-    return Array.from(byId.values());
+    return project.participants.map((participant) => participant.user);
   }
 
   private buildGrid(
@@ -1616,12 +1639,13 @@ export class ProjectsService {
         where: { teamId: dto.teamId },
         select: { userId: true },
       });
-      return [...new Set(members.map((m) => m.userId))];
+      const onRoster = new Set(project.participants.map((p) => p.userId));
+      return [...new Set(members.map((m) => m.userId))].filter((id) => onRoster.has(id));
     }
 
     if (dto.userIds?.length) {
       const unique = [...new Set(dto.userIds)];
-      await this.ensureAssignable(project, creatorId, unique);
+      this.ensureOnRoster(project, unique);
       return unique;
     }
 
@@ -1652,6 +1676,39 @@ export class ProjectsService {
       await this.resolveTeamId(userId, id);
     }
     return ids;
+  }
+
+  private async buildCreateRoster(creatorId: string, teamIds: string[], selectedUserIds: string[]) {
+    const ordered: string[] = [creatorId];
+    const seen = new Set<string>([creatorId]);
+
+    if (teamIds.length) {
+      const members = await this.prisma.teamMember.findMany({
+        where: { teamId: { in: teamIds } },
+        orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
+        select: { userId: true },
+      });
+      for (const member of members) {
+        if (seen.has(member.userId)) continue;
+        seen.add(member.userId);
+        ordered.push(member.userId);
+      }
+    }
+
+    for (const id of selectedUserIds) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      ordered.push(id);
+    }
+
+    return ordered;
+  }
+
+  private ensureOnRoster(project: { participants: { userId: string }[] }, userIds: string[]) {
+    const onRoster = new Set(project.participants.map((participant) => participant.userId));
+    if (userIds.some((id) => !onRoster.has(id))) {
+      throw new BadRequestException('Users must already be project participants');
+    }
   }
 
   private async resolveParticipantUserIds(userId: string, userIds?: string[]) {

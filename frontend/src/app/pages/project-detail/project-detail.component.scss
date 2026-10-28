@@ -450,6 +450,26 @@
   background: var(--app-modal-backdrop);
 }
 
+.participant-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.participant-remove-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  line-height: 1;
+  color: var(--app-text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--bs-danger);
+  }
+}
+
 .participant-capacity {
   font-weight: 500;
   color: var(--app-text-muted);
