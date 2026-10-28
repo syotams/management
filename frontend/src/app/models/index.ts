@@ -221,6 +221,22 @@ export interface ParticipantCapacity {
   epicDaysAssigned: number;
 }
 
+export interface SprintUserSummary {
+  userId: string;
+  name: string;
+  offlineDays: number;
+  ptoDays: number;
+  holidayDays: number;
+  committedDays: number;
+  totalCapacity: number;
+}
+
+export interface SprintSummary {
+  sprintId: string;
+  sprintNumber: number;
+  users: SprintUserSummary[];
+}
+
 export interface ProjectParticipant {
   id: string;
   name: string;
@@ -308,4 +324,5 @@ export interface ProjectDetail {
   holidays?: ProjectHoliday[];
   ptos?: ProjectPto[];
   capacity?: ParticipantCapacity[];
+  sprintSummaries?: SprintSummary[];
 }

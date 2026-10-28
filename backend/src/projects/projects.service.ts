@@ -1030,6 +1030,15 @@ export class ProjectsService {
       ptos,
       holidays,
       planEpics,
+      project.maxWorkingDaysPerSprint,
+    );
+    const sprintSummaries = this.computeSprintSummaries(
+      project.sprints,
+      participants,
+      ptos,
+      holidays,
+      grid,
+      project.maxWorkingDaysPerSprint,
     );
     const capacityByUser = new Map(capacity.map((c) => [c.userId, c]));
     const status = this.normalizeStatus(project.status);
@@ -1062,6 +1071,7 @@ export class ProjectsService {
         };
       }),
       capacity,
+      sprintSummaries,
       holidays: this.groupHolidays(holidays, project.sprints),
       ptos: ptos.map((p) => ({
         id: p.id,
@@ -1413,12 +1423,14 @@ export class ProjectsService {
     ptos: { userId: string; startDate: Date; endDate: Date }[],
     holidays: { userId: string; startDate: Date; endDate: Date }[],
     epics: EpicWithAssignees[],
+    maxWorkingDaysPerSprint: number,
   ) {
     const span = this.projectSpan(sprints);
     const totalSprintDays = sprints.reduce(
       (sum, s) => sum + countWeekdays(s.startDate, s.endDate),
       0,
     );
+    const projectWorkingDays = maxWorkingDaysPerSprint * sprints.length;
 
     return participants.map((person) => {
       const userPtos = ptos.filter((p) => p.userId === person.id);
@@ -1450,11 +1462,79 @@ export class ProjectsService {
         name: person.name,
         ptoDays,
         holidayDays,
-        totalCapacity: Math.max(0, totalSprintDays - holidayDays - ptoDays),
+        totalCapacity: Math.max(0, projectWorkingDays - holidayDays - ptoDays),
         sprintCapacity: totalSprintDays,
         epicDaysAssigned,
       };
     });
+  }
+
+  private computeSprintSummaries(
+    sprints: { id: string; number: number; startDate: Date; endDate: Date }[],
+    participants: { id: string; name: string }[],
+    ptos: { userId: string; startDate: Date; endDate: Date }[],
+    holidays: { userId: string; startDate: Date; endDate: Date }[],
+    grid: Record<string, Record<string, { type: string; daysInSprint: number }[]>>,
+    maxWorkingDaysPerSprint: number,
+  ) {
+    const slots = sprintWeekSlots(sprints);
+    return [...sprints]
+      .sort((a, b) => a.number - b.number)
+      .map((sprint) => {
+        const cellKeys = slots
+          .filter((slot) => slot.sprintNumber === sprint.number)
+          .map((slot) => slot.cellKey);
+        return {
+          sprintId: sprint.id,
+          sprintNumber: sprint.number,
+          users: participants.map((person) => {
+            const ptoDays = ptos
+              .filter((pto) => pto.userId === person.id)
+              .reduce(
+                (sum, pto) =>
+                  sum +
+                  countInclusiveDaysOverlap(
+                    pto.startDate,
+                    pto.endDate,
+                    sprint.startDate,
+                    sprint.endDate,
+                  ),
+                0,
+              );
+            const holidayDays = holidays
+              .filter((holiday) => holiday.userId === person.id)
+              .reduce(
+                (sum, holiday) =>
+                  sum +
+                  countInclusiveDaysOverlap(
+                    holiday.startDate,
+                    holiday.endDate,
+                    sprint.startDate,
+                    sprint.endDate,
+                  ),
+                0,
+              );
+            const committedDays = cellKeys.reduce((sum, cellKey) => {
+              const chips = grid[person.id]?.[cellKey] ?? [];
+              return (
+                sum +
+                chips
+                  .filter((chip) => chip.type === 'epic')
+                  .reduce((chipSum, chip) => chipSum + chip.daysInSprint, 0)
+              );
+            }, 0);
+            return {
+              userId: person.id,
+              name: person.name,
+              offlineDays: ptoDays + holidayDays,
+              ptoDays,
+              holidayDays,
+              committedDays,
+              totalCapacity: Math.max(0, maxWorkingDaysPerSprint - ptoDays - holidayDays),
+            };
+          }),
+        };
+      });
   }
 
   private assertWithinProject(
