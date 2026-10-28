@@ -104,7 +104,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   editStartDate = '';
   editEndDate = '';
   editMaxWorkingDaysPerSprint: number | null = 8;
-  editTeamId = '';
+  editTeamIds: string[] = [];
 
   backlogDropData = BACKLOG_DROP_DATA;
   rejectBacklogDrop = () => false;
@@ -466,8 +466,21 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.editStartDate = toDateInput(this.project.startDate);
     this.editEndDate = projectEndDateFromStart(this.editStartDate);
     this.editMaxWorkingDaysPerSprint = this.project.maxWorkingDaysPerSprint ?? 8;
-    this.editTeamId = this.project.teamId || '';
+    const linked = this.project.teams?.map((team) => team.id) ?? [];
+    this.editTeamIds = linked.length ? [...linked] : this.project.teamId ? [this.project.teamId] : [];
     this.showEdit = true;
+  }
+
+  isEditTeamSelected(id: string) {
+    return this.editTeamIds.includes(id);
+  }
+
+  toggleEditTeam(id: string) {
+    if (this.editTeamIds.includes(id)) {
+      this.editTeamIds = this.editTeamIds.filter((value) => value !== id);
+    } else {
+      this.editTeamIds = [...this.editTeamIds, id];
+    }
   }
 
   isMaxWorkingDaysValid(value: number | null) {
@@ -484,7 +497,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         startDate: this.editStartDate,
         endDate: this.editEndDate,
         maxWorkingDaysPerSprint: Number(this.editMaxWorkingDaysPerSprint),
-        teamId: this.editTeamId || null,
+        teamIds: this.editTeamIds,
       })
       .subscribe({
         next: (project) => {
@@ -492,6 +505,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
           this.saving = false;
           this.showEdit = false;
           this.syncEpicAssignees();
+          this.loadAddableParticipants();
         },
         error: (err) => {
           this.saving = false;

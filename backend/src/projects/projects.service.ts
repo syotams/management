@@ -191,8 +191,41 @@ export class ProjectsService {
     const endDate = dto.endDate ? parseDateOnly(dto.endDate) : project.endDate;
     this.assertRange(startDate, endDate);
 
-    const teamId =
-      dto.teamId === undefined ? project.teamId : await this.resolveTeamId(userId, dto.teamId);
+    const currentTeamIds = project.projectTeams.map((link) => link.teamId);
+    const nextTeamIds =
+      dto.teamIds !== undefined ? await this.resolveTeamIds(userId, dto.teamIds) : null;
+    const explicitTeamId =
+      dto.teamId === undefined ? undefined : await this.resolveTeamId(userId, dto.teamId);
+
+    const addedTeamIds = nextTeamIds
+      ? nextTeamIds.filter((teamId) => !currentTeamIds.includes(teamId))
+      : [];
+    if (
+      nextTeamIds === null &&
+      explicitTeamId &&
+      !currentTeamIds.includes(explicitTeamId)
+    ) {
+      addedTeamIds.push(explicitTeamId);
+    }
+    const removedTeamIds = nextTeamIds
+      ? currentTeamIds.filter((teamId) => !nextTeamIds.includes(teamId))
+      : [];
+
+    const teamsToSync =
+      nextTeamIds !== null ? nextTeamIds : explicitTeamId ? [explicitTeamId] : null;
+    const alreadyOnPlan = new Set(project.participants.map((participant) => participant.userId));
+    const participantsToAdd = teamsToSync
+      ? (await this.orderedTeamMemberIds(teamsToSync)).filter(
+          (memberId) => !alreadyOnPlan.has(memberId),
+        )
+      : [];
+    const addedAtBase = Date.now();
+    const primaryTeamId =
+      nextTeamIds !== null
+        ? (nextTeamIds[0] ?? null)
+        : explicitTeamId !== undefined
+          ? explicitTeamId
+          : project.teamId;
 
     const datesChanged =
       startDate.getTime() !== project.startDate.getTime() ||
@@ -208,9 +241,29 @@ export class ProjectsService {
             : {}),
           startDate,
           endDate,
-          teamId,
+          teamId: primaryTeamId,
         },
       });
+
+      if (removedTeamIds.length) {
+        await tx.projectTeam.deleteMany({
+          where: { projectId: id, teamId: { in: removedTeamIds } },
+        });
+      }
+      if (addedTeamIds.length) {
+        await tx.projectTeam.createMany({
+          data: addedTeamIds.map((teamId) => ({ projectId: id, teamId })),
+        });
+      }
+      if (participantsToAdd.length) {
+        await tx.projectParticipant.createMany({
+          data: participantsToAdd.map((memberId, index) => ({
+            projectId: id,
+            userId: memberId,
+            addedAt: new Date(addedAtBase + index),
+          })),
+        });
+      }
 
       if (datesChanged) {
         await tx.sprint.deleteMany({ where: { projectId: id } });
@@ -1678,21 +1731,31 @@ export class ProjectsService {
     return ids;
   }
 
+  private async orderedTeamMemberIds(teamIds: string[]) {
+    if (!teamIds.length) return [];
+    const members = await this.prisma.teamMember.findMany({
+      where: { teamId: { in: teamIds } },
+      orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
+      select: { userId: true },
+    });
+    const ordered: string[] = [];
+    const seen = new Set<string>();
+    for (const member of members) {
+      if (seen.has(member.userId)) continue;
+      seen.add(member.userId);
+      ordered.push(member.userId);
+    }
+    return ordered;
+  }
+
   private async buildCreateRoster(creatorId: string, teamIds: string[], selectedUserIds: string[]) {
     const ordered: string[] = [creatorId];
     const seen = new Set<string>([creatorId]);
 
-    if (teamIds.length) {
-      const members = await this.prisma.teamMember.findMany({
-        where: { teamId: { in: teamIds } },
-        orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
-        select: { userId: true },
-      });
-      for (const member of members) {
-        if (seen.has(member.userId)) continue;
-        seen.add(member.userId);
-        ordered.push(member.userId);
-      }
+    for (const memberId of await this.orderedTeamMemberIds(teamIds)) {
+      if (seen.has(memberId)) continue;
+      seen.add(memberId);
+      ordered.push(memberId);
     }
 
     for (const id of selectedUserIds) {

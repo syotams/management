@@ -513,6 +513,19 @@
   }
 }
 
+.picker-list {
+  max-height: 10rem;
+  overflow: auto;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: var(--app-input-bg);
+
+  .form-check {
+    margin-bottom: 0.25rem;
+  }
+}
+
 .epic-chip-pto {
   background-image: repeating-linear-gradient(
     -45deg,

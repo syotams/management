@@ -18,6 +18,7 @@ export interface UpdateProjectPayload {
   endDate?: string;
   maxWorkingDaysPerSprint?: number;
   teamId?: string | null;
+  teamIds?: string[];
 }
 
 export interface CreateEpicPayload {
