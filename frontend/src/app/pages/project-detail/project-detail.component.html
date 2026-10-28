@@ -116,9 +116,11 @@
             class="epic-backlog"
             cdkDropList
             id="epic-backlog"
+            cdkDropListOrientation="mixed"
             [cdkDropListData]="backlogDropData"
-            [cdkDropListSortingDisabled]="true"
+            [cdkDropListSortingDisabled]="false"
             [cdkDropListEnterPredicate]="rejectBacklogDrop"
+            (cdkDropListDropped)="onBacklogDrop($any($event))"
           >
             @for (epic of backlogEpics; track epic.id) {
               <div

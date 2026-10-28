@@ -78,6 +78,10 @@ export class ProjectService {
     return this.api.patch<ProjectDetail>(`/projects/${projectId}/epics/${epicId}`, payload);
   }
 
+  reorderEpics(projectId: string, epicIds: string[]) {
+    return this.api.patch<ProjectDetail>(`/projects/${projectId}/epics/reorder`, { epicIds });
+  }
+
   deleteEpic(projectId: string, epicId: string) {
     return this.api.delete<ProjectDetail>(`/projects/${projectId}/epics/${epicId}`);
   }

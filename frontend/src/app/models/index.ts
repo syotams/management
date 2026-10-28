@@ -252,6 +252,7 @@ export interface ProjectEpic {
   sourceEpicId: string | null;
   title: string;
   workingDays: number;
+  priority: number;
   startSprintNumber: number | null;
   startSprintWeek: number | null;
   backgroundColor: string;

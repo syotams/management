@@ -327,13 +327,19 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   get backlogEpics(): ProjectEpic[] {
     if (!this.project) return [];
-    return this.project.epics.filter(
-      (epic) =>
-        !epic.sourceEpicId &&
-        !epic.assignees.length &&
-        epic.startSprintNumber == null &&
-        epic.startSprintWeek == null,
-    );
+    return this.project.epics
+      .filter(
+        (epic) =>
+          !epic.sourceEpicId &&
+          !epic.assignees.length &&
+          epic.startSprintNumber == null &&
+          epic.startSprintWeek == null,
+      )
+      .sort((a, b) => {
+        const priorityDelta = (b.priority ?? 0) - (a.priority ?? 0);
+        if (priorityDelta !== 0) return priorityDelta;
+        return a.createdAt.localeCompare(b.createdAt);
+      });
   }
 
   get backlogWorkingDays(): number {
@@ -1137,6 +1143,47 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
           this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to assign epic';
         },
       });
+  }
+
+  onBacklogDrop(event: CdkDragDrop<BacklogDropData>) {
+    if (!this.project || !this.canEditEpics || this.movingEpic) return;
+    if (event.previousContainer !== event.container) return;
+    if (event.previousIndex === event.currentIndex) return;
+
+    const ordered = [...this.backlogEpics];
+    const [moved] = ordered.splice(event.previousIndex, 1);
+    if (!moved) return;
+    ordered.splice(event.currentIndex, 0, moved);
+
+    const count = ordered.length;
+    const priorityById = new Map(
+      ordered.map((epic, index) => [epic.id, Math.min(99, count - 1 - index)]),
+    );
+    const previousEpics = this.project.epics;
+    this.project = {
+      ...this.project,
+      epics: this.project.epics.map((epic) => {
+        const priority = priorityById.get(epic.id);
+        return priority === undefined ? epic : { ...epic, priority };
+      }),
+    };
+
+    this.movingEpic = true;
+    this.error = '';
+    this.projectService.reorderEpics(this.project.id, ordered.map((epic) => epic.id)).subscribe({
+      next: (project) => {
+        this.project = this.normalizeProject(project);
+        this.movingEpic = false;
+      },
+      error: (err) => {
+        if (this.project) {
+          this.project = { ...this.project, epics: previousEpics };
+        }
+        this.movingEpic = false;
+        const msg = err.error?.message;
+        this.error = Array.isArray(msg) ? msg.join(', ') : msg || 'Failed to reorder epics';
+      },
+    });
   }
 
   onEpicDrop(event: CdkDragDrop<unknown>) {

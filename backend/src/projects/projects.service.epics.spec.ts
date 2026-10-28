@@ -841,4 +841,43 @@ describe('ProjectsService epic derivation', () => {
     expect(detail.epics.find((epic) => epic.id === second.id)!.workingDays).toBe(1);
     expect(placementsFor(detail, second.id)).toEqual([]);
   });
+
+  it('keeps backlog epic priorities after reload', async () => {
+    const first = await service.addEpic(projectId, creatorId, {
+      title: 'First',
+      workingDays: 5,
+      backgroundColor: '#4f46e5',
+      priority: 1,
+    });
+    const firstId = first.epics.find((epic) => epic.title === 'First' && !epic.sourceEpicId)!.id;
+
+    const second = await service.addEpic(projectId, creatorId, {
+      title: 'Second',
+      workingDays: 4,
+      backgroundColor: '#22c55e',
+    });
+    const secondId = second.epics.find((epic) => epic.title === 'Second' && !epic.sourceEpicId)!.id;
+    await service.updateEpic(projectId, secondId, creatorId, { priority: 5 });
+
+    const detail = await service.findOne(projectId, creatorId);
+    expect(detail.epics.find((epic) => epic.id === firstId)!.priority).toBe(1);
+    expect(detail.epics.find((epic) => epic.id === secondId)!.priority).toBe(5);
+  });
+
+  it('stores consecutive priorities when backlog epics are reordered', async () => {
+    const titles = ['Alpha', 'Bravo', 'Charlie'] as const;
+    const ids: string[] = [];
+    for (const title of titles) {
+      const created = await createBacklogEpic({ title });
+      ids.push(created.epics.find((epic) => epic.title === title && !epic.sourceEpicId)!.id);
+    }
+
+    const order = [ids[1], ids[2], ids[0]];
+    await service.reorderEpics(projectId, creatorId, order);
+
+    const detail = await service.findOne(projectId, creatorId);
+    expect(order.map((id) => detail.epics.find((epic) => epic.id === id)!.priority)).toEqual([
+      2, 1, 0,
+    ]);
+  });
 });

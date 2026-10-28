@@ -42,6 +42,7 @@ function epic(workingDays: number): ProjectEpic {
     sourceEpicId: null,
     title: 'Auth',
     workingDays,
+    priority: 0,
     startSprintNumber: null,
     startSprintWeek: null,
     backgroundColor: '#4f46e5',
