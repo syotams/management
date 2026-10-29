@@ -10,7 +10,6 @@
           · {{ project.sprints.length }} sprints
           · max {{ project.maxWorkingDaysPerSprint }} working days/sprint
           · {{ backlogEpics.length }} epics
-          · {{ backlogWorkingDaysLabel }}
           @if (project.currentVersion) {
             · v{{ project.currentVersion }}
           }
@@ -77,16 +76,37 @@
   @if (loading) {
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
   } @else if (project) {
-    <div class="project-metrics">
-      @for (metric of projectMetrics; track metric.label) {
-        <div class="card stat-card">
-          <div class="card-body">
-            <div class="stat-label" [title]="metric.hint">{{ metric.label }}</div>
-            <div
-              class="stat-value"
-              [class.tone-match]="metric.tone === 'match'"
-              [class.tone-over]="metric.tone === 'over'"
-            >{{ metric.value }}d</div>
+    <div class="project-metrics" [class.is-open]="showDetailMetrics">
+      <button
+        type="button"
+        class="btn btn-outline-secondary metric-toggle"
+        [attr.aria-expanded]="showDetailMetrics"
+        [attr.aria-label]="showDetailMetrics ? 'Hide working days, PTO, and holidays' : 'Show working days, PTO, and holidays'"
+        (click)="showDetailMetrics = !showDetailMetrics"
+      >
+        <i class="bi" [class.bi-plus-lg]="!showDetailMetrics" [class.bi-dash-lg]="showDetailMetrics"></i>
+      </button>
+      @for (metric of supplementalMetrics; track metric.label) {
+        <div class="metric-slot metric-slot-extra" [attr.aria-hidden]="!showDetailMetrics">
+          <div class="card stat-card">
+            <div class="card-body">
+              <div class="stat-label" [title]="metric.hint">{{ metric.label }}</div>
+              <div class="stat-value">{{ metric.value }}d</div>
+            </div>
+          </div>
+        </div>
+      }
+      @for (metric of primaryMetrics; track metric.label) {
+        <div class="metric-slot">
+          <div class="card stat-card">
+            <div class="card-body">
+              <div class="stat-label" [title]="metric.hint">{{ metric.label }}</div>
+              <div
+                class="stat-value"
+                [class.tone-match]="metric.tone === 'match'"
+                [class.tone-over]="metric.tone === 'over'"
+              >{{ metric.value }}d</div>
+            </div>
           </div>
         </div>
       }
@@ -97,9 +117,6 @@
         <div class="card-header d-flex justify-content-between align-items-center gap-2">
           <span>
             <i class="bi bi-inbox me-2"></i>Epics Backlog
-            <span class="backlog-days-total" title="Total working days set on backlog epics">
-              {{ backlogWorkingDaysLabel }}
-            </span>
           </span>
           @if (canEditEpics) {
             <button
