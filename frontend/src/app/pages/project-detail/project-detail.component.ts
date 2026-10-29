@@ -109,6 +109,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   backlogDropData = BACKLOG_DROP_DATA;
   rejectBacklogDrop = () => false;
   showWeekHeaders = localStorage.getItem(SHOW_WEEK_HEADERS_KEY) === 'true';
+  showDetailMetrics = false;
   cellAssignMenu: CellAssignMenuState | null = null;
   showAssignDays = false;
   assignDaysValue: number | null = null;
@@ -277,7 +278,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return this.project.team?.name || 'No team';
   }
 
-  get projectMetrics(): { label: string; value: number; hint: string; tone?: 'match' | 'over' }[] {
+  get projectMetrics(): { label: string; value: number; hint: string; tone?: 'match' | 'over'; supplemental?: boolean }[] {
     if (!this.project) return [];
     const sprintCount = this.project.sprints.length;
     const totalPto = (this.project.capacity ?? []).reduce((sum, row) => sum + row.ptoDays, 0);
@@ -289,16 +290,19 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         label: 'Total working days',
         value: this.project.maxWorkingDaysPerSprint * sprintCount,
         hint: 'Working days per sprint × number of sprints',
+        supplemental: true,
       },
       {
         label: 'Total PTO',
         value: totalPto,
         hint: 'PTO days users have taken in this project',
+        supplemental: true,
       },
       {
         label: 'Total holidays',
         value: totalHolidays,
         hint: 'Holiday days in this project',
+        supplemental: true,
       },
       {
         label: 'Total capacity',
@@ -320,6 +324,14 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     ];
   }
 
+  get primaryMetrics() {
+    return this.projectMetrics.filter((metric) => !metric.supplemental);
+  }
+
+  get supplementalMetrics() {
+    return this.projectMetrics.filter((metric) => metric.supplemental);
+  }
+
   get backlogEpics(): ProjectEpic[] {
     if (!this.project) return [];
     return this.project.epics
@@ -339,11 +351,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   get backlogWorkingDays(): number {
     return this.backlogEpics.reduce((sum, epic) => sum + epic.workingDays, 0);
-  }
-
-  get backlogWorkingDaysLabel(): string {
-    const days = this.backlogWorkingDays;
-    return days === 1 ? '1 working day' : `${days} working days`;
   }
 
   assignedWorkingDays(templateEpicId: string): number {

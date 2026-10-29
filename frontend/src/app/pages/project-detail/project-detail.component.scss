@@ -1,15 +1,81 @@
 .project-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
   margin-bottom: 1.5rem;
+}
 
-  @media (min-width: 768px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+.metric-toggle {
+  flex: 0 0 2.25rem;
+  align-self: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  i {
+    transition: transform 0.2s ease;
   }
 
-  @media (min-width: 1100px) {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+  &[aria-expanded='true'] i {
+    transform: rotate(180deg);
+  }
+}
+
+.metric-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 0.75rem;
+  display: flex;
+
+  .stat-card {
+    width: 100%;
+  }
+
+  .stat-label,
+  .stat-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.metric-slot-extra {
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: 0;
+  align-self: flex-start;
+  min-height: 0;
+  max-height: 0;
+  padding-left: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    flex-grow 0.35s ease,
+    flex-basis 0.35s ease,
+    padding-left 0.35s ease,
+    opacity 0.35s ease;
+
+  .is-open & {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    align-self: stretch;
+    max-height: none;
+    padding-left: 0.75rem;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metric-toggle i,
+  .metric-slot-extra {
+    transition: none;
   }
 }
 
@@ -183,6 +249,20 @@
   }
 }
 
+.cell-assign-item.cell-assign-item-full {
+  color: var(--app-text-disabled);
+  opacity: 1;
+
+  &:disabled {
+    opacity: 1;
+    color: var(--app-text-disabled);
+  }
+
+  .cell-assign-swatch {
+    background: var(--app-text-disabled);
+  }
+}
+
 .cell-assign-swatch {
   width: 0.7rem;
   height: 0.7rem;
@@ -287,12 +367,6 @@
   transition: transform 150ms cubic-bezier(0, 0, 0.2, 1);
 }
 
-.backlog-days-total {
-  margin-left: 0.65rem;
-  font-weight: 500;
-  color: var(--app-text-muted);
-}
-
 .epic-backlog {
   display: flex;
   flex-wrap: wrap;
@@ -308,7 +382,7 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: rgba(0, 0, 0, 0.32);
+    background: rgba(0, 0, 0, 0.5);
     pointer-events: none;
   }
 }
