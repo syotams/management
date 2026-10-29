@@ -1011,11 +1011,15 @@
         <button
           type="button"
           class="dropdown-item cell-assign-item"
-          [disabled]="movingEpic || isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week)"
-          [title]="isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week) ? 'Already assigned in this week' : 'Assign ' + epic.title"
+          [class.cell-assign-item-full]="isBacklogFullyAssigned(epic)"
+          [disabled]="movingEpic || isBacklogFullyAssigned(epic) || isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week)"
+          [title]="isBacklogFullyAssigned(epic) ? backlogEpicTitle(epic) : (isAssignedToUser(epic.id, menu.cell.participantId, menu.sprintNumber, menu.cell.week) ? 'Already assigned in this week' : 'Assign ' + epic.title)"
           (click)="assignBacklogEpicToCell(epic.id, menu.cell)"
         >
-          <span class="cell-assign-swatch" [style.background]="epic.backgroundColor"></span>
+          <span
+            class="cell-assign-swatch"
+            [style.background]="isBacklogFullyAssigned(epic) ? null : epic.backgroundColor"
+          ></span>
           <span class="cell-assign-title">{{ epic.title }}</span>
         </button>
       }

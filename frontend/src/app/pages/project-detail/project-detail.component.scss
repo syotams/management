@@ -183,6 +183,20 @@
   }
 }
 
+.cell-assign-item.cell-assign-item-full {
+  color: var(--app-text-disabled);
+  opacity: 1;
+
+  &:disabled {
+    opacity: 1;
+    color: var(--app-text-disabled);
+  }
+
+  .cell-assign-swatch {
+    background: var(--app-text-disabled);
+  }
+}
+
 .cell-assign-swatch {
   width: 0.7rem;
   height: 0.7rem;
