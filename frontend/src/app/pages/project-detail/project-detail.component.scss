@@ -124,6 +124,17 @@
   max-height: 10rem;
 }
 
+.sprint-summary-scroll {
+  max-height: 20rem;
+  overflow-y: auto;
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+}
+
 .project-grid {
   .add-participant-row .participant-col {
     font-weight: 500;
