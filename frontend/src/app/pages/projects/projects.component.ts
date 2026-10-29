@@ -12,102 +12,114 @@ import { formatDateOnly, localDateInput, projectEndDateFromStart } from '../../u
   imports: [FormsModule, RouterLink],
   template: `
     <div class="py-2">
-      <h2 class="page-title mb-4">Projects</h2>
+      <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
+        <h2 class="page-title mb-0">Projects</h2>
+        @if (!showCreate) {
+          <button type="button" class="btn btn-primary" (click)="showCreate = true">
+            <i class="bi bi-plus-lg me-1"></i>New project
+          </button>
+        }
+      </div>
 
       @if (error) {
         <div class="alert alert-danger">{{ error }}</div>
       }
 
+      @if (showCreate) {
+      <div class="create-form-slot" animate.enter="create-form-enter" animate.leave="create-form-leave">
       <div class="card mb-4">
         <div class="card-header"><i class="bi bi-calendar-plus me-2"></i>New Project</div>
         <div class="card-body">
           <form (ngSubmit)="createProject()">
-            <div class="row g-3 align-items-end">
-              <div class="col-md-4">
-                <label class="form-label">Name</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  name="name"
-                  [(ngModel)]="name"
-                  placeholder="Q3 2026"
-                  required
-                >
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Start date</label>
-                <input type="date" class="form-control" name="startDate" [(ngModel)]="startDate" (ngModelChange)="onStartDateChange()" required>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">End date</label>
-                <input type="date" class="form-control" name="endDate" [(ngModel)]="endDate" required>
-              </div>
-            </div>
-
-            <div class="row g-3 mt-1">
-              <div class="col-md-8">
-                <label class="form-label">Max working days per sprint</label>
-                <input
-                  type="number"
-                  class="form-control max-working-days"
-                  name="maxWorkingDaysPerSprint"
-                  [(ngModel)]="maxWorkingDaysPerSprint"
-                  min="1"
-                  max="10"
-                  step="1"
-                  required
-                >
-                <div class="form-text">Recommended: 8. A sprint has 10 working days, so a longer epic is split across later sprints.</div>
-              </div>
-            </div>
-
-            <div class="row g-3 mt-1">
-              <div class="col-md-6">
-                <label class="form-label">Teams</label>
-                <div class="picker-list">
-                  @for (team of teams; track team.id) {
-                    <label class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        [checked]="isTeamSelected(team.id)"
-                        (change)="toggleTeam(team.id)"
-                      >
-                      <span class="form-check-label">{{ team.name }}</span>
-                    </label>
-                  } @empty {
-                    <div class="text-muted small">No teams available</div>
-                  }
+            <div class="row gy-3 gx-5">
+              <div class="col-md-6 d-flex flex-column gap-3">
+                <div>
+                  <label class="form-label">Name</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    name="name"
+                    [(ngModel)]="name"
+                    placeholder="Q3 2026"
+                    required
+                  >
+                </div>
+                <div>
+                  <label class="form-label">Max working days per sprint</label>
+                  <input
+                    type="number"
+                    class="form-control"
+                    name="maxWorkingDaysPerSprint"
+                    [(ngModel)]="maxWorkingDaysPerSprint"
+                    min="1"
+                    max="10"
+                    step="1"
+                    required
+                  >
+                  <div class="form-text">Recommended: 8. A sprint has 10 working days, so a longer epic is split across later sprints.</div>
+                </div>
+                <div>
+                  <label class="form-label">Start date</label>
+                  <input type="date" class="form-control" name="startDate" [(ngModel)]="startDate" (ngModelChange)="onStartDateChange()" required>
+                </div>
+                <div>
+                  <label class="form-label">End date</label>
+                  <input type="date" class="form-control" name="endDate" [(ngModel)]="endDate" required>
                 </div>
               </div>
-              <div class="col-md-6">
-                <label class="form-label">Individual users</label>
-                <div class="picker-list">
-                  @for (person of members; track person.id) {
-                    <label class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        [checked]="isUserSelected(person.id)"
-                        (change)="toggleUser(person.id)"
-                      >
-                      <span class="form-check-label">{{ person.name }} <span class="text-muted">({{ person.teamName }})</span></span>
-                    </label>
-                  } @empty {
-                    <div class="text-muted small">No teammates available</div>
-                  }
+              <div class="col-md-6 d-flex flex-column gap-3">
+                <div>
+                  <label class="form-label">Teams</label>
+                  <div class="picker-list">
+                    @for (team of teams; track team.id) {
+                      <label class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          [checked]="isTeamSelected(team.id)"
+                          (change)="toggleTeam(team.id)"
+                        >
+                        <span class="form-check-label">{{ team.name }}</span>
+                      </label>
+                    } @empty {
+                      <div class="text-muted small">No teams available</div>
+                    }
+                  </div>
+                </div>
+                <div>
+                  <label class="form-label">Individual users</label>
+                  <div class="picker-list">
+                    @for (person of members; track person.id) {
+                      <label class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          [checked]="isUserSelected(person.id)"
+                          (change)="toggleUser(person.id)"
+                        >
+                        <span class="form-check-label">{{ person.name }} <span class="text-muted">({{ person.teamName }})</span></span>
+                      </label>
+                    } @empty {
+                      <div class="text-muted small">No teammates available</div>
+                    }
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="mt-3">
+            <div class="mt-3 d-flex gap-2">
               <button type="submit" class="btn btn-primary" [disabled]="saving || !canCreate()">
                 {{ saving ? 'Creating...' : 'Create project' }}
+              </button>
+              <button type="button" class="btn btn-outline-secondary" (click)="showCreate = false" [disabled]="saving">
+                Cancel
               </button>
             </div>
           </form>
         </div>
       </div>
+      </div>
+      }
 
       @if (loading) {
         <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
@@ -141,7 +153,7 @@ import { formatDateOnly, localDateInput, projectEndDateFromStart } from '../../u
             </div>
           </a>
         } @empty {
-          <p class="text-muted">No projects yet. Create one above to start planning.</p>
+          <p class="text-muted">No projects yet.</p>
         }
       }
     </div>
@@ -169,8 +181,45 @@ import { formatDateOnly, localDateInput, projectEndDateFromStart } from '../../u
     .picker-list .form-check {
       margin-bottom: 0.25rem;
     }
-    .max-working-days {
-      max-width: 8rem;
+    .create-form-slot {
+      display: grid;
+      grid-template-rows: 1fr;
+    }
+    .create-form-slot > .card {
+      min-height: 0;
+      overflow: hidden;
+    }
+    .create-form-enter {
+      animation: create-form-in 0.32s ease both;
+    }
+    .create-form-leave {
+      animation: create-form-out 0.22s ease both;
+    }
+    @keyframes create-form-in {
+      from {
+        opacity: 0;
+        grid-template-rows: 0fr;
+      }
+      to {
+        opacity: 1;
+        grid-template-rows: 1fr;
+      }
+    }
+    @keyframes create-form-out {
+      from {
+        opacity: 1;
+        grid-template-rows: 1fr;
+      }
+      to {
+        opacity: 0;
+        grid-template-rows: 0fr;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .create-form-enter,
+      .create-form-leave {
+        animation: none;
+      }
     }
   `,
 })
@@ -186,6 +235,7 @@ export class ProjectsComponent implements OnInit {
   selectedUserIds: string[] = [];
   loading = true;
   saving = false;
+  showCreate = false;
   error = '';
 
   constructor(
