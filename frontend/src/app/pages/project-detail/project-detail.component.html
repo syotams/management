@@ -82,7 +82,7 @@
         class="btn btn-outline-secondary metric-toggle"
         [attr.aria-expanded]="showDetailMetrics"
         [attr.aria-label]="showDetailMetrics ? 'Hide working days, PTO, and holidays' : 'Show working days, PTO, and holidays'"
-        (click)="showDetailMetrics = !showDetailMetrics"
+        (click)="toggleDetailMetrics()"
       >
         <i class="bi" [class.bi-plus-lg]="!showDetailMetrics" [class.bi-dash-lg]="showDetailMetrics"></i>
       </button>
@@ -451,7 +451,7 @@
       <div class="card mt-4">
         <div class="card-header"><i class="bi bi-calendar3 me-2"></i>Sprint summary</div>
         <div class="card-body p-0">
-          <div class="table-responsive">
+          <div class="table-responsive sprint-summary-scroll">
             <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr>
@@ -779,56 +779,15 @@
             <div class="alert alert-info py-2">Saving will create a new plan version.</div>
           }
           <div class="row g-3">
-            <div class="col-md-6">
+            <div class="col-md-8">
               <label class="form-label">Title</label>
               <input type="text" class="form-control" [(ngModel)]="epicTitle" name="epicTitle" placeholder="Epic title">
             </div>
-            <div class="col-md-2">
+            <div class="col-md-4">
               <label class="form-label">Working days</label>
               <input type="number" min="1" class="form-control" [(ngModel)]="epicWorkingDays" name="epicWorkingDays">
             </div>
-            <div class="col-md-2">
-              <label class="form-label">
-                Start sprint
-                @if (!epicAssigneeIds.length) {
-                  <span class="text-muted fw-normal">(optional)</span>
-                }
-              </label>
-              <select
-                class="form-select"
-                [(ngModel)]="epicStartSprint"
-                name="epicStartSprint"
-                [disabled]="!epicAssigneeIds.length"
-                (ngModelChange)="onEpicStartSprintChange($event)"
-              >
-                <option [ngValue]="null">{{ epicAssigneeIds.length ? 'Select sprint' : 'Not scheduled' }}</option>
-                @for (sprint of project.sprints; track sprint.id) {
-                  <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
-                }
-              </select>
-              @if (!epicAssigneeIds.length) {
-                <div class="form-text">Pick an assignee to schedule a start sprint.</div>
-              }
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">
-                Start week
-                @if (!epicAssigneeIds.length) {
-                  <span class="text-muted fw-normal">(optional)</span>
-                }
-              </label>
-              <select
-                class="form-select"
-                [(ngModel)]="epicStartWeek"
-                name="epicStartWeek"
-                [disabled]="!epicAssigneeIds.length || epicStartSprint == null"
-              >
-                <option [ngValue]="null">{{ epicAssigneeIds.length ? 'Select week' : 'Not scheduled' }}</option>
-                <option [ngValue]="1">Week 1</option>
-                <option [ngValue]="2">Week 2</option>
-              </select>
-            </div>
-            <div class="col-md-6">
+            <div class="col-12">
               <label class="form-label">Background color</label>
               <div class="d-flex align-items-center gap-2">
                 <input type="color" class="form-control form-control-color" [(ngModel)]="epicColor" name="epicColor">
@@ -845,31 +804,6 @@
                   }
                 </div>
               </div>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Assignees <span class="text-muted fw-normal">(optional)</span></label>
-              <div class="assignee-list">
-                @for (person of assigneeOptions; track person.id) {
-                  <label class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      [checked]="isAssigneeSelected(person.id)"
-                      (change)="toggleAssignee(person.id)"
-                    >
-                    <span class="form-check-label">{{ person.name }}</span>
-                  </label>
-                } @empty {
-                  <div class="text-muted small">No participants available</div>
-                }
-              </div>
-              @if (epicAssigneeIds.length > 1) {
-                <div class="form-text">Each assignee gets a scheduled placement; the epic stays in the backlog as the shared source.</div>
-              } @else if (!epicAssigneeIds.length) {
-                <div class="form-text">Leave unassigned to keep it in the backlog for later.</div>
-              } @else {
-                <div class="form-text">Creates a backlog epic and schedules a copy for this assignee.</div>
-              }
             </div>
           </div>
         </div>
@@ -900,42 +834,15 @@
             <div class="alert alert-info py-2">Saving will create a new plan version.</div>
           }
           <div class="row g-3">
-            <div class="col-md-6">
+            <div class="col-md-8">
               <label class="form-label">Title</label>
               <input type="text" class="form-control" [(ngModel)]="editEpicTitle" name="editEpicTitle">
             </div>
-            <div class="col-md-2">
+            <div class="col-md-4">
               <label class="form-label">Working days</label>
               <input type="number" min="1" class="form-control" [(ngModel)]="editEpicWorkingDays" name="editEpicWorkingDays">
             </div>
-            <div class="col-md-2">
-              <label class="form-label">Start sprint</label>
-              <select
-                class="form-select"
-                [(ngModel)]="editEpicStartSprint"
-                name="editEpicStartSprint"
-                (ngModelChange)="onEditEpicStartSprintChange($event)"
-              >
-                <option [ngValue]="null">Not scheduled</option>
-                @for (sprint of project.sprints; track sprint.id) {
-                  <option [ngValue]="sprint.number">Sprint {{ sprint.number }}</option>
-                }
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Start week</label>
-              <select
-                class="form-select"
-                [(ngModel)]="editEpicStartWeek"
-                name="editEpicStartWeek"
-                [disabled]="editEpicStartSprint == null"
-              >
-                <option [ngValue]="null">Not scheduled</option>
-                <option [ngValue]="1">Week 1</option>
-                <option [ngValue]="2">Week 2</option>
-              </select>
-            </div>
-            <div class="col-md-6">
+            <div class="col-12">
               <label class="form-label">Background color</label>
               <div class="d-flex align-items-center gap-2">
                 <input type="color" class="form-control form-control-color" [(ngModel)]="editEpicColor" name="editEpicColor">
@@ -952,15 +859,6 @@
                   }
                 </div>
               </div>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Assignee</label>
-              <select class="form-select" [(ngModel)]="editEpicAssigneeId" name="editEpicAssigneeId">
-                <option value="">Unassigned</option>
-                @for (person of assigneeOptions; track person.id) {
-                  <option [value]="person.id">{{ person.name }}</option>
-                }
-              </select>
             </div>
           </div>
         </div>

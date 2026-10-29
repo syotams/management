@@ -184,6 +184,28 @@ describe('ProjectDetailComponent sprint summary assigned color', () => {
     expect(getComputedStyle(cell).color).toBe(themeColor('--app-error'));
   });
 
+  it('caps the summary height and scrolls the rows', () => {
+    const summary = fixture.componentInstance.project?.sprintSummaries?.[0];
+    if (!summary) throw new Error('Sprint summary was not rendered');
+    summary.users = Array.from({ length: 30 }, (_, index) =>
+      summaryUser(`Person ${index}`, 1, 8),
+    );
+    fixture.detectChanges();
+
+    const header = Array.from(
+      fixture.nativeElement.querySelectorAll('.card-header') as NodeListOf<HTMLElement>,
+    ).find((el) => el.textContent?.includes('Sprint summary'));
+    const scroller = header?.closest('.card')?.querySelector('.sprint-summary-scroll');
+    if (!(scroller instanceof HTMLElement)) {
+      throw new Error('Sprint summary scroller was not rendered');
+    }
+
+    const style = getComputedStyle(scroller);
+    expect(style.maxHeight).toBe('320px');
+    expect(style.overflowY).toBe('auto');
+    expect(scroller.scrollHeight).toBeGreaterThan(scroller.clientHeight);
+  });
+
   it('keeps the default text color when assigned is under capacity', () => {
     const cell = assignedCell('Under capacity');
 

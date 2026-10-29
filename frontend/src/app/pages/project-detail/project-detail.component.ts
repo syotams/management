@@ -36,6 +36,7 @@ type CellAssignMenuState = {
 
 const BACKLOG_DROP_DATA: BacklogDropData = { backlog: true };
 const SHOW_WEEK_HEADERS_KEY = 'project-plan-show-week-headers';
+const SHOW_DETAIL_METRICS_KEY = 'project-plan-show-detail-metrics';
 const CELL_ASSIGN_MENU_WIDTH = 256;
 const CELL_ASSIGN_MENU_MAX_HEIGHT = 224;
 
@@ -56,10 +57,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   epicTitle = '';
   epicWorkingDays: number | null = 5;
-  epicStartSprint: number | null = null;
-  epicStartWeek: number | null = null;
   epicColor = EPIC_COLORS[0];
-  epicAssigneeIds: string[] = [];
   addingEpic = false;
   showAddEpic = false;
   addEpicError = '';
@@ -69,10 +67,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   editingEpic: ProjectEpic | null = null;
   editEpicTitle = '';
   editEpicWorkingDays: number | null = 5;
-  editEpicStartSprint: number | null = null;
-  editEpicStartWeek: number | null = null;
   editEpicColor = EPIC_COLORS[0];
-  editEpicAssigneeId = '';
   savingEpic = false;
   editEpicError = '';
   movingEpic = false;
@@ -109,7 +104,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   backlogDropData = BACKLOG_DROP_DATA;
   rejectBacklogDrop = () => false;
   showWeekHeaders = localStorage.getItem(SHOW_WEEK_HEADERS_KEY) === 'true';
-  showDetailMetrics = false;
+  showDetailMetrics = localStorage.getItem(SHOW_DETAIL_METRICS_KEY) === 'true';
   cellAssignMenu: CellAssignMenuState | null = null;
   showAssignDays = false;
   assignDaysValue: number | null = null;
@@ -162,6 +157,11 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   toggleWeekHeaders() {
     this.showWeekHeaders = !this.showWeekHeaders;
     localStorage.setItem(SHOW_WEEK_HEADERS_KEY, String(this.showWeekHeaders));
+  }
+
+  toggleDetailMetrics() {
+    this.showDetailMetrics = !this.showDetailMetrics;
+    localStorage.setItem(SHOW_DETAIL_METRICS_KEY, String(this.showDetailMetrics));
   }
 
   closeCellAssignMenu() {
@@ -374,18 +374,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return this.project.sprints.reduce((sum, sprint) => sum + (sprint.weeks?.length ?? 2), 0);
   }
 
-  onEpicStartSprintChange(sprint: number | null) {
-    this.epicStartSprint = sprint;
-    if (sprint == null) this.epicStartWeek = null;
-    else if (this.epicStartWeek == null) this.epicStartWeek = 1;
-  }
-
-  onEditEpicStartSprintChange(sprint: number | null) {
-    this.editEpicStartSprint = sprint;
-    if (sprint == null) this.editEpicStartWeek = null;
-    else if (this.editEpicStartWeek == null) this.editEpicStartWeek = 1;
-  }
-
   isAssignedToUser(
     templateEpicId: string,
     userId: string,
@@ -445,7 +433,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         this.project = this.normalizeProject(project);
         this.loading = false;
         this.epicColor = this.pickNextEpicColor(project);
-        this.syncEpicAssignees();
         this.loadAddableParticipants();
       },
       error: (err) => {
@@ -511,7 +498,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
           this.project = this.normalizeProject(project);
           this.saving = false;
           this.showEdit = false;
-          this.syncEpicAssignees();
           this.loadAddableParticipants();
         },
         error: (err) => {
@@ -783,7 +769,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.projectService.removeParticipant(this.project.id, person.id).subscribe({
       next: (project) => {
         this.project = this.normalizeProject(project);
-        this.syncEpicAssignees();
         this.loadAddableParticipants();
       },
       error: (err) => {
@@ -803,7 +788,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         this.project = this.normalizeProject(project);
         this.addingParticipant = false;
         this.showAddParticipant = false;
-        this.syncEpicAssignees();
         this.loadAddableParticipants();
       },
       error: (err) => {
@@ -814,41 +798,21 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  isAssigneeSelected(id: string) {
-    return this.epicAssigneeIds.includes(id);
-  }
-
-  toggleAssignee(id: string) {
-    if (this.epicAssigneeIds.includes(id)) {
-      this.epicAssigneeIds = this.epicAssigneeIds.filter((value) => value !== id);
-    } else {
-      this.epicAssigneeIds = [...this.epicAssigneeIds, id];
-    }
-    if (!this.epicAssigneeIds.length) {
-      this.epicStartSprint = null;
-      this.epicStartWeek = null;
-    }
-  }
-
   canAddEpic() {
-    const hasAssignees = this.epicAssigneeIds.length > 0;
     return (
       !!this.epicTitle.trim() &&
       !!this.epicWorkingDays &&
       this.epicWorkingDays > 0 &&
-      !!this.epicColor &&
-      (!hasAssignees || (this.epicStartSprint != null && this.epicStartWeek != null))
+      !!this.epicColor
     );
   }
 
   canSaveEpic() {
-    const hasSchedule = this.editEpicStartSprint != null || !!this.editEpicAssigneeId;
     return (
       !!this.editEpicTitle.trim() &&
       !!this.editEpicWorkingDays &&
       this.editEpicWorkingDays > 0 &&
-      !!this.editEpicColor &&
-      (!hasSchedule || (this.editEpicStartSprint != null && this.editEpicStartWeek != null))
+      !!this.editEpicColor
     );
   }
 
@@ -881,9 +845,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.addEpicError = '';
     this.epicTitle = '';
     this.epicWorkingDays = 5;
-    this.epicStartSprint = null;
-    this.epicStartWeek = null;
-    this.epicAssigneeIds = [];
     this.epicColor = this.project ? this.pickNextEpicColor() : EPIC_COLORS[0];
     this.showAddEpic = true;
   }
@@ -902,9 +863,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       .addEpic(this.project.id, {
         title: this.epicTitle.trim(),
         workingDays: Number(this.epicWorkingDays),
-        startSprintNumber: this.epicStartSprint,
-        startSprintWeek: this.epicStartWeek,
-        assigneeIds: this.epicAssigneeIds.length ? this.epicAssigneeIds : undefined,
         backgroundColor: this.epicColor,
       })
       .subscribe({
@@ -914,11 +872,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
           this.showAddEpic = false;
           this.epicTitle = '';
           this.epicWorkingDays = 5;
-          this.epicStartSprint = null;
-          this.epicStartWeek = null;
-          this.epicAssigneeIds = [];
           this.advanceEpicColor();
-          this.syncEpicAssignees();
         },
         error: (err) => {
           this.addingEpic = false;
@@ -937,11 +891,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.editEpicError = '';
     this.editEpicTitle = epic.title;
     this.editEpicWorkingDays = epic.workingDays;
-    this.editEpicStartSprint = epic.startSprintNumber;
-    this.editEpicStartWeek =
-      epic.startSprintWeek ?? (epic.startSprintNumber != null ? 1 : null);
     this.editEpicColor = epic.backgroundColor;
-    this.editEpicAssigneeId = epic.assignees[0]?.id ?? '';
     this.showEditEpic = true;
   }
 
@@ -962,9 +912,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     const payload = isAssignment
       ? {
           workingDays: Number(this.editEpicWorkingDays),
-          startSprintNumber: this.editEpicStartSprint,
-          startSprintWeek: this.editEpicStartWeek,
-          assigneeIds: this.editEpicAssigneeId ? [this.editEpicAssigneeId] : [],
         }
       : {
           title: this.editEpicTitle.trim(),
@@ -1007,7 +954,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.showEditEpic = false;
     this.editingEpic = null;
     this.editEpicError = '';
-    this.syncEpicAssignees();
   }
 
   private failEpicSave(err: { error?: { message?: string | string[] } }) {
@@ -1028,7 +974,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
           this.showEditEpic = false;
           this.editingEpic = null;
         }
-        this.syncEpicAssignees();
       },
       error: (err) => {
         const msg = err.error?.message;
@@ -1174,7 +1119,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         next: (project) => {
           this.project = this.normalizeProject(project);
           this.movingEpic = false;
-          this.syncEpicAssignees();
         },
         error: (err) => {
           this.movingEpic = false;
@@ -1271,7 +1215,6 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         next: (project) => {
           this.project = this.normalizeProject(project);
           this.movingEpic = false;
-          this.syncEpicAssignees();
         },
         error: (err) => {
           this.movingEpic = false;
@@ -1287,28 +1230,5 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   planCells(plan: ProjectPlanView, participantId: string, cellKey: string) {
     return plan.participants.find((p) => p.id === participantId)?.cells?.[cellKey] ?? [];
-  }
-
-  private syncEpicAssignees() {
-    const ids = this.assigneeOptions.map((o) => o.id);
-    this.epicAssigneeIds = this.epicAssigneeIds.filter((id) => ids.includes(id));
-    const maxSprint = this.project?.sprints[this.project.sprints.length - 1]?.number ?? 1;
-    if (this.epicStartSprint != null && (!this.epicAssigneeIds.length || this.epicStartSprint > maxSprint)) {
-      this.epicStartSprint = null;
-      this.epicStartWeek = null;
-    }
-    if (this.epicStartSprint == null) {
-      this.epicStartWeek = null;
-    }
-    if (this.editEpicAssigneeId && !ids.includes(this.editEpicAssigneeId)) {
-      this.editEpicAssigneeId = '';
-    }
-    if (this.editEpicStartSprint != null && this.editEpicStartSprint > maxSprint) {
-      this.editEpicStartSprint = null;
-      this.editEpicStartWeek = null;
-    }
-    if (this.editEpicStartSprint == null) {
-      this.editEpicStartWeek = null;
-    }
   }
 }
