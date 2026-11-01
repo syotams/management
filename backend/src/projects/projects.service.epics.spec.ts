@@ -880,4 +880,203 @@ describe('ProjectsService epic derivation', () => {
       2, 1, 0,
     ]);
   });
+
+  it('repeats an assignment 3 times every 2 weeks for the same user and working days', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+    const assignmentId = assigned.epics.find((e) => e.sourceEpicId === backlog.id)!.id;
+
+    const detail = await service.updateEpic(projectId, assignmentId, creatorId, {
+      workingDays: 4,
+      repeatEveryWeeks: 2,
+      repeatCount: 3,
+    });
+
+    const placements = detail.epics
+      .filter((epic) => epic.sourceEpicId === backlog.id)
+      .map((epic) => ({
+        workingDays: epic.workingDays,
+        startSprintNumber: epic.startSprintNumber,
+        startSprintWeek: epic.startSprintWeek,
+        assigneeId: epic.assignees[0]?.id,
+      }))
+      .sort(
+        (a, b) =>
+          a.startSprintNumber! - b.startSprintNumber! || a.startSprintWeek! - b.startSprintWeek!,
+      );
+    expect(placements).toEqual([
+      { workingDays: 4, startSprintNumber: 1, startSprintWeek: 1, assigneeId },
+      { workingDays: 4, startSprintNumber: 2, startSprintWeek: 1, assigneeId },
+      { workingDays: 4, startSprintNumber: 3, startSprintWeek: 1, assigneeId },
+    ]);
+    expect(await prisma.epic.count({ where: { projectId } })).toBe(1);
+  });
+
+  it('does not add copies when repeat fields are omitted', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+    const assignmentId = assigned.epics.find((e) => e.sourceEpicId === backlog.id)!.id;
+
+    await service.updateEpic(projectId, assignmentId, creatorId, { workingDays: 8 });
+
+    expect(await prisma.epicAssignment.count()).toBe(1);
+    const detail = await service.findOne(projectId, creatorId);
+    expect(detail.epics.find((epic) => epic.id === assignmentId)!.workingDays).toBe(8);
+  });
+
+  it('creates no copies and leaves the original unchanged when a repeat target is past the project', async () => {
+    const created = await createBacklogEpic({ workingDays: 5 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+    const assignmentId = assigned.epics.find((e) => e.sourceEpicId === backlog.id)!.id;
+
+    await expect(
+      service.updateEpic(projectId, assignmentId, creatorId, {
+        workingDays: 3,
+        repeatEveryWeeks: 2,
+        repeatCount: 4,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(await prisma.epicAssignment.count()).toBe(1);
+    const detail = await service.findOne(projectId, creatorId);
+    const original = detail.epics.find((epic) => epic.id === assignmentId)!;
+    expect(original.workingDays).toBe(5);
+    expect(original.startSprintNumber).toBe(1);
+    expect(original.startSprintWeek).toBe(1);
+  });
+
+  it('removes that user’s other assignments of the epic before repeating', async () => {
+    const created = await createBacklogEpic({ workingDays: 4 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId: creatorId,
+      startSprintNumber: 2,
+      startSprintWeek: 2,
+      workingDays: 1,
+    });
+    const firstAssigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+    });
+    const firstId = placementsFor(firstAssigned, backlog.id).find(
+      (row) => row.startSprintNumber === 1,
+    )!.id;
+    await service.updateEpic(projectId, firstId, creatorId, { workingDays: 1 });
+    await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 2,
+      startSprintWeek: 1,
+    });
+
+    const other = await createBacklogEpic({ title: 'Billing', workingDays: 3 });
+    const otherBacklog = other.epics.find((e) => e.title === 'Billing' && !e.sourceEpicId)!;
+    await service.assignEpic(projectId, otherBacklog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 2,
+    });
+
+    const detail = await service.updateEpic(projectId, firstId, creatorId, {
+      workingDays: 1,
+      repeatEveryWeeks: 2,
+      repeatCount: 3,
+    });
+
+    const authRows = detail.epics
+      .filter((epic) => epic.sourceEpicId === backlog.id)
+      .map((epic) => ({
+        workingDays: epic.workingDays,
+        startSprintNumber: epic.startSprintNumber,
+        startSprintWeek: epic.startSprintWeek,
+        assigneeId: epic.assignees[0]?.id,
+      }))
+      .sort(
+        (a, b) =>
+          a.startSprintNumber! - b.startSprintNumber! ||
+          a.startSprintWeek! - b.startSprintWeek! ||
+          a.assigneeId!.localeCompare(b.assigneeId!),
+      );
+    expect(authRows).toEqual([
+      { workingDays: 1, startSprintNumber: 1, startSprintWeek: 1, assigneeId },
+      { workingDays: 1, startSprintNumber: 2, startSprintWeek: 1, assigneeId },
+      { workingDays: 1, startSprintNumber: 2, startSprintWeek: 2, assigneeId: creatorId },
+      { workingDays: 1, startSprintNumber: 3, startSprintWeek: 1, assigneeId },
+    ]);
+    expect(placementsFor(detail, otherBacklog.id)).toEqual([
+      expect.objectContaining({
+        workingDays: 3,
+        startSprintNumber: 1,
+        startSprintWeek: 2,
+      }),
+    ]);
+  });
+
+  it('leaves other assignments in place when a repeat target is past the project', async () => {
+    const created = await createBacklogEpic({ workingDays: 8 });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+    const assigned = await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 1,
+      startSprintWeek: 1,
+      workingDays: 2,
+    });
+    const assignmentId = placementsFor(assigned, backlog.id)[0].id;
+    await service.assignEpic(projectId, backlog.id, creatorId, {
+      assigneeId,
+      startSprintNumber: 2,
+      startSprintWeek: 1,
+    });
+
+    await expect(
+      service.updateEpic(projectId, assignmentId, creatorId, {
+        workingDays: 3,
+        repeatEveryWeeks: 2,
+        repeatCount: 4,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const detail = await service.findOne(projectId, creatorId);
+    expect(placementsFor(detail, backlog.id)).toEqual([
+      expect.objectContaining({
+        id: assignmentId,
+        workingDays: 2,
+        startSprintNumber: 1,
+        startSprintWeek: 1,
+      }),
+      expect.objectContaining({ workingDays: 6, startSprintNumber: 2, startSprintWeek: 1 }),
+    ]);
+  });
+
+  it('rejects repeat fields on a backlog epic and leaves it unchanged', async () => {
+    const created = await createBacklogEpic({ title: 'Auth' });
+    const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+
+    await expect(
+      service.updateEpic(projectId, backlog.id, creatorId, {
+        title: 'Auth renamed',
+        repeatEveryWeeks: 2,
+        repeatCount: 3,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const detail = await service.findOne(projectId, creatorId);
+    expect(detail.epics.find((epic) => epic.id === backlog.id)!.title).toBe('Auth');
+    expect(await prisma.epicAssignment.count()).toBe(0);
+  });
 });

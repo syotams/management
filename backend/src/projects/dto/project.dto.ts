@@ -214,6 +214,18 @@ export class UpdateEpicDto {
   @IsString()
   @Matches(/^#([0-9a-fA-F]{6})$/, { message: 'backgroundColor must be a hex color like #4f46e5' })
   backgroundColor?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  repeatEveryWeeks?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2)
+  repeatCount?: number;
 }
 
 export class ReorderEpicsDto {
