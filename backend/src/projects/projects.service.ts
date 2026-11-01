@@ -21,6 +21,7 @@ import {
   countInclusiveDaysOverlap,
   countWeekdays,
   DEFAULT_MAX_WORKING_DAYS_PER_SPRINT,
+  DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE,
   generateSprints,
   MAX_MAX_WORKING_DAYS_PER_SPRINT,
   MIN_MAX_WORKING_DAYS_PER_SPRINT,
@@ -28,6 +29,7 @@ import {
   parseDateOnly,
   planAssignmentSpan,
   sprintWeekSlots,
+  type ExistingAssignmentSpan,
   type SprintWeekNumber,
 } from './sprint.util';
 
@@ -499,6 +501,25 @@ export class ProjectsService {
 
     if (!backlogEpic && !assignment) throw new NotFoundException('Epic not found');
 
+    if (dto.repeatEveryWeeks !== undefined || dto.repeatCount !== undefined) {
+      if (!assignment) {
+        throw new BadRequestException('Repeat is only available when editing an assignment');
+      }
+      if (dto.repeatEveryWeeks === undefined || dto.repeatCount === undefined) {
+        throw new BadRequestException('repeatEveryWeeks and repeatCount must both be set');
+      }
+      if (
+        !Number.isInteger(dto.repeatEveryWeeks) ||
+        dto.repeatEveryWeeks < 1 ||
+        !Number.isInteger(dto.repeatCount) ||
+        dto.repeatCount < 2
+      ) {
+        throw new BadRequestException(
+          'repeatEveryWeeks must be at least 1 and repeatCount must be at least 2',
+        );
+      }
+    }
+
     if (backlogEpic) {
       const title = dto.title !== undefined ? dto.title.trim() : undefined;
       if (title !== undefined) {
@@ -542,6 +563,29 @@ export class ProjectsService {
 
       const nextWorkingDays =
         dto.workingDays !== undefined ? dto.workingDays : assignment.assignment.workingDays;
+      const repeating = dto.repeatEveryWeeks !== undefined && dto.repeatCount !== undefined;
+      // Repeating replaces this person's other copies of the epic, so planning
+      // treats those rows as already gone.
+      const replacedAssignmentIds = repeating
+        ? assignment.epic.assignments
+            .filter((row) => row.id !== epicId && row.userId === nextUserId)
+            .map((row) => row.id)
+        : [];
+      const copies =
+        dto.repeatEveryWeeks !== undefined && dto.repeatCount !== undefined
+          ? this.planRepeatCopies(
+              project,
+              assignment.epic,
+              epicId,
+              nextUserId,
+              nextWorkingDays,
+              nextSprint,
+              nextWeek,
+              dto.repeatEveryWeeks,
+              dto.repeatCount,
+              replacedAssignmentIds,
+            )
+          : [];
       this.assertAssignmentFits(
         project,
         assignment.epic.id,
@@ -549,18 +593,38 @@ export class ProjectsService {
         nextWorkingDays,
         nextSprint,
         nextWeek,
-        { allowOverflow: true, excludeAssignmentId: epicId },
+        {
+          allowOverflow: true,
+          excludeAssignmentId: epicId,
+          excludeAssignmentIds: replacedAssignmentIds,
+        },
       );
 
-      await this.prisma.epicAssignment.update({
-        where: { id: epicId },
-        data: {
-          userId: nextUserId,
-          startSprintNumber: nextSprint,
-          startSprintWeek: nextWeek,
-          ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
-        },
-      });
+      const data = {
+        userId: nextUserId,
+        startSprintNumber: nextSprint,
+        startSprintWeek: nextWeek,
+        ...(dto.workingDays !== undefined ? { workingDays: dto.workingDays } : {}),
+      };
+      if (copies.length) {
+        await this.prisma.$transaction([
+          ...(replacedAssignmentIds.length
+            ? [
+                this.prisma.epicAssignment.deleteMany({
+                  where: {
+                    id: { in: replacedAssignmentIds },
+                    epicId: assignment.epic.id,
+                    userId: nextUserId,
+                  },
+                }),
+              ]
+            : []),
+          this.prisma.epicAssignment.update({ where: { id: epicId }, data }),
+          this.prisma.epicAssignment.createMany({ data: copies }),
+        ]);
+      } else {
+        await this.prisma.epicAssignment.update({ where: { id: epicId }, data });
+      }
     }
 
     await this.maybeVersionAfterChange(projectId, userId);
@@ -1914,6 +1978,99 @@ export class ProjectsService {
     return planned;
   }
 
+  private planRepeatCopies(
+    project: Awaited<ReturnType<ProjectsService['loadProject']>>,
+    epic: {
+      id: string;
+      assignments: {
+        id: string;
+        userId: string;
+        workingDays: number;
+        startSprintNumber: number;
+        startSprintWeek: number;
+        createdAt: Date;
+      }[];
+    },
+    editedAssignmentId: string,
+    userId: string,
+    workingDays: number,
+    startSprintNumber: number,
+    startSprintWeek: number,
+    repeatEveryWeeks: number,
+    repeatCount: number,
+    replacedAssignmentIds: readonly string[] = [],
+  ) {
+    const removed = new Set(replacedAssignmentIds);
+    const slots = sprintWeekSlots(project.sprints);
+    const startIndex = slots.findIndex(
+      (slot) => slot.sprintNumber === startSprintNumber && slot.week === startSprintWeek,
+    );
+    if (startIndex < 0) {
+      throw new BadRequestException('Project has no sprint with that number');
+    }
+
+    const targets: { startSprintNumber: number; startSprintWeek: SprintWeekNumber }[] = [];
+    for (let step = 1; step < repeatCount; step += 1) {
+      const slot = slots[startIndex + step * repeatEveryWeeks];
+      if (!slot) {
+        throw new BadRequestException('A repeated assignment would start past the last sprint');
+      }
+      const taken = epic.assignments.some(
+        (row) =>
+          row.id !== editedAssignmentId &&
+          !removed.has(row.id) &&
+          row.userId === userId &&
+          row.startSprintNumber === slot.sprintNumber &&
+          row.startSprintWeek === slot.week,
+      );
+      if (taken) {
+        throw new BadRequestException(DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE);
+      }
+      targets.push({ startSprintNumber: slot.sprintNumber, startSprintWeek: slot.week });
+    }
+
+    const edited = epic.assignments.find((row) => row.id === editedAssignmentId);
+    const planned: ExistingAssignmentSpan[] = [
+      {
+        epicId: epic.id,
+        workingDays,
+        startSprintNumber,
+        startSprintWeek: startSprintWeek as SprintWeekNumber,
+        createdAt: edited?.createdAt ?? new Date(0),
+      },
+    ];
+    for (const target of targets) {
+      this.assertAssignmentFits(
+        project,
+        epic.id,
+        userId,
+        workingDays,
+        target.startSprintNumber,
+        target.startSprintWeek,
+        {
+          excludeAssignmentId: editedAssignmentId,
+          excludeAssignmentIds: replacedAssignmentIds,
+          extraPriorAssignments: planned,
+        },
+      );
+      planned.push({
+        epicId: epic.id,
+        workingDays,
+        startSprintNumber: target.startSprintNumber,
+        startSprintWeek: target.startSprintWeek,
+        createdAt: new Date(Date.now() + planned.length),
+      });
+    }
+
+    return targets.map((target) => ({
+      epicId: epic.id,
+      userId,
+      workingDays,
+      startSprintNumber: target.startSprintNumber,
+      startSprintWeek: target.startSprintWeek,
+    }));
+  }
+
   private assertAssignmentFits(
     project: Awaited<ReturnType<ProjectsService['loadProject']>>,
     epicId: string | null,
@@ -1921,22 +2078,31 @@ export class ProjectsService {
     workingDays: number,
     startSprintNumber: number,
     startSprintWeek: number,
-    options?: { allowOverflow?: boolean; excludeAssignmentId?: string },
+    options?: {
+      allowOverflow?: boolean;
+      excludeAssignmentId?: string;
+      excludeAssignmentIds?: readonly string[];
+      extraPriorAssignments?: ExistingAssignmentSpan[];
+    },
   ) {
-    const priorAssignments = project.epics.flatMap((entry) =>
-      entry.assignments
-        .filter(
-          (assignment) =>
-            assignment.userId === userId && assignment.id !== options?.excludeAssignmentId,
-        )
-        .map((assignment) => ({
-          epicId: entry.id,
-          workingDays: assignment.workingDays,
-          startSprintNumber: assignment.startSprintNumber,
-          startSprintWeek: assignment.startSprintWeek as SprintWeekNumber,
-          createdAt: assignment.createdAt,
-        })),
-    );
+    const excluded = new Set([
+      ...(options?.excludeAssignmentId ? [options.excludeAssignmentId] : []),
+      ...(options?.excludeAssignmentIds ?? []),
+    ]);
+    const priorAssignments = [
+      ...project.epics.flatMap((entry) =>
+        entry.assignments
+          .filter((assignment) => assignment.userId === userId && !excluded.has(assignment.id))
+          .map((assignment) => ({
+            epicId: entry.id,
+            workingDays: assignment.workingDays,
+            startSprintNumber: assignment.startSprintNumber,
+            startSprintWeek: assignment.startSprintWeek as SprintWeekNumber,
+            createdAt: assignment.createdAt,
+          })),
+      ),
+      ...(options?.extraPriorAssignments ?? []),
+    ];
     const absences = [
       ...project.holidays.filter((holiday) => holiday.userId === userId),
       ...project.ptos.filter((pto) => pto.userId === userId),

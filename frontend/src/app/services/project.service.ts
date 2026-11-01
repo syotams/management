@@ -37,6 +37,8 @@ export interface UpdateEpicPayload {
   startSprintWeek?: number | null;
   assigneeIds?: string[];
   backgroundColor?: string;
+  repeatEveryWeeks?: number;
+  repeatCount?: number;
 }
 
 @Injectable({ providedIn: 'root' })

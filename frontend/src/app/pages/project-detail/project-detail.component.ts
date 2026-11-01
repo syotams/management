@@ -68,6 +68,8 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   editEpicTitle = '';
   editEpicWorkingDays: number | null = 5;
   editEpicColor = EPIC_COLORS[0];
+  editRepeatEveryWeeks: number | null = null;
+  editRepeatCount: number | null = null;
   savingEpic = false;
   editEpicError = '';
   movingEpic = false;
@@ -892,6 +894,8 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.editEpicTitle = epic.title;
     this.editEpicWorkingDays = epic.workingDays;
     this.editEpicColor = epic.backgroundColor;
+    this.editRepeatEveryWeeks = null;
+    this.editRepeatCount = null;
     this.showEditEpic = true;
   }
 
@@ -909,9 +913,11 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const repeat = this.repeatUpdateFields();
     const payload = isAssignment
       ? {
           workingDays: Number(this.editEpicWorkingDays),
+          ...(repeat ?? {}),
         }
       : {
           title: this.editEpicTitle.trim(),
@@ -946,6 +952,16 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       next: (project) => this.finishEpicSave(project),
       error: (err) => this.failEpicSave(err),
     });
+  }
+
+  private repeatUpdateFields(): { repeatEveryWeeks: number; repeatCount: number } | null {
+    if (!this.editingEpic?.sourceEpicId) return null;
+    if (this.editRepeatEveryWeeks == null || this.editRepeatCount == null) return null;
+    const repeatEveryWeeks = Number(this.editRepeatEveryWeeks);
+    const repeatCount = Number(this.editRepeatCount);
+    if (!Number.isInteger(repeatEveryWeeks) || repeatEveryWeeks < 1) return null;
+    if (!Number.isInteger(repeatCount) || repeatCount < 2) return null;
+    return { repeatEveryWeeks, repeatCount };
   }
 
   private finishEpicSave(project: ProjectDetail) {

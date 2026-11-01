@@ -860,6 +860,39 @@
                 </div>
               </div>
             </div>
+            @if (editingEpic.sourceEpicId) {
+              <div class="col-md-6">
+                <label class="form-label" for="editRepeatEveryWeeks">Repeat every</label>
+                <div class="input-group">
+                  <input
+                    id="editRepeatEveryWeeks"
+                    type="number"
+                    min="1"
+                    class="form-control"
+                    [(ngModel)]="editRepeatEveryWeeks"
+                    name="editRepeatEveryWeeks"
+                  >
+                  <span class="input-group-text">weeks</span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="editRepeatCount">Repeat</label>
+                <div class="input-group">
+                  <input
+                    id="editRepeatCount"
+                    type="number"
+                    min="2"
+                    class="form-control"
+                    [(ngModel)]="editRepeatCount"
+                    name="editRepeatCount"
+                  >
+                  <span class="input-group-text">times</span>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="form-text">N times every X weeks keeps this assignment, removes this person's other assignments of the epic, and adds the later ones. Leaving either field empty keeps today's save behavior.</div>
+              </div>
+            }
           </div>
         </div>
         <div class="modal-footer">
