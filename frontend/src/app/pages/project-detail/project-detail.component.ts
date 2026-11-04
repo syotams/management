@@ -483,8 +483,18 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 10;
   }
 
+  canSaveEdit() {
+    return (
+      !!this.editName.trim() &&
+      !!this.editStartDate &&
+      !!this.editEndDate &&
+      this.editEndDate >= this.editStartDate &&
+      this.isMaxWorkingDaysValid(this.editMaxWorkingDaysPerSprint)
+    );
+  }
+
   saveEdit() {
-    if (!this.project || !this.editName.trim() || !this.isMaxWorkingDaysValid(this.editMaxWorkingDaysPerSprint)) return;
+    if (!this.project || !this.canSaveEdit()) return;
     this.saving = true;
     this.error = '';
     this.projectService
@@ -563,7 +573,9 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   }
 
   get projectDateMax(): string {
-    return this.project ? toDateInput(this.project.endDate) : '';
+    if (!this.project) return '';
+    const lastSprint = this.project.sprints[this.project.sprints.length - 1];
+    return toDateInput(lastSprint ? lastSprint.endDate : this.project.endDate);
   }
 
   capacityFillTone(value: number, totalCapacity: number): 'match' | 'over' | undefined {

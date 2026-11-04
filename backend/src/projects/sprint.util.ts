@@ -1,4 +1,4 @@
-const SPRINT_LENGTH_DAYS = 14;
+export const SPRINT_LENGTH_DAYS = 14;
 
 export function parseDateOnly(value: string | Date): Date {
   if (value instanceof Date) {
@@ -27,8 +27,10 @@ export function generateSprints(startDate: Date, endDate: Date): { number: numbe
   let number = 1;
 
   while (current <= end) {
-    // Always emit a full sprint length. The last sprint may extend past the project end.
     const sprintEnd = addUtcDays(current, SPRINT_LENGTH_DAYS - 1);
+    // A sprint is always a full 14 days, so one that would run past the
+    // project end is left out rather than shortened.
+    if (sprintEnd > end) break;
     sprints.push({ number, startDate: current, endDate: sprintEnd });
     current = addUtcDays(sprintEnd, 1);
     number += 1;

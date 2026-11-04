@@ -9,6 +9,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:backfill-participants": "tsx prisma/backfill-participants.ts",
+    "db:trim-overflow-sprints": "tsx prisma/trim-overflow-sprints.ts",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "jest --config jest.config.js",
     "test:e2e": "jest --config jest-e2e.config.js --runInBand"

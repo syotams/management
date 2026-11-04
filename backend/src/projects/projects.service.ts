@@ -28,6 +28,7 @@ import {
   paintAssignmentWeeks,
   parseDateOnly,
   planAssignmentSpan,
+  SPRINT_LENGTH_DAYS,
   sprintWeekSlots,
   type ExistingAssignmentSpan,
   type SprintWeekNumber,
@@ -105,6 +106,7 @@ export class ProjectsService {
     const roster = await this.buildCreateRoster(userId, teamIds, selectedUserIds);
     const addedAtBase = Date.now();
 
+    const sprintRows = this.sprintsForRange(startDate, endDate);
     const project = await this.prisma.project.create({
       data: {
         name: dto.name.trim(),
@@ -116,7 +118,7 @@ export class ProjectsService {
         teamId: teamIds[0] ?? null,
         status: 'draft',
         createdBy: userId,
-        sprints: { create: generateSprints(startDate, endDate) },
+        sprints: { create: sprintRows },
         projectTeams: teamIds.length
           ? { create: teamIds.map((teamId) => ({ teamId })) }
           : undefined,
@@ -232,6 +234,8 @@ export class ProjectsService {
     const datesChanged =
       startDate.getTime() !== project.startDate.getTime() ||
       endDate.getTime() !== project.endDate.getTime();
+    const sprintRows = datesChanged ? this.sprintsForRange(startDate, endDate) : [];
+    if (datesChanged) this.assertAssignmentsFitSprints(project, sprintRows.length);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.project.update({
@@ -270,7 +274,7 @@ export class ProjectsService {
       if (datesChanged) {
         await tx.sprint.deleteMany({ where: { projectId: id } });
         await tx.sprint.createMany({
-          data: generateSprints(startDate, endDate).map((s) => ({ ...s, projectId: id })),
+          data: sprintRows.map((s) => ({ ...s, projectId: id })),
         });
       }
     });
@@ -1725,15 +1729,42 @@ export class ProjectsService {
   }
 
   private assertWithinProject(
-    project: { startDate: Date; endDate: Date },
+    project: { startDate: Date; endDate: Date; sprints: { endDate: Date }[] },
     startDate: Date,
     endDate: Date,
   ) {
     const qStart = parseDateOnly(project.startDate);
-    const qEnd = parseDateOnly(project.endDate);
+    const lastSprint = project.sprints[project.sprints.length - 1];
+    const qEnd = parseDateOnly(lastSprint ? lastSprint.endDate : project.endDate);
     if (startDate < qStart || endDate > qEnd) {
-      throw new BadRequestException('Dates must fall within the project range');
+      throw new BadRequestException(
+        'Dates must fall between the project start and the end of the last sprint',
+      );
     }
+  }
+
+  private sprintsForRange(startDate: Date, endDate: Date) {
+    const sprints = generateSprints(startDate, endDate);
+    if (!sprints.length) {
+      throw new BadRequestException(
+        `Project must span at least one ${SPRINT_LENGTH_DAYS}-day sprint`,
+      );
+    }
+    return sprints;
+  }
+
+  private assertAssignmentsFitSprints(
+    project: { epics: { assignments: { startSprintNumber: number }[] }[] },
+    sprintCount: number,
+  ) {
+    const outside = project.epics
+      .flatMap((epic) => epic.assignments)
+      .filter((assignment) => assignment.startSprintNumber > sprintCount);
+    if (!outside.length) return;
+    const noun = outside.length === 1 ? 'assignment starts' : 'assignments start';
+    throw new BadRequestException(
+      `${outside.length} ${noun} after sprint ${sprintCount}, the last sprint for these dates. Move or remove ${outside.length === 1 ? 'it' : 'them'} before changing the dates.`,
+    );
   }
 
   private async resolvePtoTargetUserIds(
