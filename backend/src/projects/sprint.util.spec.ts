@@ -1,6 +1,7 @@
 import {
   addUtcDays,
   countInclusiveDays,
+  countWeekdays,
   DUPLICATE_SPRINT_ASSIGNMENT_MESSAGE,
   generateSprints,
   planAssignmentSpan,
@@ -14,6 +15,13 @@ function sprints(count: number) {
   return generateSprints(start, addUtcDays(start, count * 14 - 1));
 }
 
+function overlapsProjectEnd(sprint: { startDate: Date; endDate: Date }, projectEnd: Date) {
+  return (
+    sprint.startDate.getTime() <= projectEnd.getTime() &&
+    sprint.endDate.getTime() > projectEnd.getTime()
+  );
+}
+
 function plan(
   overrides: Partial<Parameters<typeof planAssignmentSpan>[0]> & { workingDays: number },
 ) {
@@ -25,6 +33,107 @@ function plan(
     ...overrides,
   });
 }
+
+describe('generateSprints', () => {
+  it('keeps a sprint that ends on the project end date', () => {
+    const start = new Date(Date.UTC(2026, 0, 5));
+    const end = addUtcDays(start, 13);
+
+    expect(generateSprints(start, end)).toEqual([
+      { number: 1, startDate: start, endDate: end },
+    ]);
+  });
+
+  it('omits a last sprint that runs past the suggested end date', () => {
+    const start = new Date(Date.UTC(2026, 10, 4));
+    const end = new Date(Date.UTC(2027, 0, 31));
+
+    const generated = generateSprints(start, end);
+
+    expect(generated).toHaveLength(6);
+    expect(generated[0]).toEqual({
+      number: 1,
+      startDate: new Date(Date.UTC(2026, 10, 4)),
+      endDate: new Date(Date.UTC(2026, 10, 17)),
+    });
+    expect(generated[5]).toEqual({
+      number: 6,
+      startDate: new Date(Date.UTC(2027, 0, 13)),
+      endDate: new Date(Date.UTC(2027, 0, 26)),
+    });
+  });
+
+  it('keeps the last sprint when the end date is that sprint end', () => {
+    const start = new Date(Date.UTC(2026, 10, 4));
+    const end = new Date(Date.UTC(2027, 1, 9));
+
+    const generated = generateSprints(start, end);
+
+    expect(generated).toHaveLength(7);
+    expect(generated[6]).toEqual({
+      number: 7,
+      startDate: new Date(Date.UTC(2027, 0, 27)),
+      endDate: end,
+    });
+  });
+
+  it('omits the last sprint when the end date falls inside it', () => {
+    const start = new Date(Date.UTC(2026, 10, 4));
+    const end = new Date(Date.UTC(2027, 1, 8));
+
+    const generated = generateSprints(start, end);
+
+    expect(generated).toHaveLength(6);
+    expect(generated[5].endDate).toEqual(new Date(Date.UTC(2027, 0, 26)));
+  });
+
+  it('creates no sprints when the range is shorter than one sprint', () => {
+    const start = new Date(Date.UTC(2026, 10, 4));
+    const end = new Date(Date.UTC(2026, 10, 10));
+
+    expect(generateSprints(start, end)).toEqual([]);
+  });
+
+  it('does not create a last sprint that overlaps the project end date', () => {
+    const start = new Date(Date.UTC(2026, 10, 4));
+    const projectEnds = [
+      new Date(Date.UTC(2027, 0, 31)),
+      new Date(Date.UTC(2027, 0, 20)),
+      new Date(Date.UTC(2026, 10, 18)),
+    ];
+
+    for (const projectEnd of projectEnds) {
+      const generated = generateSprints(start, projectEnd);
+      const last = generated[generated.length - 1];
+
+      expect(last).toBeDefined();
+      expect(generated.some((sprint) => overlapsProjectEnd(sprint, projectEnd))).toBe(false);
+      expect(last!.endDate.getTime()).toBeLessThanOrEqual(projectEnd.getTime());
+      expect(last!.endDate).toEqual(addUtcDays(last!.startDate, 13));
+    }
+  });
+
+  it('keeps 14 calendar days when a sprint starts on Sunday and ends on Saturday', () => {
+    const start = new Date(Date.UTC(2026, 10, 1));
+    const end = addUtcDays(start, 13);
+
+    expect(start.getUTCDay()).toBe(0);
+    expect(end.getUTCDay()).toBe(6);
+
+    const [sprint] = generateSprints(start, end);
+
+    expect(sprint).toEqual({ number: 1, startDate: start, endDate: end });
+    expect(countWeekdays(sprint.startDate, sprint.endDate)).toBe(10);
+    expect(sprintWeekRange(sprint, 1)).toEqual({
+      startDate: start,
+      endDate: addUtcDays(start, 6),
+    });
+    expect(sprintWeekRange(sprint, 2)).toEqual({
+      startDate: addUtcDays(start, 7),
+      endDate: end,
+    });
+  });
+});
 
 describe('countInclusiveDays', () => {
   it('counts the end date, so 1 Nov through 3 Nov is 3 days', () => {

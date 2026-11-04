@@ -64,7 +64,8 @@ import { formatDateOnly, localDateInput, projectEndDateFromStart } from '../../u
                 </div>
                 <div>
                   <label class="form-label">End date</label>
-                  <input type="date" class="form-control" name="endDate" [(ngModel)]="endDate" required>
+                  <input type="date" class="form-control" name="endDate" [(ngModel)]="endDate" required readonly>
+                  <div class="form-text">Automatically set to the last day of the third month from the start date.</div>
                 </div>
               </div>
               <div class="col-md-6 d-flex flex-column gap-3">

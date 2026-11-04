@@ -1079,4 +1079,102 @@ describe('ProjectsService epic derivation', () => {
     expect(detail.epics.find((epic) => epic.id === backlog.id)!.title).toBe('Auth');
     expect(await prisma.epicAssignment.count()).toBe(0);
   });
+
+  describe('project dates and sprints', () => {
+    it('rejects a date change that drops the sprint an assignment starts in', async () => {
+      const created = await createBacklogEpic({ workingDays: 3 });
+      const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+      await service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId,
+        startSprintNumber: 3,
+        startSprintWeek: 1,
+      });
+
+      await expect(
+        service.update(projectId, creatorId, { endDate: '2026-02-14' }),
+      ).rejects.toThrow(/1 assignment starts after sprint 2/);
+
+      const detail = await service.findOne(projectId, creatorId);
+      expect(detail.endDate).toEqual(new Date(Date.UTC(2026, 2, 1)));
+      expect(detail.sprints.map((sprint) => sprint.number)).toEqual([1, 2, 3]);
+      expect(placementsFor(detail, backlog.id)).toEqual([
+        expect.objectContaining({ startSprintNumber: 3, startSprintWeek: 1 }),
+      ]);
+    });
+
+    it('keeps the assignment when the new dates still include its sprint', async () => {
+      const created = await createBacklogEpic({ workingDays: 3 });
+      const backlog = created.epics.find((e) => !e.sourceEpicId)!;
+      await service.assignEpic(projectId, backlog.id, creatorId, {
+        assigneeId,
+        startSprintNumber: 3,
+        startSprintWeek: 1,
+      });
+
+      const updated = await service.update(projectId, creatorId, { endDate: '2026-02-15' });
+
+      expect(updated.sprints.map((sprint) => sprint.number)).toEqual([1, 2, 3]);
+      expect(updated.sprints[2].endDate).toEqual(new Date(Date.UTC(2026, 1, 15)));
+      expect(placementsFor(updated, backlog.id)).toEqual([
+        expect.objectContaining({ startSprintNumber: 3, startSprintWeek: 1 }),
+      ]);
+    });
+
+    it('creates no sprint that ends after the project end date', async () => {
+      const created = await service.create(creatorId, {
+        name: 'Uneven',
+        startDate: '2026-11-04',
+        endDate: '2027-01-31',
+      });
+
+      expect(created.sprints).toHaveLength(6);
+      expect(created.sprints[5].endDate).toEqual(new Date(Date.UTC(2027, 0, 26)));
+      for (const sprint of created.sprints) {
+        expect(sprint.endDate.getTime()).toBeLessThanOrEqual(created.endDate.getTime());
+      }
+    });
+
+    it('rejects a project range shorter than one sprint on create and update', async () => {
+      await expect(
+        service.create(creatorId, {
+          name: 'Too short',
+          startDate: '2026-07-06',
+          endDate: '2026-07-18',
+        }),
+      ).rejects.toThrow(/at least one 14-day sprint/);
+      expect(await prisma.project.count({ where: { name: 'Too short' } })).toBe(0);
+
+      await expect(
+        service.update(projectId, creatorId, { endDate: '2026-01-17' }),
+      ).rejects.toThrow(/at least one 14-day sprint/);
+      const detail = await service.findOne(projectId, creatorId);
+      expect(detail.sprints).toHaveLength(3);
+    });
+
+    it('rejects PTO and holidays after the last sprint ends', async () => {
+      await expect(
+        service.addPto(projectId, creatorId, {
+          name: 'PTO',
+          startDate: '2026-02-16',
+          endDate: '2026-02-17',
+          userIds: [assigneeId],
+        }),
+      ).rejects.toThrow(/end of the last sprint/);
+      await expect(
+        service.addHoliday(projectId, creatorId, {
+          name: 'Holiday',
+          startDate: '2026-02-20',
+          endDate: '2026-02-20',
+        }),
+      ).rejects.toThrow(/end of the last sprint/);
+
+      const detail = await service.addPto(projectId, creatorId, {
+        name: 'PTO',
+        startDate: '2026-02-13',
+        endDate: '2026-02-15',
+        userIds: [assigneeId],
+      });
+      expect(detail.ptos.some((pto) => pto.userId === assigneeId)).toBe(true);
+    });
+  });
 });

@@ -552,7 +552,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" (click)="showEdit = false">Cancel</button>
-          <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="saving || !editName.trim() || !editStartDate || !editEndDate || !isMaxWorkingDaysValid(editMaxWorkingDaysPerSprint)">
+          <button type="button" class="btn btn-primary" (click)="saveEdit()" [disabled]="saving || !canSaveEdit()">
             {{ saving ? 'Saving...' : 'Save changes' }}
           </button>
         </div>
@@ -639,7 +639,7 @@
               >
             </div>
           </div>
-          <div class="form-text mb-3">Dates must fall within {{ formatRange(project.startDate, project.endDate) }}.</div>
+          <div class="form-text mb-3">Dates must fall within {{ formatRange(projectDateMin, projectDateMax) }}.</div>
           <div class="mb-3">
             <label class="form-label">Assign to</label>
             <div class="d-flex gap-3 mb-2">
@@ -749,7 +749,7 @@
           <div class="form-text mt-2">
             Creates a holiday entry for each participant. Removing a chip affects only that user;
             removing it from the holidays list removes it for everyone.
-            Dates must fall within {{ formatRange(project.startDate, project.endDate) }}.
+            Dates must fall within {{ formatRange(projectDateMin, projectDateMax) }}.
           </div>
         </div>
         <div class="modal-footer">
