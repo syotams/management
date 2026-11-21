@@ -1,5 +1,5 @@
 # Lightweight nginx image for local SSL tests (no frontend build).
-FROM nginx:alpine
+FROM nginx:1.31.9-alpine
 
 RUN apk add --no-cache openssl \
   && echo '<h1>ssl-test</h1>' > /usr/share/nginx/html/index.html

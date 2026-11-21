@@ -8,7 +8,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM nginx:alpine
+FROM nginx:1.31.9-alpine
 
 RUN apk add --no-cache openssl
 
